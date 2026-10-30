@@ -45,23 +45,25 @@ func main() {
 	openClawService := services.NewOpenClawService(db, auditService)
 	isoService := services.NewISOService(db, auditService)
 	storageService := services.NewStorageService(db, "")
+	aiAssistantService := services.NewAIAssistantService(db, cfg, instanceService, quotaService, auditService)
 
 	// 5. Initialize Router & Endpoints
 	router := api.SetupRouter(api.RouterParams{
-		Cfg:               cfg,
-		DB:                db,
-		PVE:               pveClient,
-		AuthService:       authService,
-		QuotaService:      quotaService,
-		SSHKeyService:     sshKeyService,
-		AuditService:      auditService,
-		InstanceService:   instanceService,
-		WorkerService:     workerService,
-		AppService:        appService,
-		AutomationService: automationService,
-		OpenClawService:   openClawService,
-		ISOService:        isoService,
-		StorageService:    storageService,
+		Cfg:                cfg,
+		DB:                 db,
+		PVE:                pveClient,
+		AuthService:        authService,
+		QuotaService:       quotaService,
+		SSHKeyService:      sshKeyService,
+		AuditService:       auditService,
+		InstanceService:    instanceService,
+		WorkerService:      workerService,
+		AppService:         appService,
+		AutomationService:  automationService,
+		OpenClawService:    openClawService,
+		ISOService:         isoService,
+		StorageService:     storageService,
+		AIAssistantService: aiAssistantService,
 	})
 
 	// 6. Start HTTP Server

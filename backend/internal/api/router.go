@@ -27,6 +27,7 @@ type RouterParams struct {
 	OpenClawService   *services.OpenClawService
 	ISOService        *services.ISOService
 	StorageService    *services.StorageService
+	AIAssistantService *services.AIAssistantService
 }
 
 func SetupRouter(p RouterParams) *gin.Engine {
@@ -51,6 +52,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 				"openclaw_ai_agents",
 				"s3_object_storage",
 				"admin_iso_management",
+				"openrouter_ai_assistant",
 			},
 		})
 	})
@@ -71,6 +73,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 	openClawHandler := handlers.NewOpenClawHandler(p.OpenClawService)
 	isoHandler := handlers.NewISOHandler(p.ISOService)
 	storageHandler := handlers.NewStorageHandler(p.StorageService)
+	aiAssistantHandler := handlers.NewAIAssistantHandler(p.AIAssistantService)
 
 	// API v1 group
 	v1 := router.Group("/api/v1")
@@ -166,6 +169,15 @@ func SetupRouter(p RouterParams) *gin.Engine {
 			protected.POST("/ai-agents/openclaw/instances/:id/backups", openClawHandler.CreateBackup)
 			protected.GET("/ai-agents/openclaw/instances/:id/logs", openClawHandler.GetLogs)
 			protected.DELETE("/ai-agents/openclaw/instances/:id", openClawHandler.Delete)
+
+			// AI DevOps & Cloud Support Assistant (OpenRouter)
+			protected.POST("/ai-assistant/chat", aiAssistantHandler.Chat)
+			protected.POST("/ai-assistant/execute", aiAssistantHandler.Execute)
+			protected.GET("/ai-assistant/context", aiAssistantHandler.GetContext)
+			protected.GET("/ai-assistant/history", aiAssistantHandler.GetHistory)
+			protected.DELETE("/ai-assistant/history", aiAssistantHandler.ClearHistory)
+			protected.GET("/ai-assistant/models", aiAssistantHandler.ListModels)
+			protected.POST("/ai-assistant/verify-key", aiAssistantHandler.VerifyKey)
 
 			// Object Storage (MinIO S3 Buckets & File Manager)
 			protected.GET("/storage/overview", storageHandler.GetOverview)

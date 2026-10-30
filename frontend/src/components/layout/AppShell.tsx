@@ -21,8 +21,10 @@ import {
   Bot,
   Database,
   Disc,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { AIAssistantWidget } from '../ai/AIAssistantWidget';
 
 interface AppShellProps {
   currentPath: string;
@@ -43,6 +45,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
 
   const customerNav: NavItem[] = [
     { label: 'Overview', path: '/dashboard', icon: Layers },
+    { label: 'AI Assistant', path: '/dashboard/ai-assistant', icon: Sparkles, highlight: true },
     { label: 'Compute (VMs)', path: '/dashboard/instances', icon: Server },
     { label: 'App Hosting', path: '/dashboard/apps', icon: Globe },
     { label: 'Automations (n8n)', path: '/dashboard/automation', icon: Workflow },
@@ -269,6 +272,9 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
           <div className="max-w-7xl mx-auto space-y-6">{children}</div>
         </main>
       </div>
+
+      {/* Global Floating AI Assistant Widget */}
+      <AIAssistantWidget currentPath={currentPath} onNavigate={onNavigate} />
     </div>
   );
 };

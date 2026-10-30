@@ -29,6 +29,7 @@ export const CreateOpenClaw: React.FC<CreateOpenClawProps> = ({ onNavigate }) =>
   const [error, setError] = useState<string | null>(null);
 
   const modelOptions: Record<string, string[]> = {
+    openrouter: ['openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat', 'meta-llama/llama-3.3-70b-instruct', 'google/gemini-2.0-flash-exp:free'],
     openai: ['gpt-4o', 'gpt-4o-mini', 'o3-mini', 'chatgpt-4o-latest'],
     anthropic: ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest', 'claude-3-opus-latest'],
     gemini: ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
@@ -137,8 +138,9 @@ export const CreateOpenClaw: React.FC<CreateOpenClawProps> = ({ onNavigate }) =>
             2. Primary LLM Provider & Routing
           </h2>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
             {[
+              { id: 'openrouter', name: 'OpenRouter' },
               { id: 'openai', name: 'OpenAI' },
               { id: 'anthropic', name: 'Anthropic' },
               { id: 'gemini', name: 'Google Gemini' },

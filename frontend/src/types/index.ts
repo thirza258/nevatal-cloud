@@ -395,3 +395,66 @@ export interface StorageSharedLink {
   created_at: string;
   object?: StorageObject;
 }
+
+// AI Assistant & OpenRouter Types
+export interface OpenRouterModelDefinition {
+  id: string;
+  name: string;
+  provider: string;
+  description: string;
+  context_len: number;
+}
+
+export interface CreateInstanceActionParams {
+  name: string;
+  hostname: string;
+  template_id: string;
+  template_name: string;
+  vcpus: number;
+  memory_mb: number;
+  disk_gb: number;
+  ssh_key_id?: string;
+  ssh_key_name?: string;
+  reason?: string;
+}
+
+export interface AIAssistantActionProposal {
+  action: 'create_instance' | 'start_instance' | 'shutdown_instance' | 'restart_instance';
+  title: string;
+  description: string;
+  params: CreateInstanceActionParams | any;
+  executed: boolean;
+}
+
+export interface AIAssistantMessage {
+  id: string;
+  user_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  model: string;
+  action_type?: string;
+  action_payload?: string;
+  action_executed: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface AIAssistantChatResponse {
+  message: AIAssistantMessage;
+  action_proposal?: AIAssistantActionProposal;
+  used_fallback: boolean;
+  error_notice?: string;
+}
+
+export interface AIPlatformContext {
+  user: User;
+  quota_usage: QuotaUsage;
+  instances: Instance[];
+  templates: OSTemplate[];
+  plans: ResourcePlan[];
+  ssh_keys: SSHKey[];
+  has_server_api_key: boolean;
+  default_model: string;
+  available_models: OpenRouterModelDefinition[];
+}
+

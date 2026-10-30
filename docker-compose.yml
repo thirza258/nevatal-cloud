@@ -58,6 +58,8 @@ services:
       PROXMOX_STORAGE: "${PROXMOX_STORAGE:-local-zfs}"
       PROXMOX_MOCK: "${PROXMOX_MOCK:-true}"
       PROXMOX_VERIFY_TLS: "${PROXMOX_VERIFY_TLS:-false}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OPENROUTER_DEFAULT_MODEL: "${OPENROUTER_DEFAULT_MODEL:-openai/gpt-4o-mini}"
     ports:
       - "8090:8090"
 

@@ -147,7 +147,25 @@ docker compose restart backend
 
 ---
 
-## 5. Local Development (Without Docker)
+## 5. OpenRouter AI Assistant & DevOps Copilot 🤖
+
+Nevatal Cloud features an integrated AI Assistant powered by **OpenRouter** designed to act as your autonomous cloud copilot:
+
+- **1-Click Container & VM Provisioning**: Prompt the assistant in natural language (e.g. *"Create an Ubuntu 24.04 server with 2 vCPUs and 4GB RAM named web-01"*), and it will automatically check quotas, select templates, and generate a 1-click **Deploy Container Now** action.
+- **24/7 Platform Support & Troubleshooting**: Answers questions regarding SSH connections, cloud-init logs, network configuration, Proxmox VE Dell PowerEdge R640 architecture, and container states.
+- **Global Floating Widget & Dedicated Page**: Accessible globally via the floating AI widget in the bottom-right corner or on the full dashboard page at `/dashboard/ai-assistant`.
+- **OpenRouter Multi-Provider Routing**: Choose between frontier models including `deepseek/deepseek-chat`, `anthropic/claude-3.5-sonnet`, `openai/gpt-4o-mini`, `meta-llama/llama-3.3-70b-instruct`, or supply your own custom OpenRouter API key directly in Assistant Settings.
+- **Zero-Config Fallback Mode**: If no OpenRouter API key is set, the assistant runs in local DevOps fallback mode, providing recommendations and 1-click container provisioning without crashing.
+
+### Configure System OpenRouter Key in `.env`:
+```dotenv
+OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxx
+OPENROUTER_DEFAULT_MODEL=openai/gpt-4o-mini
+```
+
+---
+
+## 6. Local Development (Without Docker)
 
 ### Backend (Go)
 ```bash

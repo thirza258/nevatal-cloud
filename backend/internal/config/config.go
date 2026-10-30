@@ -28,6 +28,9 @@ type Config struct {
 	GithubClientSecret string
 	WordPressAPIKey    string
 	WordPressURL       string
+	OpenRouterAPIKey   string
+	OpenRouterModel    string
+	OpenRouterBaseURL  string
 }
 
 func Load() *Config {
@@ -64,6 +67,10 @@ func Load() *Config {
 	wpAPIKey := getEnv("WORDPRESS_API_KEY", "wp_nevatal_cloud_api_key_secret_2026")
 	wpURL := getEnv("WORDPRESS_URL", "")
 
+	openRouterAPIKey := getEnv("OPENROUTER_API_KEY", "")
+	openRouterModel := getEnv("OPENROUTER_DEFAULT_MODEL", "openai/gpt-4o-mini")
+	openRouterBaseURL := getEnv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+
 	return &Config{
 		Port:               port,
 		Env:                env,
@@ -85,6 +92,9 @@ func Load() *Config {
 		GithubClientSecret: githubClientSecret,
 		WordPressAPIKey:    wpAPIKey,
 		WordPressURL:       wpURL,
+		OpenRouterAPIKey:   openRouterAPIKey,
+		OpenRouterModel:    openRouterModel,
+		OpenRouterBaseURL:  openRouterBaseURL,
 	}
 }
 

@@ -29,6 +29,9 @@ import { OpenClawList } from './pages/ai-agents/OpenClawList';
 import { CreateOpenClaw } from './pages/ai-agents/CreateOpenClaw';
 import { OpenClawDetails } from './pages/ai-agents/OpenClawDetails';
 
+// AI Cloud Assistant (OpenRouter Copilot)
+import { AIAssistant } from './pages/AIAssistant';
+
 // S3 Object Storage & File Manager
 import { StorageOverviewPage } from './pages/storage/StorageOverview';
 import { FileManager } from './pages/storage/FileManager';
@@ -121,6 +124,11 @@ export const App: React.FC = () => {
 
       {currentPath === '/dashboard/automation/new' && (
         <CreateAutomation onNavigate={handleNavigate} />
+      )}
+
+      {/* AI Assistant (OpenRouter Copilot) */}
+      {currentPath === '/dashboard/ai-assistant' && (
+        <AIAssistant onNavigate={handleNavigate} />
       )}
 
       {/* AI Agents (OpenClaw) */}
