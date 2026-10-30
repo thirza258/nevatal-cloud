@@ -81,9 +81,15 @@ func SetupRouter(
 			protected.POST("/instances/:id/start", instanceHandler.Start)
 			protected.POST("/instances/:id/shutdown", instanceHandler.Shutdown)
 			protected.POST("/instances/:id/restart", instanceHandler.Restart)
+			protected.POST("/instances/:id/resize", instanceHandler.Resize)
 			protected.DELETE("/instances/:id", instanceHandler.Delete)
 			protected.GET("/instances/:id/activity", instanceHandler.GetActivity)
 			protected.GET("/instances/:id/metrics", instanceHandler.GetMetrics)
+			protected.GET("/instances/:id/console", instanceHandler.GetConsoleTicket)
+			protected.GET("/instances/:id/snapshots", instanceHandler.ListSnapshots)
+			protected.POST("/instances/:id/snapshots", instanceHandler.CreateSnapshot)
+			protected.POST("/instances/:id/snapshots/:snapname/restore", instanceHandler.RestoreSnapshot)
+			protected.DELETE("/instances/:id/snapshots/:snapname", instanceHandler.DeleteSnapshot)
 
 			// SSH Keys
 			protected.GET("/ssh-keys", sshKeyHandler.List)
@@ -108,6 +114,18 @@ func SetupRouter(
 			admin.POST("/jobs/:id/retry", adminHandler.RetryJob)
 			admin.GET("/nodes", adminHandler.ListNodes)
 			admin.GET("/audit-logs", adminHandler.ListAuditLogs)
+
+			// Templates governance
+			admin.GET("/templates", adminHandler.ListTemplates)
+			admin.POST("/templates", adminHandler.CreateTemplate)
+			admin.PUT("/templates/:id", adminHandler.UpdateTemplate)
+			admin.DELETE("/templates/:id", adminHandler.DeleteTemplate)
+
+			// Resource plans governance
+			admin.GET("/plans", adminHandler.ListPlans)
+			admin.POST("/plans", adminHandler.CreatePlan)
+			admin.PUT("/plans/:id", adminHandler.UpdatePlan)
+			admin.DELETE("/plans/:id", adminHandler.DeletePlan)
 		}
 	}
 

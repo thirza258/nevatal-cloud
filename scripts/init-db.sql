@@ -111,6 +111,17 @@ CREATE INDEX IF NOT EXISTS idx_instances_node ON instances(node_id);
 CREATE INDEX IF NOT EXISTS idx_instances_status ON instances(status);
 CREATE INDEX IF NOT EXISTS idx_instances_proxmox_vmid ON instances(proxmox_vmid);
 
+-- Table: instance_snapshots
+CREATE TABLE IF NOT EXISTS instance_snapshots (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    includes_ram BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_snapshots_instance ON instance_snapshots(instance_id);
+
 -- Table: provisioning_jobs
 CREATE TABLE IF NOT EXISTS provisioning_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

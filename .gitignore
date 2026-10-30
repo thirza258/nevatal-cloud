@@ -7,6 +7,7 @@ backend/bin/
 backend/nevatal-api
 dist/
 build/
+*.tsbuildinfo
 
 # Node dependencies
 node_modules/

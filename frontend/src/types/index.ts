@@ -160,3 +160,20 @@ export interface InstanceMetrics {
   net_out?: number;
   uptime?: number;
 }
+
+export interface InstanceSnapshot {
+  id: string;
+  instance_id: string;
+  name: string;
+  description: string;
+  includes_ram: boolean;
+  created_at: string;
+}
+
+export interface ConsoleTicket {
+  ticket: string;
+  port: number;
+  upid: string;
+  cert: string;
+  user: string;
+}

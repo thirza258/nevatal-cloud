@@ -15,6 +15,11 @@ type ProxmoxClient interface {
 	DeleteVM(ctx context.Context, node string, vmid int) (string, error)
 	GetVMStatus(ctx context.Context, node string, vmid int) (*VMCurrentStatus, error)
 	GetVMInterfaces(ctx context.Context, node string, vmid int) ([]NetworkInterface, error)
+	CreateSnapshot(ctx context.Context, node string, vmid int, snapname, description string, vmstate bool) (string, error)
+	ListSnapshots(ctx context.Context, node string, vmid int) ([]SnapshotInfo, error)
+	RollbackSnapshot(ctx context.Context, node string, vmid int, snapname string) (string, error)
+	DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) (string, error)
+	GetVNCProxy(ctx context.Context, node string, vmid int) (*VNCProxyTicket, error)
 	WaitForTask(ctx context.Context, node string, upid string) error
 	GetNextVMID(ctx context.Context) (int, error)
 }
@@ -56,8 +61,8 @@ type VMConfig struct {
 	MemoryMB int    `json:"memory"`
 	CIUser   string `json:"ciuser"`
 	SSHPublicKey string `json:"sshkeys"`
-	IPConfig0 string `json:"ipconfig0"` // e.g. "ip=dhcp"
-	Agent    int    `json:"agent"`     // 1 for enabled
+	IPConfig0 string `json:"ipconfig0"`
+	Agent    int    `json:"agent"`
 }
 
 type VMCurrentStatus struct {
@@ -82,9 +87,24 @@ type NetworkInterface struct {
 }
 
 type IPInfo struct {
-	IPAddressType string `json:"ip-address-type"` // ipv4, ipv6
+	IPAddressType string `json:"ip-address-type"`
 	IPAddress     string `json:"ip-address"`
 	Prefix        int    `json:"prefix"`
+}
+
+type SnapshotInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	SnapTime    int64  `json:"snaptime"`
+	VMState     int    `json:"vmstate"`
+}
+
+type VNCProxyTicket struct {
+	Ticket string `json:"ticket"`
+	Port   int    `json:"port"`
+	UPID   string `json:"upid"`
+	Cert   string `json:"cert"`
+	User   string `json:"user"`
 }
 
 type PVEApiResponse[T any] struct {

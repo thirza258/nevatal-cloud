@@ -43,6 +43,8 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
     { label: 'User Directory', path: '/admin/users', icon: Users },
     { label: 'All Instances', path: '/admin/instances', icon: Server },
     { label: 'Provisioning Jobs', path: '/admin/jobs', icon: RefreshCw },
+    { label: 'OS Templates', path: '/admin/templates', icon: Layers },
+    { label: 'Resource Plans', path: '/admin/plans', icon: HardDrive },
     { label: 'Hypervisor Nodes', path: '/admin/nodes', icon: Cpu },
     { label: 'Audit Logs', path: '/admin/audit-logs', icon: Activity },
   ];

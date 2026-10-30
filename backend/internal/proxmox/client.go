@@ -282,6 +282,77 @@ func (c *httpPVEClient) GetVMInterfaces(ctx context.Context, node string, vmid i
 	return res.Data.Result, nil
 }
 
+func (c *httpPVEClient) CreateSnapshot(ctx context.Context, node string, vmid int, snapname, description string, vmstate bool) (string, error) {
+	params := url.Values{}
+	params.Set("snapname", snapname)
+	if description != "" {
+		params.Set("description", description)
+	}
+	if vmstate {
+		params.Set("vmstate", "1")
+	}
+
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot", node, vmid), params)
+	if err != nil {
+		return "", err
+	}
+	var res struct {
+		Data string `json:"data"`
+	}
+	_ = json.Unmarshal(data, &res)
+	return res.Data, nil
+}
+
+func (c *httpPVEClient) ListSnapshots(ctx context.Context, node string, vmid int) ([]SnapshotInfo, error) {
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot", node, vmid), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var res PVEApiResponse[[]SnapshotInfo]
+	if err := json.Unmarshal(data, &res); err != nil {
+		return nil, fmt.Errorf("unmarshal snapshots failed: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *httpPVEClient) RollbackSnapshot(ctx context.Context, node string, vmid int, snapname string) (string, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot/%s/rollback", node, vmid, url.PathEscape(snapname)), nil)
+	if err != nil {
+		return "", err
+	}
+	var res struct {
+		Data string `json:"data"`
+	}
+	_ = json.Unmarshal(data, &res)
+	return res.Data, nil
+}
+
+func (c *httpPVEClient) DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) (string, error) {
+	data, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot/%s", node, vmid, url.PathEscape(snapname)), nil)
+	if err != nil {
+		return "", err
+	}
+	var res struct {
+		Data string `json:"data"`
+	}
+	_ = json.Unmarshal(data, &res)
+	return res.Data, nil
+}
+
+func (c *httpPVEClient) GetVNCProxy(ctx context.Context, node string, vmid int) (*VNCProxyTicket, error) {
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/termproxy", node, vmid), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var res PVEApiResponse[VNCProxyTicket]
+	if err := json.Unmarshal(data, &res); err != nil {
+		return nil, fmt.Errorf("unmarshal termproxy ticket failed: %w", err)
+	}
+	return &res.Data, nil
+}
+
 func (c *httpPVEClient) WaitForTask(ctx context.Context, node string, upid string) error {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()

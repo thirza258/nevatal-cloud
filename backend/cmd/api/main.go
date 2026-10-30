@@ -39,7 +39,7 @@ func main() {
 	sshKeyService := services.NewSSHKeyService(db)
 	auditService := services.NewAuditService(db)
 	workerService := services.NewWorkerService(db, cfg, pveClient, quotaService)
-	instanceService := services.NewInstanceService(db, quotaService, auditService, workerService)
+	instanceService := services.NewInstanceService(db, quotaService, auditService, workerService, pveClient)
 
 	// 5. Initialize Router & Endpoints
 	router := api.SetupRouter(

@@ -268,3 +268,138 @@ func (h *InstanceHandler) GetMetrics(c *gin.Context) {
 		},
 	})
 }
+
+func (h *InstanceHandler) Resize(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+	isAdmin := middleware.IsAdmin(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "Invalid instance ID"}})
+		return
+	}
+
+	var input services.ResizeInstanceInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": err.Error()}})
+		return
+	}
+
+	if err := h.instanceService.Resize(id, userID, isAdmin, input, c.ClientIP()); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": gin.H{"code": "RESIZE_FAILED", "message": err.Error()}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"message": "Instance resized successfully"}})
+}
+
+func (h *InstanceHandler) ListSnapshots(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+	isAdmin := middleware.IsAdmin(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "Invalid instance ID"}})
+		return
+	}
+
+	snapshots, err := h.instanceService.ListSnapshots(id, userID, isAdmin)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "SERVER_ERROR", "message": err.Error()}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": snapshots})
+}
+
+func (h *InstanceHandler) CreateSnapshot(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+	isAdmin := middleware.IsAdmin(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "Invalid instance ID"}})
+		return
+	}
+
+	var input services.CreateSnapshotInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": err.Error()}})
+		return
+	}
+
+	snap, err := h.instanceService.CreateSnapshot(id, userID, isAdmin, input, c.ClientIP())
+	if err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": gin.H{"code": "SNAPSHOT_FAILED", "message": err.Error()}})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"data": snap})
+}
+
+func (h *InstanceHandler) RestoreSnapshot(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+	isAdmin := middleware.IsAdmin(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "Invalid instance ID"}})
+		return
+	}
+
+	snapName := c.Param("snapname")
+	if snapName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": "Snapshot name is required"}})
+		return
+	}
+
+	if err := h.instanceService.RestoreSnapshot(id, userID, isAdmin, snapName, c.ClientIP()); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": gin.H{"code": "RESTORE_FAILED", "message": err.Error()}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"message": "Snapshot restored successfully"}})
+}
+
+func (h *InstanceHandler) DeleteSnapshot(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+	isAdmin := middleware.IsAdmin(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "Invalid instance ID"}})
+		return
+	}
+
+	snapName := c.Param("snapname")
+	if snapName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": "Snapshot name is required"}})
+		return
+	}
+
+	if err := h.instanceService.DeleteSnapshot(id, userID, isAdmin, snapName, c.ClientIP()); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": gin.H{"code": "DELETE_FAILED", "message": err.Error()}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"message": "Snapshot deleted successfully"}})
+}
+
+func (h *InstanceHandler) GetConsoleTicket(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+	isAdmin := middleware.IsAdmin(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "Invalid instance ID"}})
+		return
+	}
+
+	ticket, err := h.instanceService.GetConsoleTicket(id, userID, isAdmin)
+	if err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": gin.H{"code": "CONSOLE_ERROR", "message": err.Error()}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": ticket})
+}

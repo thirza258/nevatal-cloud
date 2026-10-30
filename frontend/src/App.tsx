@@ -19,6 +19,8 @@ import { AdminOverview } from './pages/admin/AdminOverview';
 import { AdminUsers } from './pages/admin/AdminUsers';
 import { AdminInstances } from './pages/admin/AdminInstances';
 import { AdminJobs } from './pages/admin/AdminJobs';
+import { AdminTemplates } from './pages/admin/AdminTemplates';
+import { AdminPlans } from './pages/admin/AdminPlans';
 import { AdminNodes } from './pages/admin/AdminNodes';
 import { AdminAudit } from './pages/admin/AdminAudit';
 
@@ -85,6 +87,8 @@ export const App: React.FC = () => {
       {currentPath === '/admin/users' && <AdminUsers />}
       {currentPath === '/admin/instances' && <AdminInstances />}
       {currentPath === '/admin/jobs' && <AdminJobs />}
+      {currentPath === '/admin/templates' && <AdminTemplates />}
+      {currentPath === '/admin/plans' && <AdminPlans />}
       {currentPath === '/admin/nodes' && <AdminNodes />}
       {currentPath === '/admin/audit-logs' && <AdminAudit />}
     </AppShell>

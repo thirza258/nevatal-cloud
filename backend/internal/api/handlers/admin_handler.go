@@ -256,3 +256,272 @@ func (h *AdminHandler) ListAuditLogs(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"data": logs})
 }
+
+// OS Templates Management
+func (h *AdminHandler) ListTemplates(c *gin.Context) {
+	var templates []models.OSTemplate
+	if err := h.db.Order("created_at desc").Find(&templates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "SERVER_ERROR", "message": err.Error()}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": templates})
+}
+
+func (h *AdminHandler) CreateTemplate(c *gin.Context) {
+	adminID := middleware.GetCurrentUserID(c)
+
+	var req struct {
+		Name                string `json:"name" binding:"required"`
+		Distribution        string `json:"distribution" binding:"required"`
+		Version             string `json:"version" binding:"required"`
+		Description         string `json:"description"`
+		ProxmoxTemplateVMID int    `json:"proxmox_template_vmid" binding:"required,min=100"`
+		Architecture        string `json:"architecture"`
+		CloudInitSupported  *bool  `json:"cloud_init_supported"`
+		DefaultUsername     string `json:"default_username"`
+		Enabled             *bool  `json:"enabled"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": err.Error()}})
+		return
+	}
+
+	tmpl := models.OSTemplate{
+		Name:                req.Name,
+		Distribution:        req.Distribution,
+		Version:             req.Version,
+		Description:         req.Description,
+		ProxmoxTemplateVMID: req.ProxmoxTemplateVMID,
+		Architecture:        "x86_64",
+		CloudInitSupported:  true,
+		DefaultUsername:     "ubuntu",
+		Enabled:             true,
+	}
+	if req.Architecture != "" {
+		tmpl.Architecture = req.Architecture
+	}
+	if req.CloudInitSupported != nil {
+		tmpl.CloudInitSupported = *req.CloudInitSupported
+	}
+	if req.DefaultUsername != "" {
+		tmpl.DefaultUsername = req.DefaultUsername
+	}
+	if req.Enabled != nil {
+		tmpl.Enabled = *req.Enabled
+	}
+
+	if err := h.db.Create(&tmpl).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "SERVER_ERROR", "message": err.Error()}})
+		return
+	}
+
+	h.auditService.Log(&adminID, "admin.template.create", "os_template", &tmpl.ID, "success", c.ClientIP(), req)
+	c.JSON(http.StatusCreated, gin.H{"data": tmpl})
+}
+
+func (h *AdminHandler) UpdateTemplate(c *gin.Context) {
+	adminID := middleware.GetCurrentUserID(c)
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "Invalid template ID"}})
+		return
+	}
+
+	var tmpl models.OSTemplate
+	if err := h.db.First(&tmpl, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "NOT_FOUND", "message": "Template not found"}})
+		return
+	}
+
+	var req struct {
+		Name                *string `json:"name"`
+		Distribution        *string `json:"distribution"`
+		Version             *string `json:"version"`
+		Description         *string `json:"description"`
+		ProxmoxTemplateVMID *int    `json:"proxmox_template_vmid"`
+		Architecture        *string `json:"architecture"`
+		CloudInitSupported  *bool   `json:"cloud_init_supported"`
+		DefaultUsername     *string `json:"default_username"`
+		Enabled             *bool   `json:"enabled"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": err.Error()}})
+		return
+	}
+
+	if req.Name != nil {
+		tmpl.Name = *req.Name
+	}
+	if req.Distribution != nil {
+		tmpl.Distribution = *req.Distribution
+	}
+	if req.Version != nil {
+		tmpl.Version = *req.Version
+	}
+	if req.Description != nil {
+		tmpl.Description = *req.Description
+	}
+	if req.ProxmoxTemplateVMID != nil {
+		tmpl.ProxmoxTemplateVMID = *req.ProxmoxTemplateVMID
+	}
+	if req.Architecture != nil {
+		tmpl.Architecture = *req.Architecture
+	}
+	if req.CloudInitSupported != nil {
+		tmpl.CloudInitSupported = *req.CloudInitSupported
+	}
+	if req.DefaultUsername != nil {
+		tmpl.DefaultUsername = *req.DefaultUsername
+	}
+	if req.Enabled != nil {
+		tmpl.Enabled = *req.Enabled
+	}
+
+	if err := h.db.Save(&tmpl).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "SERVER_ERROR", "message": err.Error()}})
+		return
+	}
+
+	h.auditService.Log(&adminID, "admin.template.update", "os_template", &tmpl.ID, "success", c.ClientIP(), req)
+	c.JSON(http.StatusOK, gin.H{"data": tmpl})
+}
+
+func (h *AdminHandler) DeleteTemplate(c *gin.Context) {
+	adminID := middleware.GetCurrentUserID(c)
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "Invalid template ID"}})
+		return
+	}
+
+	if err := h.db.Delete(&models.OSTemplate{}, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "SERVER_ERROR", "message": err.Error()}})
+		return
+	}
+
+	h.auditService.Log(&adminID, "admin.template.delete", "os_template", &id, "success", c.ClientIP(), nil)
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"message": "Template deleted successfully"}})
+}
+
+// Resource Plans Management
+func (h *AdminHandler) ListPlans(c *gin.Context) {
+	var plans []models.ResourcePlan
+	if err := h.db.Order("vcpus asc, memory_mb asc").Find(&plans).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "SERVER_ERROR", "message": err.Error()}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": plans})
+}
+
+func (h *AdminHandler) CreatePlan(c *gin.Context) {
+	adminID := middleware.GetCurrentUserID(c)
+
+	var req struct {
+		Name        string `json:"name" binding:"required"`
+		Description string `json:"description"`
+		VCPUs       int    `json:"vcpus" binding:"required,min=1"`
+		MemoryMB    int    `json:"memory_mb" binding:"required,min=256"`
+		DiskGB      int    `json:"disk_gb" binding:"required,min=5"`
+		Enabled     *bool  `json:"enabled"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": err.Error()}})
+		return
+	}
+
+	plan := models.ResourcePlan{
+		Name:        req.Name,
+		Description: req.Description,
+		VCPUs:       req.VCPUs,
+		MemoryMB:    req.MemoryMB,
+		DiskGB:      req.DiskGB,
+		Enabled:     true,
+	}
+	if req.Enabled != nil {
+		plan.Enabled = *req.Enabled
+	}
+
+	if err := h.db.Create(&plan).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "SERVER_ERROR", "message": err.Error()}})
+		return
+	}
+
+	h.auditService.Log(&adminID, "admin.plan.create", "resource_plan", &plan.ID, "success", c.ClientIP(), req)
+	c.JSON(http.StatusCreated, gin.H{"data": plan})
+}
+
+func (h *AdminHandler) UpdatePlan(c *gin.Context) {
+	adminID := middleware.GetCurrentUserID(c)
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "Invalid plan ID"}})
+		return
+	}
+
+	var plan models.ResourcePlan
+	if err := h.db.First(&plan, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "NOT_FOUND", "message": "Plan not found"}})
+		return
+	}
+
+	var req struct {
+		Name        *string `json:"name"`
+		Description *string `json:"description"`
+		VCPUs       *int    `json:"vcpus"`
+		MemoryMB    *int    `json:"memory_mb"`
+		DiskGB      *int    `json:"disk_gb"`
+		Enabled     *bool   `json:"enabled"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": err.Error()}})
+		return
+	}
+
+	if req.Name != nil {
+		plan.Name = *req.Name
+	}
+	if req.Description != nil {
+		plan.Description = *req.Description
+	}
+	if req.VCPUs != nil {
+		plan.VCPUs = *req.VCPUs
+	}
+	if req.MemoryMB != nil {
+		plan.MemoryMB = *req.MemoryMB
+	}
+	if req.DiskGB != nil {
+		plan.DiskGB = *req.DiskGB
+	}
+	if req.Enabled != nil {
+		plan.Enabled = *req.Enabled
+	}
+
+	if err := h.db.Save(&plan).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "SERVER_ERROR", "message": err.Error()}})
+		return
+	}
+
+	h.auditService.Log(&adminID, "admin.plan.update", "resource_plan", &plan.ID, "success", c.ClientIP(), req)
+	c.JSON(http.StatusOK, gin.H{"data": plan})
+}
+
+func (h *AdminHandler) DeletePlan(c *gin.Context) {
+	adminID := middleware.GetCurrentUserID(c)
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "INVALID_ID", "message": "Invalid plan ID"}})
+		return
+	}
+
+	if err := h.db.Delete(&models.ResourcePlan{}, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "SERVER_ERROR", "message": err.Error()}})
+		return
+	}
+
+	h.auditService.Log(&adminID, "admin.plan.delete", "resource_plan", &id, "success", c.ClientIP(), nil)
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"message": "Plan deleted successfully"}})
+}

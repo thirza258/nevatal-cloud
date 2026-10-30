@@ -44,6 +44,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 			&models.ResourcePlan{},
 			&models.SSHKey{},
 			&models.Instance{},
+			&models.InstanceSnapshot{},
 			&models.ProvisioningJob{},
 			&models.ResourceReservation{},
 			&models.AuditLog{},
@@ -51,6 +52,8 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		if err != nil {
 			return nil, fmt.Errorf("database auto-migration failed: %w", err)
 		}
+	} else if !db.Migrator().HasTable(&models.InstanceSnapshot{}) {
+		_ = db.AutoMigrate(&models.InstanceSnapshot{})
 	}
 
 	log.Println("Database connection established and migrations applied successfully.")

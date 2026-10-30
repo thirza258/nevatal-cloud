@@ -18,6 +18,7 @@ type mockVM struct {
 	ciuser    string
 	sshkey    string
 	startedAt time.Time
+	snapshots map[string]*SnapshotInfo
 }
 
 type mockPVEClient struct {
@@ -53,6 +54,30 @@ func NewMockClient(nodeName string) ProxmoxClient {
 	}
 
 	return m
+}
+
+func (m *mockPVEClient) getOrInitVMLocked(vmid int) *mockVM {
+	vm, exists := m.vms[vmid]
+	if !exists {
+		ipLastOctet := 100 + (vmid % 150)
+		vm = &mockVM{
+			vmid:      vmid,
+			name:      fmt.Sprintf("instance-%d", vmid),
+			status:    "running",
+			cores:     2,
+			memoryMB:  2048,
+			diskGB:    40,
+			ip:        fmt.Sprintf("10.10.42.%d", ipLastOctet),
+			ciuser:    "ubuntu",
+			startedAt: time.Now().Add(-2 * time.Hour),
+			snapshots: make(map[string]*SnapshotInfo),
+		}
+		m.vms[vmid] = vm
+	}
+	if vm.snapshots == nil {
+		vm.snapshots = make(map[string]*SnapshotInfo)
+	}
+	return vm
 }
 
 func (m *mockPVEClient) GetNodeStatus(ctx context.Context, node string) (*NodeStatus, error) {
@@ -133,10 +158,7 @@ func (m *mockPVEClient) ConfigVM(ctx context.Context, node string, vmid int, cfg
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm, exists := m.vms[vmid]
-	if !exists {
-		return fmt.Errorf("vm %d not found", vmid)
-	}
+	vm := m.getOrInitVMLocked(vmid)
 
 	if cfg.Cores > 0 {
 		vm.cores = cfg.Cores
@@ -156,9 +178,8 @@ func (m *mockPVEClient) ConfigVM(ctx context.Context, node string, vmid int, cfg
 func (m *mockPVEClient) ResizeDisk(ctx context.Context, node string, vmid int, disk string, sizeGB int) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if vm, ok := m.vms[vmid]; ok {
-		vm.diskGB += sizeGB
-	}
+	vm := m.getOrInitVMLocked(vmid)
+	vm.diskGB += sizeGB
 	return nil
 }
 
@@ -166,10 +187,7 @@ func (m *mockPVEClient) StartVM(ctx context.Context, node string, vmid int) (str
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm, exists := m.vms[vmid]
-	if !exists {
-		return "", fmt.Errorf("vm %d not found", vmid)
-	}
+	vm := m.getOrInitVMLocked(vmid)
 	vm.status = "running"
 	vm.startedAt = time.Now()
 
@@ -182,10 +200,7 @@ func (m *mockPVEClient) ShutdownVM(ctx context.Context, node string, vmid int) (
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm, exists := m.vms[vmid]
-	if !exists {
-		return "", fmt.Errorf("vm %d not found", vmid)
-	}
+	vm := m.getOrInitVMLocked(vmid)
 	vm.status = "stopped"
 
 	upid := fmt.Sprintf("UPID:%s:%08X:00000003:66F81220:qmshutdown:%d:root@pam:", m.nodeName, vmid, vmid)
@@ -197,10 +212,7 @@ func (m *mockPVEClient) StopVM(ctx context.Context, node string, vmid int) (stri
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm, exists := m.vms[vmid]
-	if !exists {
-		return "", fmt.Errorf("vm %d not found", vmid)
-	}
+	vm := m.getOrInitVMLocked(vmid)
 	vm.status = "stopped"
 
 	upid := fmt.Sprintf("UPID:%s:%08X:00000004:66F81230:qmstop:%d:root@pam:", m.nodeName, vmid, vmid)
@@ -212,10 +224,7 @@ func (m *mockPVEClient) ResetVM(ctx context.Context, node string, vmid int) (str
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm, exists := m.vms[vmid]
-	if !exists {
-		return "", fmt.Errorf("vm %d not found", vmid)
-	}
+	vm := m.getOrInitVMLocked(vmid)
 	vm.status = "running"
 	vm.startedAt = time.Now()
 
@@ -235,13 +244,10 @@ func (m *mockPVEClient) DeleteVM(ctx context.Context, node string, vmid int) (st
 }
 
 func (m *mockPVEClient) GetVMStatus(ctx context.Context, node string, vmid int) (*VMCurrentStatus, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-	vm, exists := m.vms[vmid]
-	if !exists {
-		return nil, fmt.Errorf("vm %d not found", vmid)
-	}
+	vm := m.getOrInitVMLocked(vmid)
 
 	var uptime int64
 	var cpuUsage float64 = 0.0
@@ -270,13 +276,10 @@ func (m *mockPVEClient) GetVMStatus(ctx context.Context, node string, vmid int) 
 }
 
 func (m *mockPVEClient) GetVMInterfaces(ctx context.Context, node string, vmid int) ([]NetworkInterface, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-	vm, exists := m.vms[vmid]
-	if !exists {
-		return nil, fmt.Errorf("vm %d not found", vmid)
-	}
+	vm := m.getOrInitVMLocked(vmid)
 
 	return []NetworkInterface{
 		{
@@ -293,6 +296,79 @@ func (m *mockPVEClient) GetVMInterfaces(ctx context.Context, node string, vmid i
 				{IPAddressType: "ipv4", IPAddress: vm.ip, Prefix: 24},
 			},
 		},
+	}, nil
+}
+
+func (m *mockPVEClient) CreateSnapshot(ctx context.Context, node string, vmid int, snapname, description string, vmstate bool) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	vm := m.getOrInitVMLocked(vmid)
+
+	stateVal := 0
+	if vmstate {
+		stateVal = 1
+	}
+
+	vm.snapshots[snapname] = &SnapshotInfo{
+		Name:        snapname,
+		Description: description,
+		SnapTime:    time.Now().Unix(),
+		VMState:     stateVal,
+	}
+
+	upid := fmt.Sprintf("UPID:%s:%08X:00000007:66F81260:qmsnapshot:%d:root@pam:", m.nodeName, vmid, vmid)
+	m.tasks[upid] = "OK"
+	return upid, nil
+}
+
+func (m *mockPVEClient) ListSnapshots(ctx context.Context, node string, vmid int) ([]SnapshotInfo, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	vm := m.getOrInitVMLocked(vmid)
+
+	var list []SnapshotInfo
+	for _, snap := range vm.snapshots {
+		list = append(list, *snap)
+	}
+	return list, nil
+}
+
+func (m *mockPVEClient) RollbackSnapshot(ctx context.Context, node string, vmid int, snapname string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	vm := m.getOrInitVMLocked(vmid)
+
+	if _, exists := vm.snapshots[snapname]; !exists {
+		return "", fmt.Errorf("snapshot %s not found on vm %d", snapname, vmid)
+	}
+
+	upid := fmt.Sprintf("UPID:%s:%08X:00000008:66F81270:qmrollback:%d:root@pam:", m.nodeName, vmid, vmid)
+	m.tasks[upid] = "OK"
+	return upid, nil
+}
+
+func (m *mockPVEClient) DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	vm := m.getOrInitVMLocked(vmid)
+
+	delete(vm.snapshots, snapname)
+	upid := fmt.Sprintf("UPID:%s:%08X:00000009:66F81280:qmdelsnapshot:%d:root@pam:", m.nodeName, vmid, vmid)
+	m.tasks[upid] = "OK"
+	return upid, nil
+}
+
+func (m *mockPVEClient) GetVNCProxy(ctx context.Context, node string, vmid int) (*VNCProxyTicket, error) {
+	return &VNCProxyTicket{
+		Ticket: fmt.Sprintf("PVE:termproxy:%s:ticket", node),
+		Port:   5900,
+		UPID:   fmt.Sprintf("UPID:%s:0000000A:00000001:66F81290:termproxy:%d:root@pam:", node, vmid),
+		Cert:   "CERT_EXAMPLE_NEVATAL_CLOUD",
+		User:   "root@pam",
 	}, nil
 }
 
