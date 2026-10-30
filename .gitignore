@@ -1,0 +1,22 @@
+# Environment
+.env
+*.local
+
+# Binaries & build artifacts
+backend/bin/
+backend/nevatal-api
+dist/
+build/
+
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Database & OS
+*.db
+*.sqlite
+.DS_Store
+Thumbs.db

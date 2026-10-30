@@ -1,0 +1,77 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nevatal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: nevatal_cloud
+    ports:
+      - "5435:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nevatal_cloud"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: nevatal-redis
+    restart: unless-stopped
+    ports:
+      - "6385:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nevatal-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: "8090"
+      ENV: "production"
+      APP_BASE_URL: "http://localhost:3080"
+      DATABASE_URL: "postgres://postgres:postgrespassword@postgres:5432/nevatal_cloud?sslmode=disable"
+      REDIS_URL: "redis:6379"
+      JWT_SECRET: "nevatal-cloud-super-secret-key-production-ready-32-chars"
+      PROXMOX_HOST: "${PROXMOX_HOST:-192.168.1.100}"
+      PROXMOX_PORT: "${PROXMOX_PORT:-8006}"
+      PROXMOX_TOKEN_ID: "${PROXMOX_TOKEN_ID:-}"
+      PROXMOX_TOKEN_SECRET: "${PROXMOX_TOKEN_SECRET:-}"
+      PROXMOX_NODE_NAME: "${PROXMOX_NODE_NAME:-pve-dell-r640}"
+      PROXMOX_STORAGE: "${PROXMOX_STORAGE:-local-zfs}"
+      PROXMOX_MOCK: "${PROXMOX_MOCK:-true}"
+      PROXMOX_VERIFY_TLS: "${PROXMOX_VERIFY_TLS:-false}"
+    ports:
+      - "8090:8090"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nevatal-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3080:80"
+
+volumes:
+  pgdata:
+  redisdata:
