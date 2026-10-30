@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, pass: string) => Promise<void>;
   register: (email: string, pass: string, name: string) => Promise<void>;
+  loginWithOAuth: (provider: 'google' | 'github' | 'wordpress', payload?: any) => Promise<void>;
   logout: () => void;
   switchDemoUser: (role: 'admin' | 'customer') => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -65,6 +66,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(res.user);
   };
 
+  const loginWithOAuth = async (provider: 'google' | 'github' | 'wordpress', payload?: any) => {
+    const res = await apiRequest<{ user: User; token: string }>(`/auth/oauth/${provider}`, {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    });
+
+    localStorage.setItem('nevatal_token', res.token);
+    setToken(res.token);
+    setUser(res.user);
+  };
+
   const logout = () => {
     apiRequest('/auth/logout', { method: 'POST' }).catch(() => {});
     localStorage.removeItem('nevatal_token');
@@ -88,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         login,
         register,
+        loginWithOAuth,
         logout,
         switchDemoUser,
         refreshUser,

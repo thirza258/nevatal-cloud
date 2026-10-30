@@ -149,3 +149,89 @@ func (s *AuthService) GetUserByID(id uuid.UUID) (*models.User, error) {
 	}
 	return &user, nil
 }
+
+type OAuthUserInput struct {
+	Provider    string `json:"provider"` // google, github, wordpress
+	ProviderID  string `json:"provider_id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	AvatarURL   string `json:"avatar_url"`
+}
+
+func (s *AuthService) OAuthLoginOrRegister(input OAuthUserInput) (*models.User, string, error) {
+	if input.Email == "" {
+		return nil, "", errors.New("email is required for social authentication")
+	}
+
+	var user models.User
+	err := s.db.Where("email = ?", input.Email).First(&user).Error
+	now := time.Now()
+
+	if err == nil {
+		// Existing user
+		if user.Status == models.UserStatusSuspended {
+			return nil, "", errors.New("this account is suspended; contact platform support")
+		}
+
+		user.LastLoginAt = &now
+		if user.AuthProvider == "" || user.AuthProvider == "local" {
+			user.AuthProvider = input.Provider
+		}
+		if input.ProviderID != "" {
+			user.AuthID = input.ProviderID
+		}
+		if input.AvatarURL != "" {
+			user.AvatarURL = input.AvatarURL
+		}
+		if user.DisplayName == "" && input.DisplayName != "" {
+			user.DisplayName = input.DisplayName
+		}
+
+		s.db.Save(&user)
+		token, err := s.GenerateToken(&user)
+		return &user, token, err
+	}
+
+	// New user registration
+	displayName := input.DisplayName
+	if displayName == "" {
+		displayName = input.Email
+	}
+
+	user = models.User{
+		Email:           input.Email,
+		DisplayName:     displayName,
+		Role:            models.RoleCustomer,
+		Status:          models.UserStatusActive,
+		AuthProvider:    input.Provider,
+		AuthID:          input.ProviderID,
+		AvatarURL:       input.AvatarURL,
+		EmailVerifiedAt: &now,
+		LastLoginAt:     &now,
+	}
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+
+		quota := models.ResourceQuota{
+			UserID:       user.ID,
+			MaxVCPUs:     4,
+			MaxMemoryMB:  8192,
+			MaxStorageGB: 100,
+			MaxInstances: 3,
+		}
+		return tx.Create(&quota).Error
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	token, err := s.GenerateToken(&user)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return &user, token, nil
+}

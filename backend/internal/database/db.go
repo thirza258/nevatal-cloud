@@ -34,27 +34,43 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Auto migrate tables if not already initialized
-	if !db.Migrator().HasTable(&models.User{}) {
-		err = db.AutoMigrate(
-			&models.User{},
-			&models.ResourceQuota{},
-			&models.Node{},
-			&models.OSTemplate{},
-			&models.ResourcePlan{},
-			&models.SSHKey{},
-			&models.Instance{},
-			&models.InstanceSnapshot{},
-			&models.ProvisioningJob{},
-			&models.ResourceReservation{},
-			&models.AuditLog{},
-		)
-		if err != nil {
-			return nil, fmt.Errorf("database auto-migration failed: %w", err)
-		}
-	} else if !db.Migrator().HasTable(&models.InstanceSnapshot{}) {
-		_ = db.AutoMigrate(&models.InstanceSnapshot{})
+	// Auto migrate tables
+	err = db.AutoMigrate(
+		&models.User{},
+		&models.ResourceQuota{},
+		&models.Node{},
+		&models.OSTemplate{},
+		&models.ResourcePlan{},
+		&models.SSHKey{},
+		&models.Instance{},
+		&models.InstanceSnapshot{},
+		&models.ProvisioningJob{},
+		&models.ResourceReservation{},
+		&models.AuditLog{},
+		&models.Application{},
+		&models.Deployment{},
+		&models.ApplicationEnvVar{},
+		&models.GitConnection{},
+		&models.AutomationInstance{},
+		&models.AutomationBackup{},
+		&models.OpenClawInstance{},
+		&models.OpenClawIntegration{},
+		&models.OpenClawBackup{},
+		&models.OSImage{},
+		&models.StorageBucket{},
+		&models.StorageObject{},
+		&models.StorageAccessKey{},
+		&models.StorageSharedLink{},
+	)
+	if err != nil {
+		log.Printf("Notice: auto-migration note: %v", err)
 	}
+
+	// Schema migrations for OAuth & integrations
+	_ = db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(32) DEFAULT 'local'").Error
+	_ = db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_id VARCHAR(255)").Error
+	_ = db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(512)").Error
+	_ = db.Exec("ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL").Error
 
 	log.Println("Database connection established and migrations applied successfully.")
 

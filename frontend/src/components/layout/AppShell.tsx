@@ -16,6 +16,11 @@ import {
   Cpu,
   RefreshCw,
   Zap,
+  Globe,
+  Workflow,
+  Bot,
+  Database,
+  Disc,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -25,24 +30,35 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
+interface NavItem {
+  label: string;
+  path: string;
+  icon: any;
+  highlight?: boolean;
+}
+
 export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, children }) => {
   const { user, logout, switchDemoUser } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const customerNav = [
+  const customerNav: NavItem[] = [
     { label: 'Overview', path: '/dashboard', icon: Layers },
-    { label: 'Instances', path: '/dashboard/instances', icon: Server },
-    { label: 'Create Instance', path: '/dashboard/instances/new', icon: PlusCircle, highlight: true },
+    { label: 'Compute (VMs)', path: '/dashboard/instances', icon: Server },
+    { label: 'App Hosting', path: '/dashboard/apps', icon: Globe },
+    { label: 'Automations (n8n)', path: '/dashboard/automation', icon: Workflow },
+    { label: 'AI Agents', path: '/dashboard/ai-agents', icon: Bot },
+    { label: 'Object Storage', path: '/dashboard/storage', icon: Database },
     { label: 'SSH Keys', path: '/dashboard/ssh-keys', icon: Key },
     { label: 'Usage & Quotas', path: '/dashboard/usage', icon: PieChart },
     { label: 'Activity Log', path: '/dashboard/activity', icon: Activity },
   ];
 
-  const adminNav = [
+  const adminNav: NavItem[] = [
     { label: 'Admin Overview', path: '/admin', icon: Shield },
     { label: 'User Directory', path: '/admin/users', icon: Users },
     { label: 'All Instances', path: '/admin/instances', icon: Server },
     { label: 'Provisioning Jobs', path: '/admin/jobs', icon: RefreshCw },
+    { label: 'OS ISOs & Media', path: '/admin/isos', icon: Disc },
     { label: 'OS Templates', path: '/admin/templates', icon: Layers },
     { label: 'Resource Plans', path: '/admin/plans', icon: HardDrive },
     { label: 'Hypervisor Nodes', path: '/admin/nodes', icon: Cpu },

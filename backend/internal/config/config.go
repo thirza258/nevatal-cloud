@@ -22,6 +22,12 @@ type Config struct {
 	ProxmoxStorage     string
 	ProxmoxMock        bool
 	ProxmoxVerifyTLS   bool
+	GoogleClientID     string
+	GoogleClientSecret string
+	GithubClientID     string
+	GithubClientSecret string
+	WordPressAPIKey    string
+	WordPressURL       string
 }
 
 func Load() *Config {
@@ -51,6 +57,13 @@ func Load() *Config {
 
 	verifyTLS, _ := strconv.ParseBool(getEnv("PROXMOX_VERIFY_TLS", "false"))
 
+	googleClientID := getEnv("GOOGLE_CLIENT_ID", "")
+	googleClientSecret := getEnv("GOOGLE_CLIENT_SECRET", "")
+	githubClientID := getEnv("GITHUB_CLIENT_ID", "")
+	githubClientSecret := getEnv("GITHUB_CLIENT_SECRET", "")
+	wpAPIKey := getEnv("WORDPRESS_API_KEY", "wp_nevatal_cloud_api_key_secret_2026")
+	wpURL := getEnv("WORDPRESS_URL", "")
+
 	return &Config{
 		Port:               port,
 		Env:                env,
@@ -66,6 +79,12 @@ func Load() *Config {
 		ProxmoxStorage:     pveStorage,
 		ProxmoxMock:        isMock,
 		ProxmoxVerifyTLS:   verifyTLS,
+		GoogleClientID:     googleClientID,
+		GoogleClientSecret: googleClientSecret,
+		GithubClientID:     githubClientID,
+		GithubClientSecret: githubClientSecret,
+		WordPressAPIKey:    wpAPIKey,
+		WordPressURL:       wpURL,
 	}
 }
 

@@ -524,6 +524,77 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
               </div>
             </div>
 
+            {/* WordPress Application Integration Panel */}
+            {(instance.os_template?.name?.toLowerCase().includes('wordpress') ||
+              instance.name?.toLowerCase().includes('wp-')) && (
+              <div className="bg-gradient-to-r from-blue-950/40 to-slate-900 border border-blue-800/60 rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#21759b] flex items-center justify-center text-white shadow-md">
+                      <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                        <path d="M12 2C6.477 2 2 6.477 2 12c0 4.237 2.636 7.855 6.356 9.312L4.62 11.23c-.31-.83-.434-1.492-.434-2.035 0-1.897 1.385-3.328 3.328-3.328.124 0 .245.008.367.016L12 2zm8.016 4.09c.65 1.258 1.016 2.688 1.016 4.203 0 2.92-1.383 5.518-3.535 7.184l3.193-8.875c.01-.035.016-.07.016-.105 0-.895-.563-1.637-1.39-1.984l.7-.423zm-7.984 8.785l-2.484 7.22C10.22 22.04 11.1 22.09 12 22.09c.99 0 1.948-.06 2.87-.174l-2.838-7.042zm-5.748-4.48c.414 0 .783.055 1.107.165l2.42 6.942-1.696-4.996c-.302-.893-.524-1.455-.664-1.688-.23-.377-.557-.577-.967-.577-.107 0-.21.014-.308.032l.108.122zM12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white">WordPress Production Stack</h3>
+                      <p className="text-[11px] text-blue-300">Nginx &bull; PHP 8.3-FPM &bull; MariaDB 10.11 &bull; WP-CLI</p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-950/80 border border-emerald-800/80 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Stack Active
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 text-xs">
+                  <a
+                    href={`http://${instance.private_ip}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-blue-500/60 transition group flex items-center justify-between"
+                  >
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Public Website</span>
+                      <span className="text-blue-400 font-mono font-semibold group-hover:underline">
+                        http://{instance.private_ip}/
+                      </span>
+                    </div>
+                    <span className="text-slate-500 group-hover:text-blue-400">&rarr;</span>
+                  </a>
+
+                  <a
+                    href={`http://${instance.private_ip}/wp-admin/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-blue-500/60 transition group flex items-center justify-between"
+                  >
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">WP Admin Dashboard</span>
+                      <span className="text-blue-400 font-mono font-semibold group-hover:underline">
+                        http://{instance.private_ip}/wp-admin/
+                      </span>
+                    </div>
+                    <span className="text-slate-500 group-hover:text-blue-400">&rarr;</span>
+                  </a>
+                </div>
+
+                <div className="mt-3 p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 text-[11px] text-slate-400 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div>
+                    <span className="text-slate-500 block">Database Name:</span>
+                    <span className="text-slate-200 font-mono">wordpress</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">DB User:</span>
+                    <span className="text-slate-200 font-mono">wp_user</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Root Directory:</span>
+                    <span className="text-slate-200 font-mono">/var/www/html</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Live Guest Resource Monitoring */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">

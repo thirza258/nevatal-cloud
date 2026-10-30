@@ -18,10 +18,13 @@ const (
 type User struct {
 	ID              uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	Email           string         `gorm:"type:varchar(255);unique;not null" json:"email"`
-	PasswordHash    string         `gorm:"type:varchar(255);not null" json:"-"`
+	PasswordHash    string         `gorm:"type:varchar(255)" json:"-"`
 	DisplayName     string         `gorm:"type:varchar(100);not null" json:"display_name"`
 	Role            string         `gorm:"type:varchar(32);not null;default:'customer'" json:"role"`
 	Status          string         `gorm:"type:varchar(32);not null;default:'active'" json:"status"`
+	AuthProvider    string         `gorm:"type:varchar(32);not null;default:'local'" json:"auth_provider"` // local, google, github, wordpress
+	AuthID          string         `gorm:"type:varchar(255)" json:"auth_id,omitempty"`
+	AvatarURL       string         `gorm:"type:varchar(512)" json:"avatar_url,omitempty"`
 	EmailVerifiedAt *time.Time     `json:"email_verified_at"`
 	LastLoginAt     *time.Time     `json:"last_login_at"`
 	CreatedAt       time.Time      `json:"created_at"`

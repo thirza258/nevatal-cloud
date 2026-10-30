@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	log.Println("Starting Nevatal Cloud API Service...")
+	log.Println("Starting Nevatal Cloud Control Plane API...")
 
 	// 1. Load Configuration
 	cfg := config.Load()
@@ -33,26 +33,36 @@ func main() {
 		log.Printf("Proxmox VE integration configured for real host: %s:%s (Node: %s)", cfg.ProxmoxHost, cfg.ProxmoxPort, cfg.ProxmoxNodeName)
 	}
 
-	// 4. Initialize Core Services
+	// 4. Initialize Core & Extended Services
 	authService := services.NewAuthService(db, cfg)
 	quotaService := services.NewQuotaService(db)
 	sshKeyService := services.NewSSHKeyService(db)
 	auditService := services.NewAuditService(db)
 	workerService := services.NewWorkerService(db, cfg, pveClient, quotaService)
 	instanceService := services.NewInstanceService(db, quotaService, auditService, workerService, pveClient)
+	appService := services.NewAppService(db, auditService)
+	automationService := services.NewAutomationService(db, auditService)
+	openClawService := services.NewOpenClawService(db, auditService)
+	isoService := services.NewISOService(db, auditService)
+	storageService := services.NewStorageService(db, "")
 
 	// 5. Initialize Router & Endpoints
-	router := api.SetupRouter(
-		cfg,
-		db,
-		pveClient,
-		authService,
-		quotaService,
-		sshKeyService,
-		auditService,
-		instanceService,
-		workerService,
-	)
+	router := api.SetupRouter(api.RouterParams{
+		Cfg:               cfg,
+		DB:                db,
+		PVE:               pveClient,
+		AuthService:       authService,
+		QuotaService:      quotaService,
+		SSHKeyService:     sshKeyService,
+		AuditService:      auditService,
+		InstanceService:   instanceService,
+		WorkerService:     workerService,
+		AppService:        appService,
+		AutomationService: automationService,
+		OpenClawService:   openClawService,
+		ISOService:        isoService,
+		StorageService:    storageService,
+	})
 
 	// 6. Start HTTP Server
 	addr := fmt.Sprintf(":%s", cfg.Port)

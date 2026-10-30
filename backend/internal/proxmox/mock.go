@@ -26,7 +26,8 @@ type mockPVEClient struct {
 	nodeName  string
 	nextVMID  int
 	vms       map[int]*mockVM
-	tasks     map[string]string // upid -> status (OK, RUNNING)
+	tasks      map[string]string // upid -> status (OK, RUNNING)
+	deletedVMs map[int]bool
 }
 
 func NewMockClient(nodeName string) ProxmoxClient {
@@ -34,10 +35,11 @@ func NewMockClient(nodeName string) ProxmoxClient {
 		nodeName = "pve-dell-r640"
 	}
 	m := &mockPVEClient{
-		nodeName: nodeName,
-		nextVMID: 1002,
-		vms:      make(map[int]*mockVM),
-		tasks:    make(map[string]string),
+		nodeName:   nodeName,
+		nextVMID:   1002,
+		vms:        make(map[int]*mockVM),
+		tasks:      make(map[string]string),
+		deletedVMs: make(map[int]bool),
 	}
 
 	// Pre-seed demo VM
@@ -138,6 +140,7 @@ func (m *mockPVEClient) CloneVM(ctx context.Context, node string, templateVMID, 
 	upid := fmt.Sprintf("UPID:%s:%08X:00000001:66F81200:qemu-clone:%d:root@pam:", m.nodeName, newVMID, newVMID)
 	m.tasks[upid] = "OK"
 
+	delete(m.deletedVMs, newVMID)
 	ipLastOctet := 100 + (newVMID % 150)
 	m.vms[newVMID] = &mockVM{
 		vmid:      newVMID,
@@ -237,6 +240,7 @@ func (m *mockPVEClient) DeleteVM(ctx context.Context, node string, vmid int) (st
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	m.deletedVMs[vmid] = true
 	delete(m.vms, vmid)
 	upid := fmt.Sprintf("UPID:%s:%08X:00000006:66F81250:qmdestroy:%d:root@pam:", m.nodeName, vmid, vmid)
 	m.tasks[upid] = "OK"
@@ -246,6 +250,10 @@ func (m *mockPVEClient) DeleteVM(ctx context.Context, node string, vmid int) (st
 func (m *mockPVEClient) GetVMStatus(ctx context.Context, node string, vmid int) (*VMCurrentStatus, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if m.deletedVMs[vmid] {
+		return nil, fmt.Errorf("VM %d does not exist", vmid)
+	}
 
 	vm := m.getOrInitVMLocked(vmid)
 
