@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { OSTemplate } from '../../types';
 import { apiRequest } from '../../lib/api';
 import { Modal } from '../../components/ui/Modal';
-import { Layers, Plus, Search, Edit3, Trash2, CheckCircle2, XCircle, HardDrive, Cpu, Terminal } from 'lucide-react';
+import { Layers, Plus, Search, Edit3, Trash2, CheckCircle2, XCircle, HardDrive, Cpu, Terminal, Disc, Upload } from 'lucide-react';
 
-export const AdminTemplates: React.FC = () => {
+interface AdminTemplatesProps {
+  onNavigate?: (path: string) => void;
+}
+
+export const AdminTemplates: React.FC<AdminTemplatesProps> = ({ onNavigate }) => {
   const [templates, setTemplates] = useState<OSTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -139,13 +143,49 @@ export const AdminTemplates: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-md shadow-amber-600/20 transition self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add OS Template</span>
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('/admin/isos')}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-200 text-xs font-semibold shadow-sm transition"
+              title="Upload and manage raw bootable ISO images (.iso / .img)"
+            >
+              <Disc className="w-4 h-4 text-indigo-400" />
+              <span>Upload ISO Media</span>
+            </button>
+          )}
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-md shadow-amber-600/20 transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add OS Template</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ISO Media Helper Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-indigo-950/30 border border-indigo-800/40 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-indigo-900/40 border border-indigo-700/40 rounded-lg text-indigo-400">
+            <Disc className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xs sm:text-sm font-semibold text-white">Looking to upload raw bootable ISO files (.iso)?</div>
+            <div className="text-[11px] sm:text-xs text-indigo-300/80 mt-0.5">
+              The templates below represent pre-baked Proxmox VM clones with cloud-init (<code className="text-indigo-200">#9000+</code>). To upload installable CD-ROM ISO media, use <strong>OS ISOs &amp; Media</strong>.
+            </div>
+          </div>
+        </div>
+        {onNavigate && (
+          <button
+            onClick={() => onNavigate('/admin/isos')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shrink-0 transition"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Go to OS ISOs</span>
+          </button>
+        )}
       </div>
 
       {/* Search Bar */}

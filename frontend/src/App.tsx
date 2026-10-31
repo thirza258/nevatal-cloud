@@ -231,7 +231,7 @@ export const App: React.FC = () => {
       {currentPath === '/admin/instances' && <AdminInstances />}
       {currentPath === '/admin/jobs' && <AdminJobs />}
       {currentPath === '/admin/isos' && <AdminISOs />}
-      {currentPath === '/admin/templates' && <AdminTemplates />}
+      {currentPath === '/admin/templates' && <AdminTemplates onNavigate={handleNavigate} />}
       {currentPath === '/admin/plans' && <AdminPlans />}
       {currentPath === '/admin/nodes' && <AdminNodes />}
       {currentPath === '/admin/android/images' && <AdminAndroidImages />}
