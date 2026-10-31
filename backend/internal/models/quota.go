@@ -30,12 +30,12 @@ func (ResourceQuota) TableName() string {
 }
 
 type QuotaUsage struct {
-	MaxVCPUs     int `json:"max_vcpus"`
-	UsedVCPUs    int `json:"used_vcpus"`
-	MaxMemoryMB  int `json:"max_memory_mb"`
-	UsedMemoryMB int `json:"used_memory_mb"`
-	MaxStorageGB int `json:"max_storage_gb"`
+	MaxVCPUs      int `json:"max_vcpus"`
+	UsedVCPUs     int `json:"used_vcpus"`
+	MaxMemoryMB   int `json:"max_memory_mb"`
+	UsedMemoryMB  int `json:"used_memory_mb"`
+	MaxStorageGB  int `json:"max_storage_gb"`
 	UsedStorageGB int `json:"used_storage_gb"`
-	MaxInstances int `json:"max_instances"`
+	MaxInstances  int `json:"max_instances"`
 	UsedInstances int `json:"used_instances"`
 }

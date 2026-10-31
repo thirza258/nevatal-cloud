@@ -35,9 +35,9 @@ type AIConversation struct {
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 
-	User     *User             `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Messages []AIMessage       `gorm:"foreignKey:ConversationID" json:"messages,omitempty"`
-	Plans    []AIResourcePlan  `gorm:"foreignKey:ConversationID" json:"plans,omitempty"`
+	User     *User                `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Messages []AIMessage          `gorm:"foreignKey:ConversationID" json:"messages,omitempty"`
+	Plans    []AIResourcePlan     `gorm:"foreignKey:ConversationID" json:"plans,omitempty"`
 	StateObj *AIConversationState `gorm:"foreignKey:ConversationID" json:"state_obj,omitempty"`
 }
 
@@ -285,24 +285,24 @@ type UIComponentsPayload struct {
 }
 
 type StructuredPlanView struct {
-	PlanID               string                 `json:"plan_id"`
-	Version              int                    `json:"version"`
-	Title                string                 `json:"title"`
-	Intent               string                 `json:"intent"`
-	Summary              string                 `json:"summary"`
+	PlanID               string                   `json:"plan_id"`
+	Version              int                      `json:"version"`
+	Title                string                   `json:"title"`
+	Intent               string                   `json:"intent"`
+	Summary              string                   `json:"summary"`
 	Resources            []StructuredResourceView `json:"resources"`
-	EstimatedAllocations map[string]any         `json:"estimated_allocations"`
-	EstimatedPricing     string                 `json:"estimated_pricing,omitempty"`
-	Reversible           bool                   `json:"reversible"`
-	RequiresConfirmation bool                   `json:"requires_confirmation"`
-	Status               string                 `json:"status"`
+	EstimatedAllocations map[string]any           `json:"estimated_allocations"`
+	EstimatedPricing     string                   `json:"estimated_pricing,omitempty"`
+	Reversible           bool                     `json:"reversible"`
+	RequiresConfirmation bool                     `json:"requires_confirmation"`
+	Status               string                   `json:"status"`
 }
 
 type StructuredResourceView struct {
-	Type        string         `json:"type"` // VM, Application, n8n, OpenClaw, Bucket
-	Name        string         `json:"name"`
-	Summary     string         `json:"summary"`
-	Details     map[string]any `json:"details"`
-	Order       int            `json:"order"`
-	Status      string         `json:"status"`
+	Type    string         `json:"type"` // VM, Application, n8n, OpenClaw, Bucket
+	Name    string         `json:"name"`
+	Summary string         `json:"summary"`
+	Details map[string]any `json:"details"`
+	Order   int            `json:"order"`
+	Status  string         `json:"status"`
 }

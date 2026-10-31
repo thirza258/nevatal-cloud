@@ -25,13 +25,13 @@ type ProxmoxClient interface {
 }
 
 type NodeStatus struct {
-	CPU      float64 `json:"cpu"`
-	Wait     float64 `json:"wait"`
-	Memory   MemoryInfo `json:"memory"`
-	RootFS   RootFSInfo `json:"rootfs"`
-	Uptime   int64   `json:"uptime"`
-	KVersion string  `json:"kversion"`
-	PveVersion string `json:"pveversion"`
+	CPU        float64    `json:"cpu"`
+	Wait       float64    `json:"wait"`
+	Memory     MemoryInfo `json:"memory"`
+	RootFS     RootFSInfo `json:"rootfs"`
+	Uptime     int64      `json:"uptime"`
+	KVersion   string     `json:"kversion"`
+	PveVersion string     `json:"pveversion"`
 }
 
 type MemoryInfo struct {
@@ -57,27 +57,27 @@ type StorageInfo struct {
 }
 
 type VMConfig struct {
-	Cores    int    `json:"cores"`
-	MemoryMB int    `json:"memory"`
-	CIUser   string `json:"ciuser"`
+	Cores        int    `json:"cores"`
+	MemoryMB     int    `json:"memory"`
+	CIUser       string `json:"ciuser"`
 	SSHPublicKey string `json:"sshkeys"`
-	IPConfig0 string `json:"ipconfig0"`
-	Agent    int    `json:"agent"`
+	IPConfig0    string `json:"ipconfig0"`
+	Agent        int    `json:"agent"`
 }
 
 type VMCurrentStatus struct {
-	VMID      int     `json:"vmid"`
-	Name      string  `json:"name"`
-	Status    string  `json:"status"` // running, stopped, paused
-	CPUs      int     `json:"cpus"`
-	CPUUsage  float64 `json:"cpu"`
-	MemoryMax int64   `json:"maxmem"`
-	MemoryUsed int64  `json:"mem"`
-	DiskMax   int64   `json:"maxdisk"`
-	DiskUsed  int64   `json:"disk"`
-	NetIn     int64   `json:"netin"`
-	NetOut    int64   `json:"netout"`
-	Uptime    int64   `json:"uptime"`
+	VMID       int     `json:"vmid"`
+	Name       string  `json:"name"`
+	Status     string  `json:"status"` // running, stopped, paused
+	CPUs       int     `json:"cpus"`
+	CPUUsage   float64 `json:"cpu"`
+	MemoryMax  int64   `json:"maxmem"`
+	MemoryUsed int64   `json:"mem"`
+	DiskMax    int64   `json:"maxdisk"`
+	DiskUsed   int64   `json:"disk"`
+	NetIn      int64   `json:"netin"`
+	NetOut     int64   `json:"netout"`
+	Uptime     int64   `json:"uptime"`
 }
 
 type NetworkInterface struct {

@@ -230,8 +230,8 @@ func (h *AdminHandler) ListNodes(c *gin.Context) {
 
 	type NodeDetail struct {
 		models.Node
-		LiveStatus *proxmox.NodeStatus    `json:"live_status"`
-		Storage    []proxmox.StorageInfo  `json:"storage"`
+		LiveStatus *proxmox.NodeStatus   `json:"live_status"`
+		Storage    []proxmox.StorageInfo `json:"storage"`
 	}
 
 	details := make([]NodeDetail, len(nodes))

@@ -15,6 +15,7 @@ type ResourcePlan struct {
 	MemoryMB    int       `gorm:"not null" json:"memory_mb"`
 	DiskGB      int       `gorm:"not null" json:"disk_gb"`
 	Enabled     bool      `gorm:"not null;default:true" json:"enabled"`
+	SortOrder   int       `gorm:"column:sort_order;not null;default:0" json:"sort_order"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

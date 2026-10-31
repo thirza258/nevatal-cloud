@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: nevatal-postgres
+    container_name: nevatal-cloud-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -11,7 +11,6 @@ services:
       - "5435:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d nevatal_cloud"]
       interval: 5s
@@ -20,7 +19,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: nevatal-redis
+    container_name: nevatal-cloud-redis
     restart: unless-stopped
     ports:
       - "6385:6379"
@@ -36,7 +35,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: nevatal-backend
+    container_name: nevatal-cloud-backend
     restart: unless-stopped
     depends_on:
       postgres:
@@ -63,11 +62,24 @@ services:
     ports:
       - "8090:8090"
 
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nevatal-cloud-migrate
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://postgres:postgrespassword@postgres:5432/nevatal_cloud?sslmode=disable"
+    command: ["/app/nevatal-migrate", "up"]
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: nevatal-frontend
+    container_name: nevatal-cloud-frontend
     restart: unless-stopped
     depends_on:
       - backend

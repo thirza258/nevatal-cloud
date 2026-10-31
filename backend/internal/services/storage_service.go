@@ -55,11 +55,11 @@ type CreateAccessKeyInput struct {
 }
 
 type CreateSharedLinkInput struct {
-	ObjectID     uuid.UUID  `json:"object_id" binding:"required"`
-	AccessType   string     `json:"access_type"`
-	Password     string     `json:"password"`
-	ExpiresIn    string     `json:"expires_in"` // e.g. "1h", "24h", "7d", "30d"
-	MaxDownloads *int64     `json:"max_downloads"`
+	ObjectID     uuid.UUID `json:"object_id" binding:"required"`
+	AccessType   string    `json:"access_type"`
+	Password     string    `json:"password"`
+	ExpiresIn    string    `json:"expires_in"` // e.g. "1h", "24h", "7d", "30d"
+	MaxDownloads *int64    `json:"max_downloads"`
 }
 
 type StorageOverviewResponse struct {
@@ -76,7 +76,7 @@ func (s *StorageService) GetOverview(ownerID uuid.UUID) (*StorageOverviewRespons
 	var totalKeys int64
 
 	s.db.Model(&models.StorageBucket{}).Where("owner_id = ? AND deleted_at IS NULL", ownerID).Count(&totalBuckets)
-	
+
 	type SizeResult struct {
 		Count int64
 		Size  int64

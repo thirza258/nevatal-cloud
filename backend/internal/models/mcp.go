@@ -69,7 +69,7 @@ type MCPTool struct {
 	Name        string    `gorm:"type:varchar(128);not null;index" json:"name"`
 	Description string    `gorm:"type:text" json:"description"`
 	RiskLevel   string    `gorm:"type:varchar(32);not null;default:'read'" json:"risk_level"` // read, write, destructive
-	InputSchema string    `gorm:"type:text" json:"input_schema"`                             // JSON Schema
+	InputSchema string    `gorm:"type:text" json:"input_schema"`                              // JSON Schema
 	Enabled     bool      `gorm:"default:true" json:"enabled"`
 	CreatedAt   time.Time `json:"created_at"`
 

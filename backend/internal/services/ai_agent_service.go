@@ -96,7 +96,7 @@ func (s *AIAgentService) CreateConversation(userID uuid.UUID, title string) (*mo
 		ConversationID: conv.ID,
 		UserID:         userID,
 		Role:           "assistant",
-		Content: "👋 **Hello! I am your Nevatal AI Cloud Agent.**\n\nI can help you design, configure, and provision production cloud infrastructure through simple natural language.\n\n**What would you like to build today?**\n- 🖥️ **Virtual Private Server (VPS)** with Ubuntu, Debian, Alpine, or WordPress\n- 🌐 **Deploy a Web Application** from GitHub or GitLab\n- ⚡ **n8n Workflow Automation** instance\n- 🤖 **OpenClaw Autonomous AI Agent**\n- 🗄️ **S3-compatible Object Storage Bucket**\n- 🔍 **Inspect resources, health, or troubleshoot issues**",
+		Content:        "👋 **Hello! I am your Nevatal AI Cloud Agent.**\n\nI can help you design, configure, and provision production cloud infrastructure through simple natural language.\n\n**What would you like to build today?**\n- 🖥️ **Virtual Private Server (VPS)** with Ubuntu, Debian, Alpine, or WordPress\n- 🌐 **Deploy a Web Application** from GitHub or GitLab\n- ⚡ **n8n Workflow Automation** instance\n- 🤖 **OpenClaw Autonomous AI Agent**\n- 🗄️ **S3-compatible Object Storage Bucket**\n- 🔍 **Inspect resources, health, or troubleshoot issues**",
 		CreatedAt:      time.Now(),
 	}
 	_ = s.db.Create(&welcomeMsg)
@@ -184,18 +184,18 @@ func (s *AIAgentService) GetPlan(planID uuid.UUID, userID uuid.UUID) (*models.AI
 // User Message Processing & Conversation State Machine
 
 type SendMessageInput struct {
-	Message    string `json:"message" binding:"required"`
-	AnswerKey  string `json:"answer_key,omitempty"`  // If user clicked an interactive answer chip
-	AnswerVal  string `json:"answer_val,omitempty"`  // Value for the answered key
-	APIKey     string `json:"api_key,omitempty"`     // Optional user OpenRouter API Key
-	Model      string `json:"model,omitempty"`       // Model preference
+	Message   string `json:"message" binding:"required"`
+	AnswerKey string `json:"answer_key,omitempty"` // If user clicked an interactive answer chip
+	AnswerVal string `json:"answer_val,omitempty"` // Value for the answered key
+	APIKey    string `json:"api_key,omitempty"`    // Optional user OpenRouter API Key
+	Model     string `json:"model,omitempty"`      // Model preference
 }
 
 type SendMessageResponse struct {
-	Message      models.AIMessage            `json:"message"`
-	State        models.WorkflowState        `json:"state"`
-	PlanProposal *models.StructuredPlanView  `json:"plan_proposal,omitempty"`
-	PlanID       string                      `json:"plan_id,omitempty"`
+	Message      models.AIMessage           `json:"message"`
+	State        models.WorkflowState       `json:"state"`
+	PlanProposal *models.StructuredPlanView `json:"plan_proposal,omitempty"`
+	PlanID       string                     `json:"plan_id,omitempty"`
 }
 
 func (s *AIAgentService) ProcessUserMessage(
@@ -589,10 +589,10 @@ func (s *AIAgentService) handleWebsiteWorkflow(
 
 	if _, ok := reqs["framework"]; !ok {
 		missing = append(missing, models.StructuredQuestion{
-			ID:          "q_framework",
-			Key:         "framework",
-			Title:       "What framework or language does the application use?",
-			Type:        "single_choice",
+			ID:    "q_framework",
+			Key:   "framework",
+			Title: "What framework or language does the application use?",
+			Type:  "single_choice",
 			Options: []models.StructuredQuestionOption{
 				{ID: "go", Label: "Go (Golang API / Binary)", Value: "go", IsDefault: true},
 				{ID: "react", Label: "React / Vite (Static SPA)", Value: "react"},
@@ -673,11 +673,11 @@ func (s *AIAgentService) handleWebsiteWorkflow(
 	planView.PlanID = resPlan.ID.String()
 
 	resConfig, _ := json.Marshal(map[string]interface{}{
-		"name":       appName,
-		"repo":       repo,
-		"framework":  framework,
-		"branch":     "main",
-		"domain":     appName + ".nevatal.app",
+		"name":      appName,
+		"repo":      repo,
+		"framework": framework,
+		"branch":    "main",
+		"domain":    appName + ".nevatal.app",
 	})
 	_ = s.db.Create(&models.AIPlanResource{
 		PlanID:         resPlan.ID,
@@ -1063,11 +1063,11 @@ func (s *AIAgentService) ApprovePlan(
 		switch res.ResourceType {
 		case "virtual_machine":
 			var vmCfg struct {
-				Name        string `json:"name"`
-				TemplateID  string `json:"template_id"`
-				VCPUs       int    `json:"vcpus"`
-				MemoryMB    int    `json:"memory_mb"`
-				DiskGB      int    `json:"disk_gb"`
+				Name       string `json:"name"`
+				TemplateID string `json:"template_id"`
+				VCPUs      int    `json:"vcpus"`
+				MemoryMB   int    `json:"memory_mb"`
+				DiskGB     int    `json:"disk_gb"`
 			}
 			_ = json.Unmarshal([]byte(res.ConfigJSON), &vmCfg)
 

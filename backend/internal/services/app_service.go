@@ -25,7 +25,7 @@ func NewAppService(db *gorm.DB, auditService *AuditService) *AppService {
 
 type CreateAppInput struct {
 	Name                 string            `json:"name" binding:"required"`
-	ApplicationType      string            `json:"application_type" binding:"required"` // static, react, nextjs, nodejs, go, python, docker
+	ApplicationType      string            `json:"application_type" binding:"required"`       // static, react, nextjs, nodejs, go, python, docker
 	DeploymentSourceType string            `json:"deployment_source_type" binding:"required"` // git, template, docker
 	RepositoryURL        string            `json:"repository_url"`
 	ProductionBranch     string            `json:"production_branch"`

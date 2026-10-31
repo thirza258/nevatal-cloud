@@ -55,8 +55,9 @@ Built specifically to orchestrate hypervisor operations on a **Dell PowerEdge R6
    - Production HTTP client communicating with Proxmox VE REST API v2 (`/api2/json`).
    - Token authentication via `PVEAPIToken=USER@REALM!TOKENID=SECRET`.
    - **Simulation / Mock Mode**: Integrated mock hypervisor engine enabled when `PROXMOX_MOCK=true`, allowing local end-to-end development, testing, and UI evaluation without requiring immediate hypervisor connectivity.
-4. **Data Store (`scripts/init-db.sql`)**:
-   - PostgreSQL 16 schema strictly following PRD Section 19.
+4. **Database Migrations (`backend/migrations/`)**:
+   - Versioned PostgreSQL 16 schema migrations managed via **go-migrate** (`golang-migrate/migrate`).
+   - Supports automated schema versioning, rollback, and deployment automation via `./deploy.sh`.
 
 ---
 

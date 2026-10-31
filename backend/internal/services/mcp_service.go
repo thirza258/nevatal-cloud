@@ -164,12 +164,12 @@ func (s *MCPService) ListAuditLogs(userID uuid.UUID, limit int) ([]models.MCPAud
 // Tool Execution Engine
 
 type ToolExecutionResult struct {
-	ToolName    string      `json:"tool_name"`
-	RiskLevel   string      `json:"risk_level"`
-	Status      string      `json:"status"` // success, error, denied
-	Data        interface{} `json:"data,omitempty"`
-	Error       string      `json:"error,omitempty"`
-	RequiresConfirmation bool `json:"requires_confirmation,omitempty"`
+	ToolName             string      `json:"tool_name"`
+	RiskLevel            string      `json:"risk_level"`
+	Status               string      `json:"status"` // success, error, denied
+	Data                 interface{} `json:"data,omitempty"`
+	Error                string      `json:"error,omitempty"`
+	RequiresConfirmation bool        `json:"requires_confirmation,omitempty"`
 }
 
 func (s *MCPService) ExecuteTool(
@@ -389,21 +389,21 @@ func (s *MCPService) executeFirstPartyTool(
 
 		if err := s.quotaService.CheckQuota(userID, vcpus, memMB, diskGB); err != nil {
 			return map[string]interface{}{
-				"valid":        false,
-				"error":        err.Error(),
+				"valid":          false,
+				"error":          err.Error(),
 				"quota_exceeded": true,
 			}, nil
 		}
 
 		return map[string]interface{}{
-			"valid":        true,
-			"name":         name,
-			"template":     tpl.Name,
-			"vcpus":        vcpus,
-			"memory_mb":    memMB,
-			"disk_gb":      diskGB,
-			"network":      "public-vps",
-			"status":       "ready_for_provisioning",
+			"valid":     true,
+			"name":      name,
+			"template":  tpl.Name,
+			"vcpus":     vcpus,
+			"memory_mb": memMB,
+			"disk_gb":   diskGB,
+			"network":   "public-vps",
+			"status":    "ready_for_provisioning",
 		}, nil
 
 	case "cloud.create_vm":
@@ -689,11 +689,11 @@ func (s *MCPService) executeFirstPartyTool(
 			return nil, err
 		}
 		return map[string]interface{}{
-			"bucket":       b.Name,
-			"filename":     filename,
-			"upload_url":   fmt.Sprintf("https://s3.nevatal.id/%s/%s?upload_token=%s", b.Name, filename, uuid.New().String()[:8]),
-			"expires_in":   3600,
-			"http_method":  "PUT",
+			"bucket":      b.Name,
+			"filename":    filename,
+			"upload_url":  fmt.Sprintf("https://s3.nevatal.id/%s/%s?upload_token=%s", b.Name, filename, uuid.New().String()[:8]),
+			"expires_in":  3600,
+			"http_method": "PUT",
 		}, nil
 
 	case "cloud.generate_presigned_download":
@@ -719,12 +719,12 @@ func (s *MCPService) executeFirstPartyTool(
 
 	case "cloud.get_service_health":
 		return map[string]interface{}{
-			"overall_status":   "operational",
-			"proxmox_cluster":  "healthy (1 online, 0 offline)",
+			"overall_status":    "operational",
+			"proxmox_cluster":   "healthy (1 online, 0 offline)",
 			"api_control_plane": "healthy",
-			"minio_storage":    "healthy (distributed ZFS backend)",
-			"reverse_proxy":    "healthy (Caddy TLS)",
-			"latency_ms":       4,
+			"minio_storage":     "healthy (distributed ZFS backend)",
+			"reverse_proxy":     "healthy (Caddy TLS)",
+			"latency_ms":        4,
 		}, nil
 
 	case "cloud.get_recent_events":
@@ -785,11 +785,11 @@ func (s *MCPService) executeGitHubTool(ctx context.Context, userID uuid.UUID, na
 		repo, _ := args["repo"].(string)
 		wf, _ := args["workflow_id"].(string)
 		return map[string]interface{}{
-			"status":      "queued",
-			"repository":  repo,
-			"workflow":    wf,
-			"run_id":      10294821,
-			"html_url":    fmt.Sprintf("https://github.com/%s/actions/runs/10294821", repo),
+			"status":       "queued",
+			"repository":   repo,
+			"workflow":     wf,
+			"run_id":       10294821,
+			"html_url":     fmt.Sprintf("https://github.com/%s/actions/runs/10294821", repo),
 			"triggered_at": time.Now().Format(time.RFC3339),
 		}, nil
 	default:
@@ -840,8 +840,8 @@ func (s *MCPService) executePostgresTool(ctx context.Context, userID uuid.UUID, 
 		}, nil
 	case "postgres.check_health":
 		return map[string]interface{}{
-			"connected":       true,
-			"latency_ms":      1.2,
+			"connected":        true,
+			"latency_ms":       1.2,
 			"open_connections": 8,
 			"max_connections":  100,
 			"version":          "PostgreSQL 16.4 on Linux x86_64",
@@ -861,9 +861,9 @@ type JSONRPCRequest struct {
 }
 
 type JSONRPCResponse struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id"`
-	Result  interface{} `json:"result,omitempty"`
+	JSONRPC string        `json:"jsonrpc"`
+	ID      interface{}   `json:"id"`
+	Result  interface{}   `json:"result,omitempty"`
 	Error   *JSONRPCError `json:"error,omitempty"`
 }
 

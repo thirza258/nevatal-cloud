@@ -13,8 +13,8 @@ type AIAssistantMessage struct {
 	Role           string    `gorm:"type:varchar(32);not null" json:"role"` // "user", "assistant", "system"
 	Content        string    `gorm:"type:text;not null" json:"content"`
 	Model          string    `gorm:"type:varchar(100);not null;default:'openai/gpt-4o-mini'" json:"model"`
-	ActionType     string    `gorm:"type:varchar(50)" json:"action_type,omitempty"`       // "create_instance", "check_quota", "power_instance"
-	ActionPayload  string    `gorm:"type:text" json:"action_payload,omitempty"`           // JSON string of proposed container parameters
+	ActionType     string    `gorm:"type:varchar(50)" json:"action_type,omitempty"` // "create_instance", "check_quota", "power_instance"
+	ActionPayload  string    `gorm:"type:text" json:"action_payload,omitempty"`     // JSON string of proposed container parameters
 	ActionExecuted bool      `gorm:"default:false" json:"action_executed"`
 	CreatedAt      time.Time `gorm:"index" json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`

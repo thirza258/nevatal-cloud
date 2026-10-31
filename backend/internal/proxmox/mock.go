@@ -22,10 +22,10 @@ type mockVM struct {
 }
 
 type mockPVEClient struct {
-	mu        sync.RWMutex
-	nodeName  string
-	nextVMID  int
-	vms       map[int]*mockVM
+	mu         sync.RWMutex
+	nodeName   string
+	nextVMID   int
+	vms        map[int]*mockVM
 	tasks      map[string]string // upid -> status (OK, RUNNING)
 	deletedVMs map[int]bool
 }
@@ -263,7 +263,7 @@ func (m *mockPVEClient) GetVMStatus(ctx context.Context, node string, vmid int) 
 
 	if vm.status == "running" {
 		uptime = int64(time.Since(vm.startedAt).Seconds())
-		cpuUsage = 0.045 // 4.5%
+		cpuUsage = 0.045                                      // 4.5%
 		memUsed = int64(vm.memoryMB) * 1024 * 1024 * 35 / 100 // 35%
 	}
 

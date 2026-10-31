@@ -13,23 +13,23 @@ import (
 )
 
 type RouterParams struct {
-	Cfg               *config.Config
-	DB                *gorm.DB
-	PVE               proxmox.ProxmoxClient
-	AuthService       *services.AuthService
-	QuotaService      *services.QuotaService
-	SSHKeyService     *services.SSHKeyService
-	AuditService      *services.AuditService
-	InstanceService   *services.InstanceService
-	WorkerService     *services.WorkerService
-	AppService        *services.AppService
-	AutomationService *services.AutomationService
-	OpenClawService   *services.OpenClawService
-	ISOService        *services.ISOService
-	StorageService    *services.StorageService
+	Cfg                *config.Config
+	DB                 *gorm.DB
+	PVE                proxmox.ProxmoxClient
+	AuthService        *services.AuthService
+	QuotaService       *services.QuotaService
+	SSHKeyService      *services.SSHKeyService
+	AuditService       *services.AuditService
+	InstanceService    *services.InstanceService
+	WorkerService      *services.WorkerService
+	AppService         *services.AppService
+	AutomationService  *services.AutomationService
+	OpenClawService    *services.OpenClawService
+	ISOService         *services.ISOService
+	StorageService     *services.StorageService
 	AIAssistantService *services.AIAssistantService
-	MCPService        *services.MCPService
-	AIAgentService    *services.AIAgentService
+	MCPService         *services.MCPService
+	AIAgentService     *services.AIAgentService
 }
 
 func SetupRouter(p RouterParams) *gin.Engine {

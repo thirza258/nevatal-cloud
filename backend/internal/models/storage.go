@@ -37,18 +37,18 @@ func (StorageBucket) TableName() string {
 }
 
 type StorageObject struct {
-	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	BucketID    uuid.UUID `gorm:"type:uuid;not null;index" json:"bucket_id"`
-	Key         string    `gorm:"type:varchar(1024);not null;index" json:"key"` // e.g. "photos/vacation.jpg"
-	Filename    string    `gorm:"type:varchar(255);not null" json:"filename"`
-	FolderPrefix string   `gorm:"type:varchar(512);default:''" json:"folder_prefix"`
-	ContentType string    `gorm:"type:varchar(150);not null;default:'application/octet-stream'" json:"content_type"`
-	SizeBytes   int64     `gorm:"not null" json:"size_bytes"`
-	ETag        string    `gorm:"type:varchar(64)" json:"etag"`
-	IsFolder    bool      `gorm:"not null;default:false" json:"is_folder"`
-	PublicURL   string    `gorm:"type:varchar(512)" json:"public_url,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID           uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	BucketID     uuid.UUID `gorm:"type:uuid;not null;index" json:"bucket_id"`
+	Key          string    `gorm:"type:varchar(1024);not null;index" json:"key"` // e.g. "photos/vacation.jpg"
+	Filename     string    `gorm:"type:varchar(255);not null" json:"filename"`
+	FolderPrefix string    `gorm:"type:varchar(512);default:''" json:"folder_prefix"`
+	ContentType  string    `gorm:"type:varchar(150);not null;default:'application/octet-stream'" json:"content_type"`
+	SizeBytes    int64     `gorm:"not null" json:"size_bytes"`
+	ETag         string    `gorm:"type:varchar(64)" json:"etag"`
+	IsFolder     bool      `gorm:"not null;default:false" json:"is_folder"`
+	PublicURL    string    `gorm:"type:varchar(512)" json:"public_url,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 func (o *StorageObject) BeforeCreate(tx *gorm.DB) error {
@@ -69,7 +69,7 @@ type StorageAccessKey struct {
 	SecretAccessKey string     `gorm:"type:varchar(128);not null" json:"secret_access_key,omitempty"` // only shown on creation
 	Description     string     `gorm:"type:varchar(255)" json:"description"`
 	Permissions     string     `gorm:"type:varchar(50);not null;default:'read_write'" json:"permissions"` // read_only, read_write, admin
-	BucketScope     string     `gorm:"type:varchar(255);default:'*'" json:"bucket_scope"` // specific bucket or '*'
+	BucketScope     string     `gorm:"type:varchar(255);default:'*'" json:"bucket_scope"`                 // specific bucket or '*'
 	Status          string     `gorm:"type:varchar(32);not null;default:'active'" json:"status"`
 	LastUsedAt      *time.Time `json:"last_used_at"`
 	CreatedAt       time.Time  `json:"created_at"`
@@ -87,18 +87,18 @@ func (StorageAccessKey) TableName() string {
 }
 
 type StorageSharedLink struct {
-	ID          uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	OwnerID     uuid.UUID  `gorm:"type:uuid;not null;index" json:"owner_id"`
-	ObjectID    uuid.UUID  `gorm:"type:uuid;not null;index" json:"object_id"`
-	ShareToken  string     `gorm:"type:varchar(64);unique;not null" json:"share_token"`
-	ShareURL    string     `gorm:"type:varchar(512);not null" json:"share_url"`
-	AccessType  string     `gorm:"type:varchar(32);default:'download'" json:"access_type"` // view, download
-	Password    string     `gorm:"type:varchar(255)" json:"-"`
-	HasPassword bool       `gorm:"default:false" json:"has_password"`
-	ExpiresAt   *time.Time `json:"expires_at"`
-	Downloads   int64      `gorm:"default:0" json:"downloads"`
-	MaxDownloads *int64    `json:"max_downloads,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
+	ID           uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	OwnerID      uuid.UUID  `gorm:"type:uuid;not null;index" json:"owner_id"`
+	ObjectID     uuid.UUID  `gorm:"type:uuid;not null;index" json:"object_id"`
+	ShareToken   string     `gorm:"type:varchar(64);unique;not null" json:"share_token"`
+	ShareURL     string     `gorm:"type:varchar(512);not null" json:"share_url"`
+	AccessType   string     `gorm:"type:varchar(32);default:'download'" json:"access_type"` // view, download
+	Password     string     `gorm:"type:varchar(255)" json:"-"`
+	HasPassword  bool       `gorm:"default:false" json:"has_password"`
+	ExpiresAt    *time.Time `json:"expires_at"`
+	Downloads    int64      `gorm:"default:0" json:"downloads"`
+	MaxDownloads *int64     `json:"max_downloads,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
 
 	Object *StorageObject `gorm:"foreignKey:ObjectID" json:"object,omitempty"`
 }

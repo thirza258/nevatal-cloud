@@ -48,15 +48,15 @@ func NewAIAssistantService(
 }
 
 type AIPlatformContext struct {
-	User             models.User                 `json:"user"`
-	QuotaUsage       *models.QuotaUsage          `json:"quota_usage"`
-	Instances        []models.Instance           `json:"instances"`
-	Templates        []models.OSTemplate         `json:"templates"`
-	Plans            []models.ResourcePlan       `json:"plans"`
-	SSHKeys          []models.SSHKey             `json:"ssh_keys"`
-	HasServerAPIKey  bool                        `json:"has_server_api_key"`
-	DefaultModel     string                      `json:"default_model"`
-	AvailableModels  []OpenRouterModelDefinition `json:"available_models"`
+	User            models.User                 `json:"user"`
+	QuotaUsage      *models.QuotaUsage          `json:"quota_usage"`
+	Instances       []models.Instance           `json:"instances"`
+	Templates       []models.OSTemplate         `json:"templates"`
+	Plans           []models.ResourcePlan       `json:"plans"`
+	SSHKeys         []models.SSHKey             `json:"ssh_keys"`
+	HasServerAPIKey bool                        `json:"has_server_api_key"`
+	DefaultModel    string                      `json:"default_model"`
+	AvailableModels []OpenRouterModelDefinition `json:"available_models"`
 }
 
 type OpenRouterModelDefinition struct {
@@ -120,10 +120,10 @@ type ChatRequestInput struct {
 }
 
 type ChatResponse struct {
-	Message        models.AIAssistantMessage        `json:"message"`
+	Message        models.AIAssistantMessage         `json:"message"`
 	ActionProposal *models.AIAssistantActionProposal `json:"action_proposal,omitempty"`
-	UsedFallback   bool                             `json:"used_fallback"`
-	ErrorNotice    string                           `json:"error_notice,omitempty"`
+	UsedFallback   bool                              `json:"used_fallback"`
+	ErrorNotice    string                            `json:"error_notice,omitempty"`
 }
 
 type ExecuteActionInput struct {
@@ -155,7 +155,7 @@ func (s *AIAssistantService) GetPlatformContext(userID uuid.UUID) (*AIPlatformCo
 	s.db.Where("enabled = ?", true).Order("sort_order asc, memory_mb asc").Find(&plans)
 
 	var sshKeys []models.SSHKey
-	s.db.Where("user_id = ?", userID).Order("name asc").Find(&sshKeys)
+	s.db.Where("owner_id = ?", userID).Order("name asc").Find(&sshKeys)
 
 	defaultModel := s.cfg.OpenRouterModel
 	if defaultModel == "" {
