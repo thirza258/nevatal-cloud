@@ -15,6 +15,7 @@ import {
   PlusCircle,
   HardDrive,
   Gamepad2,
+  Smartphone,
 } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { UnifiedResourceItem, QuotaUsage } from '../../types';
@@ -33,7 +34,8 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
     ai_agents: number;
     buckets: number;
     game_servers: number;
-  }>({ total: 0, vps: 0, apps: 0, automations: 0, ai_agents: 0, buckets: 0, game_servers: 0 });
+    android_instances: number;
+  }>({ total: 0, vps: 0, apps: 0, automations: 0, ai_agents: 0, buckets: 0, game_servers: 0, android_instances: 0 });
   const [usage, setUsage] = useState<QuotaUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -84,6 +86,8 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
         return <Database className="w-4 h-4 text-cyan-400" />;
       case 'game_server':
         return <Gamepad2 className="w-4 h-4 text-violet-400" />;
+      case 'android_instance':
+        return <Smartphone className="w-4 h-4 text-emerald-400" />;
       default:
         return <Layers className="w-4 h-4 text-slate-400" />;
     }
@@ -103,6 +107,8 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
         return 'S3 Storage Bucket';
       case 'game_server':
         return 'Game Server';
+      case 'android_instance':
+        return 'Android Cloud';
       default:
         return type;
     }
@@ -159,6 +165,9 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
         break;
       case 'game_server':
         onNavigate('/dashboard/game-servers', r.id);
+        break;
+      case 'android_instance':
+        onNavigate('/dashboard/android', r.id);
         break;
       default:
         break;
@@ -230,6 +239,10 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
           <div className="text-[10px] uppercase font-bold text-violet-400">Game Servers</div>
           <div className="text-xl font-bold text-white mt-1">{counts.game_servers}</div>
         </div>
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-emerald-400">Android Cloud</div>
+          <div className="text-xl font-bold text-white mt-1">{counts.android_instances || 0}</div>
+        </div>
       </div>
 
       {/* Search & Filter Bar */}
@@ -244,6 +257,7 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
             { id: 'ai_agent', label: 'OpenClaw', icon: Bot },
             { id: 'bucket', label: 'S3 Buckets', icon: Database },
             { id: 'game_server', label: 'Game Servers', icon: Gamepad2 },
+            { id: 'android_instance', label: 'Android Cloud', icon: Smartphone },
           ].map((tab) => {
             const active = filterType === tab.id;
             return (

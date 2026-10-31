@@ -47,9 +47,10 @@ func main() {
 	storageService := services.NewStorageService(db, "")
 	portService := services.NewPortService(db)
 	gameServerService := services.NewGameServerService(db, cfg, portService, auditService, quotaService, pveClient)
+	androidService := services.NewAndroidService(db, cfg, auditService, quotaService, pveClient)
 	aiAssistantService := services.NewAIAssistantService(db, cfg, instanceService, quotaService, auditService)
-	mcpService := services.NewMCPService(db, instanceService, appService, automationService, openClawService, storageService, gameServerService, quotaService, pveClient)
-	aiAgentService := services.NewAIAgentService(db, cfg, instanceService, appService, automationService, openClawService, storageService, gameServerService, quotaService, mcpService, pveClient)
+	mcpService := services.NewMCPService(db, instanceService, appService, automationService, openClawService, storageService, gameServerService, androidService, quotaService, pveClient)
+	aiAgentService := services.NewAIAgentService(db, cfg, instanceService, appService, automationService, openClawService, storageService, gameServerService, androidService, quotaService, mcpService, pveClient)
 
 	// 5. Initialize Router & Endpoints
 	router := api.SetupRouter(api.RouterParams{
@@ -68,6 +69,7 @@ func main() {
 		ISOService:         isoService,
 		StorageService:     storageService,
 		GameServerService:  gameServerService,
+		AndroidService:     androidService,
 		AIAssistantService: aiAssistantService,
 		MCPService:         mcpService,
 		AIAgentService:     aiAgentService,

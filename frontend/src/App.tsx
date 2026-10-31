@@ -47,6 +47,12 @@ import { GameServersList } from './pages/game-servers/GameServersList';
 import { CreateGameServer } from './pages/game-servers/CreateGameServer';
 import { GameServerDetails } from './pages/game-servers/GameServerDetails';
 
+// Managed Waydroid Android Cloud (PRD Addendum 66-83)
+import { AndroidInstancesList } from './pages/android/AndroidInstancesList';
+import { CreateAndroidInstance } from './pages/android/CreateAndroidInstance';
+import { AndroidInstanceDetails } from './pages/android/AndroidInstanceDetails';
+import { AdminAndroidImages } from './pages/admin/AdminAndroidImages';
+
 // Admin Pages
 import { AdminOverview } from './pages/admin/AdminOverview';
 import { AdminUsers } from './pages/admin/AdminUsers';
@@ -196,6 +202,24 @@ export const App: React.FC = () => {
         <CreateGameServer onNavigate={handleNavigate} />
       )}
 
+      {/* Managed Waydroid Android Cloud Routes (PRD Addendum 66-83) */}
+      {currentPath === '/dashboard/android' && !param && (
+        <AndroidInstancesList onNavigate={handleNavigate} />
+      )}
+      {currentPath === '/dashboard/android/create' && (
+        <CreateAndroidInstance onNavigate={handleNavigate} />
+      )}
+      {currentPath.startsWith('/dashboard/android/') && currentPath !== '/dashboard/android/create' && (
+        <AndroidInstanceDetails
+          instanceId={currentPath.replace('/dashboard/android/', '').split('/')[0]}
+          initialTab={param || (currentPath.includes('/console') ? 'console' : 'overview')}
+          onNavigate={handleNavigate}
+        />
+      )}
+      {currentPath === '/dashboard/android' && param && (
+        <AndroidInstanceDetails instanceId={param} onNavigate={handleNavigate} />
+      )}
+
       {/* Account & Administration */}
       {currentPath === '/dashboard/ssh-keys' && <SSHKeys />}
       {currentPath === '/dashboard/usage' && <UsageQuotas />}
@@ -210,6 +234,7 @@ export const App: React.FC = () => {
       {currentPath === '/admin/templates' && <AdminTemplates />}
       {currentPath === '/admin/plans' && <AdminPlans />}
       {currentPath === '/admin/nodes' && <AdminNodes />}
+      {currentPath === '/admin/android/images' && <AdminAndroidImages />}
       {currentPath === '/admin/audit-logs' && <AdminAudit />}
     </AppShell>
   );

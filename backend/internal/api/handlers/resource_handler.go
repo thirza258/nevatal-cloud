@@ -17,6 +17,7 @@ type ResourceHandler struct {
 	openClawService   *services.OpenClawService
 	storageService    *services.StorageService
 	gameServerService *services.GameServerService
+	androidService    *services.AndroidService
 	quotaService      *services.QuotaService
 }
 
@@ -27,6 +28,7 @@ func NewResourceHandler(
 	openClawService *services.OpenClawService,
 	storageService *services.StorageService,
 	gameServerService *services.GameServerService,
+	androidService *services.AndroidService,
 	quotaService *services.QuotaService,
 ) *ResourceHandler {
 	return &ResourceHandler{
@@ -36,6 +38,7 @@ func NewResourceHandler(
 		openClawService:   openClawService,
 		storageService:    storageService,
 		gameServerService: gameServerService,
+		androidService:    androidService,
 		quotaService:      quotaService,
 	}
 }
@@ -178,6 +181,29 @@ func (h *ResourceHandler) ListAll(c *gin.Context) {
 		}
 	}
 
+	// 7. Android Cloud (Waydroid) per PRD Section 66 & 83
+	androidList, err := h.androidService.List(userID, false, "")
+	if err == nil {
+		for _, and := range androidList {
+			items = append(items, UnifiedResourceItem{
+				ID:        and.ID.String(),
+				Type:      "android_instance",
+				Name:      and.Name,
+				Status:    and.Status,
+				Endpoint:  and.AccessURL,
+				Specs:     fmt.Sprintf("Android %s (%s, %s)", and.PlanName, and.DisplayResolution, and.Orientation),
+				CreatedAt: and.CreatedAt.Format("2006-01-02 15:04"),
+				Details: map[string]interface{}{
+					"plan":        and.PlanName,
+					"vcpus":       and.VCPUs,
+					"memory_mb":   and.MemoryMB,
+					"resolution":  and.DisplayResolution,
+					"adb_enabled": and.ADBEnabled,
+				},
+			})
+		}
+	}
+
 	usage, _ := h.quotaService.GetUsage(userID)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -185,13 +211,14 @@ func (h *ResourceHandler) ListAll(c *gin.Context) {
 			"resources": items,
 			"usage":     usage,
 			"counts": gin.H{
-				"total":        len(items),
-				"vps":          len(instances),
-				"apps":         len(apps),
-				"automations":  len(autos),
-				"ai_agents":    len(agents),
-				"buckets":      len(buckets),
-				"game_servers": len(gameServers),
+				"total":             len(items),
+				"vps":               len(instances),
+				"apps":              len(apps),
+				"automations":       len(autos),
+				"ai_agents":         len(agents),
+				"buckets":           len(buckets),
+				"game_servers":      len(gameServers),
+				"android_instances": len(androidList),
 			},
 		},
 	})

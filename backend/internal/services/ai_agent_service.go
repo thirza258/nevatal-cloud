@@ -26,6 +26,7 @@ type AIAgentService struct {
 	openClawService   *OpenClawService
 	storageService    *StorageService
 	gameServerService *GameServerService
+	androidService    *AndroidService
 	quotaService      *QuotaService
 	mcpService        *MCPService
 	pve               proxmox.ProxmoxClient
@@ -41,6 +42,7 @@ func NewAIAgentService(
 	openClawService *OpenClawService,
 	storageService *StorageService,
 	gameServerService *GameServerService,
+	androidService *AndroidService,
 	quotaService *QuotaService,
 	mcpService *MCPService,
 	pve proxmox.ProxmoxClient,
@@ -54,6 +56,7 @@ func NewAIAgentService(
 		openClawService:   openClawService,
 		storageService:    storageService,
 		gameServerService: gameServerService,
+		androidService:    androidService,
 		quotaService:      quotaService,
 		mcpService:        mcpService,
 		pve:               pve,
@@ -187,11 +190,12 @@ func (s *AIAgentService) GetPlan(planID uuid.UUID, userID uuid.UUID) (*models.AI
 // User Message Processing & Conversation State Machine
 
 type SendMessageInput struct {
-	Message   string `json:"message" binding:"required"`
-	AnswerKey string `json:"answer_key,omitempty"` // If user clicked an interactive answer chip
-	AnswerVal string `json:"answer_val,omitempty"` // Value for the answered key
-	APIKey    string `json:"api_key,omitempty"`    // Optional user OpenRouter API Key
-	Model     string `json:"model,omitempty"`      // Model preference
+	Message   string                 `json:"message" binding:"required"`
+	AnswerKey string                 `json:"answer_key,omitempty"` // If user clicked an interactive answer chip
+	AnswerVal string                 `json:"answer_val,omitempty"` // Value for the answered key
+	Answers   map[string]interface{} `json:"answers,omitempty"`    // Map of key-value answers
+	APIKey    string                 `json:"api_key,omitempty"`    // Optional user OpenRouter API Key
+	Model     string                 `json:"model,omitempty"`      // Model preference
 }
 
 type SendMessageResponse struct {
@@ -248,6 +252,9 @@ func (s *AIAgentService) ProcessUserMessage(
 	if input.AnswerKey != "" && input.AnswerVal != "" {
 		reqs[input.AnswerKey] = input.AnswerVal
 	}
+	for k, v := range input.Answers {
+		reqs[k] = fmt.Sprintf("%v", v)
+	}
 
 	// Load platform context for validation & capacity checks
 	var templates []models.OSTemplate
@@ -299,6 +306,10 @@ func (s *AIAgentService) ProcessUserMessage(
 		)
 	case "game_server":
 		assistantReply, uiPayload, planProposal, newPlanID = s.handleGameServerWorkflow(
+			convID, userID, convState, reqs, quotaUsage,
+		)
+	case "android_instance":
+		assistantReply, uiPayload, planProposal, newPlanID = s.handleAndroidWorkflow(
 			convID, userID, convState, reqs, quotaUsage,
 		)
 	case "troubleshoot":
@@ -1271,6 +1282,221 @@ func (s *AIAgentService) handleGameServerWorkflow(
 	return reply, models.UIComponentsPayload{PlanProposal: planView}, planView, resPlan.ID.String()
 }
 
+func (s *AIAgentService) handleAndroidWorkflow(
+	convID uuid.UUID,
+	userID uuid.UUID,
+	state *models.AIConversationState,
+	reqs map[string]string,
+	quota *models.QuotaUsage,
+) (string, models.UIComponentsPayload, *models.StructuredPlanView, string) {
+	// Step 1: Select Image / Android Version if not specified
+	imageID := reqs["image_id"]
+	if imageID == "" && reqs["image_slug"] != "" {
+		var img models.AndroidImage
+		if err := s.db.First(&img, "slug = ?", reqs["image_slug"]).Error; err == nil {
+			imageID = img.ID.String()
+			reqs["image_id"] = imageID
+		}
+	}
+
+	if imageID == "" {
+		images, _ := s.androidService.ListImages(true)
+		var options []models.StructuredQuestionOption
+		for i, img := range images {
+			isDefault := i == 0
+			options = append(options, models.StructuredQuestionOption{
+				ID:          img.ID.String(),
+				Label:       fmt.Sprintf("%s (Android %s)", img.Name, img.AndroidVersion),
+				Value:       img.ID.String(),
+				Description: img.Description,
+				IsDefault:   isDefault,
+			})
+		}
+		if len(options) == 0 {
+			options = []models.StructuredQuestionOption{
+				{ID: "lineageos-20", Label: "LineageOS 20 (Android 13) - Recommended", Value: "lineageos-20", Description: "Modern Android 13 runtime for apps & tests", IsDefault: true},
+				{ID: "lineageos-18", Label: "LineageOS 18.1 (Android 11)", Value: "lineageos-18", Description: "Legacy Android 11 for QA testing"},
+				{ID: "android-12-dev", Label: "Android 12 Developer Preview", Value: "android-12-dev", Description: "Root-enabled developer build with pre-configured ADB"},
+			}
+		}
+
+		state.State = models.StateClarifyingRequirements
+		question := models.StructuredQuestion{
+			ID:          "q_android_image",
+			Key:         "image_id",
+			Title:       "Which Android OS version would you like to run in Waydroid?",
+			Description: "Select a containerized Android system image optimized for cloud desktop and ADB testing.",
+			Type:        "single_choice",
+			Required:    true,
+			Options:     options,
+		}
+		return question.Title, models.UIComponentsPayload{
+			Questions: []models.StructuredQuestion{question},
+		}, nil, ""
+	}
+
+	// Step 2: Sizing Plan
+	planName := reqs["plan"]
+	if planName == "" {
+		state.State = models.StateClarifyingRequirements
+		question := models.StructuredQuestion{
+			ID:          "q_android_plan",
+			Key:         "plan",
+			Title:       "What hardware sizing tier fits your Android workload?",
+			Description: "Allocate virtual CPU, RAM, and dedicated user storage.",
+			Type:        "single_choice",
+			Required:    true,
+			Options: []models.StructuredQuestionOption{
+				{ID: "developer", Label: "Developer (Recommended) — 2 vCPU, 4 GB RAM, 32 GB Storage", Value: "developer", Description: "Optimal for app debugging, continuous testing, and daily emulation", IsDefault: true},
+				{ID: "standard", Label: "Standard — 2 vCPU, 3 GB RAM, 24 GB Storage", Value: "standard", Description: "Lightweight app usage and web browsing"},
+				{ID: "power", Label: "Power — 4 vCPU, 8 GB RAM, 64 GB Storage", Value: "power", Description: "High performance for complex Android apps and games"},
+				{ID: "testing", Label: "Testing / QA — 1 vCPU, 2 GB RAM, 16 GB Storage", Value: "testing", Description: "Minimal container for CI/CD test automation pipelines"},
+			},
+		}
+		return question.Title, models.UIComponentsPayload{
+			Questions: []models.StructuredQuestion{question},
+		}, nil, ""
+	}
+
+	// Step 3: Display & Remote Access Resolution
+	resolution := reqs["display_resolution"]
+	if resolution == "" {
+		state.State = models.StateClarifyingRequirements
+		question := models.StructuredQuestion{
+			ID:          "q_android_resolution",
+			Key:         "display_resolution",
+			Title:       "Select the virtual screen resolution and orientation:",
+			Description: "Defines the virtual framebuffer streamed to your browser via WebRTC/canvas.",
+			Type:        "single_choice",
+			Required:    true,
+			Options: []models.StructuredQuestionOption{
+				{ID: "phone_portrait", Label: "Phone Portrait (720 × 1280, 240 DPI)", Value: "720x1280", Description: "Standard smartphone aspect ratio", IsDefault: true},
+				{ID: "tablet_landscape", Label: "Tablet Landscape (1280 × 720, 240 DPI)", Value: "1280x720", Description: "Widescreen dashboard or tablet orientation"},
+				{ID: "fhd_portrait", Label: "Full HD Portrait (1080 × 1920, 320 DPI)", Value: "1080x1920", Description: "High-DPI smartphone display"},
+				{ID: "fhd_landscape", Label: "Full HD Landscape (1920 × 1080, 320 DPI)", Value: "1920x1080", Description: "Full HD desktop tablet viewport"},
+			},
+		}
+		return question.Title, models.UIComponentsPayload{
+			Questions: []models.StructuredQuestion{question},
+		}, nil, ""
+	}
+
+	// Build Proposal
+	instanceName := reqs["name"]
+	if instanceName == "" {
+		instanceName = fmt.Sprintf("android-box-%d", time.Now().Unix()%1000)
+	}
+
+	vcpus := 2
+	memoryMB := 4096
+	storageGB := 32
+
+	switch planName {
+	case "testing":
+		vcpus, memoryMB, storageGB = 1, 2048, 16
+	case "standard":
+		vcpus, memoryMB, storageGB = 2, 3072, 24
+	case "developer":
+		vcpus, memoryMB, storageGB = 2, 4096, 32
+	case "power":
+		vcpus, memoryMB, storageGB = 4, 8192, 64
+	}
+
+	density := 240
+	if strings.Contains(resolution, "1920") {
+		density = 320
+	}
+	orientation := "portrait"
+	if strings.HasPrefix(resolution, "1280") || strings.HasPrefix(resolution, "1920") {
+		orientation = "landscape"
+	}
+
+	adbEnabled := true
+	if reqs["adb_enabled"] == "false" {
+		adbEnabled = false
+	}
+
+	planTitle := fmt.Sprintf("Provision Waydroid Android Instance (%s)", instanceName)
+	planSummary := fmt.Sprintf("Containerized Waydroid Android environment (%s tier: %d vCPU, %d MB RAM, %d GB Storage) with browser-based display stream and ADB network bridging.", strings.Title(planName), vcpus, memoryMB, storageGB)
+
+	planView := &models.StructuredPlanView{
+		Title:                planTitle,
+		Intent:               "android_instance",
+		Summary:              planSummary,
+		Reversible:           true,
+		RequiresConfirmation: true,
+		Status:               "awaiting_confirmation",
+		EstimatedAllocations: map[string]interface{}{
+			"vcpus":               vcpus,
+			"memory_mb":           memoryMB,
+			"storage_gb":          storageGB,
+			"display_resolution":  resolution,
+			"display_density_dpi": density,
+			"orientation":         orientation,
+			"adb_enabled":         adbEnabled,
+			"remote_access":       "Browser WebRTC / Canvas Display",
+		},
+	}
+
+	planJSONBytes, _ := json.Marshal(planView)
+
+	resPlan := models.AIResourcePlan{
+		ConversationID:       convID,
+		UserID:               userID,
+		Version:              1,
+		Intent:               "android_instance",
+		Status:               "draft",
+		Title:                planTitle,
+		Description:          planSummary,
+		PlanJSON:             string(planJSONBytes),
+		EstimatedCosts:       `{"monthly_estimate": "$12.00 / month", "included_bandwidth": "Unmetered"}`,
+		RequiresConfirmation: true,
+		CreatedAt:            time.Now(),
+		UpdatedAt:            time.Now(),
+	}
+
+	_ = s.db.Create(&resPlan)
+
+	cfgMap := map[string]interface{}{
+		"name":               instanceName,
+		"image_id":           imageID,
+		"plan_name":          planName,
+		"vcpus":              vcpus,
+		"memory_mb":          memoryMB,
+		"storage_gb":         storageGB,
+		"display_resolution": resolution,
+		"display_density":    density,
+		"orientation":        orientation,
+		"adb_enabled":        adbEnabled,
+	}
+	cfgBytes, _ := json.Marshal(cfgMap)
+
+	_ = s.db.Create(&models.AIPlanResource{
+		PlanID:         resPlan.ID,
+		ResourceType:   "android_instance",
+		ResourceName:   instanceName,
+		ConfigJSON:     string(cfgBytes),
+		Status:         "pending",
+		ExecutionOrder: 1,
+		CreatedAt:      time.Now(),
+	})
+
+	_ = s.db.Create(&models.AIApproval{
+		PlanID:    resPlan.ID,
+		UserID:    userID,
+		Version:   1,
+		Status:    "pending",
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		CreatedAt: time.Now(),
+	})
+
+	state.State = models.StateAwaitingConfirmation
+	state.ActivePlanID = &resPlan.ID
+
+	reply := fmt.Sprintf("I have prepared the deployment proposal for your **Waydroid Android Instance** (**`%s`**). Review the hardware and display configuration below, then click **Approve and Provision** to launch your cloud Android device!", instanceName)
+	return reply, models.UIComponentsPayload{PlanProposal: planView}, planView, resPlan.ID.String()
+}
+
 // Plan Approval & Orchestration Execution (Section 36, 39, 41)
 
 type ApprovePlanInput struct {
@@ -1560,6 +1786,51 @@ func (s *AIAgentService) ApprovePlan(
 			resultDetails["public_address"] = gs.PublicAddress
 			resultDetails["assigned_port"] = gs.AssignedPort
 			resultDetails["game_type"] = gs.GameType
+
+		case "android_instance":
+			var andCfg struct {
+				Name              string `json:"name"`
+				ImageID           string `json:"image_id"`
+				PlanName          string `json:"plan_name"`
+				VCPUs             int    `json:"vcpus"`
+				MemoryMB          int    `json:"memory_mb"`
+				StorageGB         int    `json:"storage_gb"`
+				DisplayResolution string `json:"display_resolution"`
+				DisplayDensity    int    `json:"display_density"`
+				Orientation       string `json:"orientation"`
+				ADBEnabled        bool   `json:"adb_enabled"`
+			}
+			_ = json.Unmarshal([]byte(res.ConfigJSON), &andCfg)
+
+			andInst, err := s.androidService.Create(userID, CreateAndroidInstanceInput{
+				Name:              andCfg.Name,
+				ImageID:           andCfg.ImageID,
+				PlanName:          andCfg.PlanName,
+				VCPUs:             andCfg.VCPUs,
+				MemoryMB:          andCfg.MemoryMB,
+				StorageGB:         andCfg.StorageGB,
+				DisplayResolution: andCfg.DisplayResolution,
+				DisplayDensity:    andCfg.DisplayDensity,
+				Orientation:       andCfg.Orientation,
+				ADBEnabled:        andCfg.ADBEnabled,
+			}, clientIP)
+
+			if err != nil {
+				executionErr = err
+				res.Status = "failed"
+				_ = s.db.Save(&res)
+				break
+			}
+
+			res.Status = "completed"
+			res.ProvisionedID = andInst.ID.String()
+			_ = s.db.Save(&res)
+
+			resultDetails["android_instance_id"] = andInst.ID
+			resultDetails["name"] = andInst.Name
+			resultDetails["status"] = andInst.Status
+			resultDetails["access_url"] = andInst.AccessURL
+			resultDetails["adb_port"] = andInst.ADBPort
 		}
 
 		if executionErr != nil {
@@ -1688,6 +1959,11 @@ func (s *AIAgentService) CancelPlan(convID uuid.UUID, planID uuid.UUID, userID u
 // Helpers for Intelligent Dynamic Parsing
 
 func detectIntent(msg string) string {
+	if strings.Contains(msg, "android") || strings.Contains(msg, "waydroid") ||
+		strings.Contains(msg, "apk") || strings.Contains(msg, "lineageos") ||
+		strings.Contains(msg, "mobile app") || strings.Contains(msg, "android cloud") {
+		return "android_instance"
+	}
 	if strings.Contains(msg, "minecraft") || strings.Contains(msg, "terraria") ||
 		strings.Contains(msg, "game server") || strings.Contains(msg, "game") ||
 		strings.Contains(msg, "paper") || strings.Contains(msg, "bedrock") ||
@@ -1826,6 +2102,21 @@ func extractRequirementsFromText(
 	playerRegex := regexp.MustCompile(`(\d+)\s*(?:players?|friends?|slots?)`)
 	if match := playerRegex.FindStringSubmatch(msg); len(match) > 1 {
 		reqs["player_slots"] = match[1]
+	}
+
+	// Detect Android Waydroid preferences
+	if strings.Contains(msg, "lineageos 20") || strings.Contains(msg, "android 13") {
+		reqs["image_slug"] = "lineageos-20-android-13"
+	} else if strings.Contains(msg, "lineageos 18") || strings.Contains(msg, "android 11") {
+		reqs["image_slug"] = "lineageos-18-android-11"
+	} else if strings.Contains(msg, "developer") && (strings.Contains(msg, "android") || strings.Contains(msg, "waydroid")) {
+		reqs["image_slug"] = "android-12-developer"
+	}
+
+	if strings.Contains(msg, "power") {
+		reqs["plan"] = "power"
+	} else if strings.Contains(msg, "testing") {
+		reqs["plan"] = "testing"
 	}
 }
 

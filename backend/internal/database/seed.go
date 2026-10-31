@@ -517,6 +517,11 @@ func Seed(db *gorm.DB) error {
 		log.Printf("Warning: failed to seed game servers: %v", err)
 	}
 
+	// 10. Seed Android Waydroid Hosting (PRD Section 66-83)
+	if err := seedAndroidCloud(db); err != nil {
+		log.Printf("Warning: failed to seed android cloud: %v", err)
+	}
+
 	return nil
 }
 
@@ -627,6 +632,30 @@ func seedMCPServers(db *gorm.DB) error {
 		{ServerID: coreServer.ID, Name: "cloud.terraria.execute_command", Description: "Execute admin command in Terraria server", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"command":{"type":"string"}},"required":["id","command"]}`, Enabled: true, CreatedAt: now},
 		{ServerID: coreServer.ID, Name: "cloud.terraria.create_world_backup", Description: "Create persistent world snapshot for Terraria", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"backup_name":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
 		{ServerID: coreServer.ID, Name: "cloud.terraria.restore_world_backup", Description: "Restore Terraria world from a backup archive", RiskLevel: "destructive", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"backup_id":{"type":"string"}},"required":["id","backup_id"]}`, Enabled: true, CreatedAt: now},
+
+		// Waydroid Android Hosting per PRD Section 77
+		{ServerID: coreServer.ID, Name: "cloud.list_android_images", Description: "List published Waydroid system and vendor images", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.list_android_plans", Description: "List Android hardware sizing tiers (Standard, Dev, QA, Power)", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_android_capacity", Description: "Inspect Waydroid worker node capacity and binder driver status", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.list_android_instances", Description: "List customer Android container instances", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"status":{"type":"string"}}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_android_instance", Description: "Get details and status of an Android container instance", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.plan_android_instance", Description: "Validate and dry-run proposal for an Android instance", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"name":{"type":"string"},"image_id":{"type":"string"},"plan":{"type":"string"}},"required":["name"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.create_android_instance", Description: "Provision a new Waydroid Android container instance", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"name":{"type":"string"},"image_id":{"type":"string"},"plan_name":{"type":"string"}},"required":["name","image_id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.start_android_instance", Description: "Start a stopped Android instance", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.stop_android_instance", Description: "Stop an active Android instance", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.restart_android_instance", Description: "Restart an Android container instance", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.delete_android_instance", Description: "Permanently delete an Android instance and persistent storage", RiskLevel: "destructive", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.android.list_applications", Description: "List installed Android apps and packages", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.android.install_apk", Description: "Install an APK package onto the Android environment", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"app_name":{"type":"string"},"apk_url":{"type":"string"}},"required":["id","app_name"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.android.uninstall_application", Description: "Uninstall an APK package from the Android instance", RiskLevel: "destructive", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"package_name":{"type":"string"}},"required":["id","package_name"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.android.get_application_info", Description: "Inspect metadata and permissions of an installed APK", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"package_name":{"type":"string"}},"required":["id","package_name"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.android.get_metrics", Description: "Fetch live CPU, RAM, storage and FPS metrics for Android", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.android.get_health", Description: "Check Waydroid container health and IP endpoint", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.android.get_logs", Description: "Fetch live logcat and container logs from Android instance", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"lines":{"type":"integer"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.android.get_session_status", Description: "Inspect active browser WebRTC/canvas remote display sessions", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.android.create_backup", Description: "Create snapshot backup of Android persistent user data", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"backup_name":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.android.list_backups", Description: "List snapshot backups for an Android instance", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.android.restore_backup", Description: "Restore persistent user data from a snapshot backup", RiskLevel: "destructive", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"backup_id":{"type":"string"}},"required":["id","backup_id"]}`, Enabled: true, CreatedAt: now},
 	}
 
 	for _, tool := range coreTools {
@@ -724,10 +753,13 @@ func seedMCPServers(db *gorm.DB) error {
 
 	for _, ext := range extServers {
 		s := ext.Server
-		if err := db.Create(&s).Error; err == nil {
-			for _, t := range ext.Tools {
-				t.ServerID = s.ID
-				_ = db.Create(&t)
+		var existing models.MCPServer
+		if err := db.Where("name = ?", s.Name).First(&existing).Error; err != nil {
+			if err := db.Create(&s).Error; err == nil {
+				for _, t := range ext.Tools {
+					t.ServerID = s.ID
+					_ = db.Create(&t)
+				}
 			}
 		}
 	}
@@ -1167,6 +1199,233 @@ func seedGameServers(db *gorm.DB) error {
 	}
 
 	log.Println("Seeded game server templates, versions, and sample instances.")
+	return nil
+}
+
+func seedAndroidCloud(db *gorm.DB) error {
+	now := time.Now()
+	var demoUser models.User
+	db.Where("email = ?", "demo@nevatal.id").First(&demoUser)
+
+	// 5. Seed Android Waydroid Hosting (PRD Section 66-83)
+	var androidWorkerCount int64
+	db.Model(&models.AndroidWorkerNode{}).Count(&androidWorkerCount)
+	var androidWorker models.AndroidWorkerNode
+	if androidWorkerCount == 0 {
+		androidWorker = models.AndroidWorkerNode{
+			Name:                 "Waydroid Worker Node 01",
+			ProxmoxNodeName:      "pve-dell-r640",
+			IPAddress:            "192.168.10.10",
+			Status:               "ready",
+			KernelVersion:        "6.8.12-waydroid-pve",
+			BinderStatus:         "active",
+			TotalCPUCores:        32,
+			TotalMemoryMB:        131072,
+			TotalStorageGB:       2048,
+			ActiveInstancesCount: 1,
+			LastHealthCheckAt:    now,
+			CreatedAt:            now,
+			UpdatedAt:            now,
+		}
+		_ = db.Create(&androidWorker)
+		log.Println("Seeded Android Waydroid worker node.")
+	} else {
+		db.First(&androidWorker)
+	}
+
+	var androidImgCount int64
+	db.Model(&models.AndroidImage{}).Count(&androidImgCount)
+	var defaultAndroidImg models.AndroidImage
+	if androidImgCount == 0 {
+		img1 := models.AndroidImage{
+			Name:           "LineageOS 20 (Android 13)",
+			Slug:           "lineageos-20-android-13",
+			AndroidVersion: "13",
+			Architecture:   "x86_64",
+			ImageType:      models.AndroidImageTypeStandard,
+			SystemImageURL: "https://images.nevatal.id/waydroid/system-20.0-vanilla.img",
+			VendorImageURL: "https://images.nevatal.id/waydroid/vendor-20.0-mainline.img",
+			ImageSource:    "official",
+			ChecksumSHA256: "a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0",
+			MinCPU:         2,
+			MinRAMMB:       4096,
+			MinStorageGB:   32,
+			IsPublished:    true,
+			IsVerified:     true,
+			Description:    "Modern Android 13 LineageOS 20 container image optimized for cloud desktop and high-performance testing.",
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		}
+		_ = db.Create(&img1)
+		defaultAndroidImg = img1
+
+		_ = db.Create(&models.AndroidImageVersion{
+			ImageID:        img1.ID,
+			VersionTag:     "v20.0-20240901-VANILLA",
+			Channel:        "stable",
+			ReleaseNotes:   "Official LineageOS 20 Waydroid mainline release with Linux binder integration.",
+			SystemChecksum: img1.ChecksumSHA256,
+			VendorChecksum: img1.ChecksumSHA256,
+			IsActive:       true,
+			CreatedAt:      now,
+		})
+
+		img2 := models.AndroidImage{
+			Name:           "LineageOS 18.1 (Android 11)",
+			Slug:           "lineageos-18-android-11",
+			AndroidVersion: "11",
+			Architecture:   "x86_64",
+			ImageType:      models.AndroidImageTypeStandard,
+			SystemImageURL: "https://images.nevatal.id/waydroid/system-18.1-vanilla.img",
+			VendorImageURL: "https://images.nevatal.id/waydroid/vendor-18.1-mainline.img",
+			ImageSource:    "official",
+			ChecksumSHA256: "b2c3d4e5f6a17890123456789abcdef0123456789abcdef0123456789abcdef1",
+			MinCPU:         1,
+			MinRAMMB:       2048,
+			MinStorageGB:   16,
+			IsPublished:    true,
+			IsVerified:     true,
+			Description:    "Lightweight Android 11 container image for enterprise QA and backwards compatibility testing.",
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		}
+		_ = db.Create(&img2)
+		_ = db.Create(&models.AndroidImageVersion{
+			ImageID:        img2.ID,
+			VersionTag:     "v18.1-20240815-VANILLA",
+			Channel:        "stable",
+			ReleaseNotes:   "Official LineageOS 18.1 Waydroid release for legacy app validation.",
+			SystemChecksum: img2.ChecksumSHA256,
+			VendorChecksum: img2.ChecksumSHA256,
+			IsActive:       true,
+			CreatedAt:      now,
+		})
+
+		img3 := models.AndroidImage{
+			Name:           "Android 12 Developer & Testing",
+			Slug:           "android-12-developer",
+			AndroidVersion: "12",
+			Architecture:   "x86_64",
+			ImageType:      models.AndroidImageTypeDeveloper,
+			SystemImageURL: "https://images.nevatal.id/waydroid/system-12-dev.img",
+			VendorImageURL: "https://images.nevatal.id/waydroid/vendor-12-dev.img",
+			ImageSource:    "approved_custom",
+			ChecksumSHA256: "c3d4e5f6a1b27890123456789abcdef0123456789abcdef0123456789abcdef2",
+			MinCPU:         2,
+			MinRAMMB:       4096,
+			MinStorageGB:   32,
+			IsPublished:    true,
+			IsVerified:     true,
+			Description:    "Developer preview build with root access, pre-configured ADB over TLS, and debug instrumentation.",
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		}
+		_ = db.Create(&img3)
+		_ = db.Create(&models.AndroidImageVersion{
+			ImageID:        img3.ID,
+			VersionTag:     "v12.0-developer-preview",
+			Channel:        "beta",
+			ReleaseNotes:   "Developer tooling release with root privileges and ADB pre-authorized.",
+			SystemChecksum: img3.ChecksumSHA256,
+			VendorChecksum: img3.ChecksumSHA256,
+			IsActive:       true,
+			CreatedAt:      now,
+		})
+
+		log.Println("Seeded official Waydroid Android images and versions.")
+	} else {
+		db.First(&defaultAndroidImg)
+	}
+
+	// Seed Demo Android Instance for demoUser
+	var androidInstCount int64
+	db.Model(&models.AndroidInstance{}).Count(&androidInstCount)
+	if androidInstCount == 0 && demoUser.ID != uuid.Nil && defaultAndroidImg.ID != uuid.Nil {
+		instID := uuid.New()
+		sampleToken := "demo-sess-tok-" + uuid.New().String()[:12]
+		workerID := androidWorker.ID
+
+		demoInstance := models.AndroidInstance{
+			ID:                 instID,
+			OwnerID:            demoUser.ID,
+			ImageID:            defaultAndroidImg.ID,
+			WorkerNodeID:       &workerID,
+			Name:               "Demo Android Device",
+			Slug:               "demo-android-device",
+			Status:             models.AndroidStatusRunning,
+			PlanName:           "developer",
+			VCPUs:              2,
+			MemoryMB:           4096,
+			StorageGB:          32,
+			DisplayResolution:  "1280x720",
+			DisplayDensity:     240,
+			Orientation:        "portrait",
+			RemoteAccessType:   "browser",
+			AccessURL:          fmt.Sprintf("https://cloud.nevatal.id/dashboard/android/%s/console", instID),
+			SessionToken:       sampleToken,
+			IPAddress:          "10.192.0.15",
+			GatewayPort:        6080,
+			ADBEnabled:         true,
+			ADBPort:            5555,
+			PersistenceEnabled: true,
+			AutoBackupEnabled:  true,
+			BackupSchedule:     "daily",
+			UptimeSeconds:      86400 * 3,
+			CreatedAt:          now.Add(-72 * time.Hour),
+			UpdatedAt:          now,
+		}
+		if err := db.Create(&demoInstance).Error; err == nil {
+			// Persistent Data Volume
+			_ = db.Create(&models.AndroidDataVolume{
+				InstanceID:  instID,
+				VolumeName:  "data-volume-userdata",
+				MountPath:   "/data",
+				SizeBytes:   1024 * 1024 * 1024 * 8, // 8 GB used
+				ZFSDataset:  "zfs-pool/android/" + instID.String(),
+				CreatedAt:   now.Add(-72 * time.Hour),
+				UpdatedAt:   now,
+			})
+
+			// Pre-installed sample applications
+			sampleApps := []models.AndroidApplication{
+				{InstanceID: instID, PackageName: "com.android.chrome", AppName: "Google Chrome", VersionName: "128.0.6613.88", FileSizeBytes: 1024 * 1024 * 85, IsSystemApp: false, InstalledAt: now.Add(-70 * time.Hour)},
+				{InstanceID: instID, PackageName: "com.termux", AppName: "Termux Terminal", VersionName: "0.118.0", FileSizeBytes: 1024 * 1024 * 35, IsSystemApp: false, InstalledAt: now.Add(-60 * time.Hour)},
+				{InstanceID: instID, PackageName: "com.nevatal.cloudagent", AppName: "Nevatal Mobile QA Companion", VersionName: "1.0.4", FileSizeBytes: 1024 * 1024 * 12, IsSystemApp: false, InstalledAt: now.Add(-48 * time.Hour)},
+			}
+			for _, app := range sampleApps {
+				_ = db.Create(&app)
+			}
+
+			// Active Session
+			_ = db.Create(&models.AndroidSession{
+				InstanceID:   instID,
+				UserID:       demoUser.ID,
+				SessionToken: sampleToken,
+				AccessType:   "browser",
+				ClientIP:     "127.0.0.1",
+				IsActive:     true,
+				ExpiresAt:    now.Add(2 * time.Hour),
+				StartedAt:    now,
+			})
+
+			// Sample Backup
+			_ = db.Create(&models.AndroidBackup{
+				InstanceID:     instID,
+				UserID:         demoUser.ID,
+				BackupName:     "demo-android-full-backup-01",
+				BackupType:     "snapshot",
+				FileSizeBytes:  1024 * 1024 * 450, // 450 MB
+				StoragePath:    fmt.Sprintf("/storage/backups/android/%s/backup-01.tar.zst", instID),
+				ChecksumSHA256: "d4e5f6a1b2c37890123456789abcdef0123456789abcdef0123456789abcdef3",
+				IsAutomated:    true,
+				Status:         "completed",
+				RetentionDays:  30,
+				CreatedAt:      now.Add(-24 * time.Hour),
+			})
+		}
+	}
+
+	log.Println("Seeded Android Waydroid images, worker nodes, and demo instance.")
 	return nil
 }
 

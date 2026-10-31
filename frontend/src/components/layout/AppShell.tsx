@@ -24,6 +24,7 @@ import {
   Sparkles,
   Code,
   Gamepad2,
+  Smartphone,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { AIAssistantWidget } from '../ai/AIAssistantWidget';
@@ -56,6 +57,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
     { label: 'AI Agents', path: '/dashboard/ai-agents', icon: Bot },
     { label: 'Object Storage', path: '/dashboard/storage', icon: Database },
     { label: 'Game Servers', path: '/dashboard/game-servers', icon: Gamepad2 },
+    { label: 'Android Cloud', path: '/dashboard/android', icon: Smartphone },
     { label: 'SSH Keys', path: '/dashboard/ssh-keys', icon: Key },
     { label: 'Usage & Quotas', path: '/dashboard/usage', icon: PieChart },
     { label: 'Activity Log', path: '/dashboard/activity', icon: Activity },
@@ -70,6 +72,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
     { label: 'OS Templates', path: '/admin/templates', icon: Layers },
     { label: 'Resource Plans', path: '/admin/plans', icon: HardDrive },
     { label: 'Hypervisor Nodes', path: '/admin/nodes', icon: Cpu },
+    { label: 'Android Images', path: '/admin/android/images', icon: Smartphone },
     { label: 'Audit Logs', path: '/admin/audit-logs', icon: Activity },
   ];
 

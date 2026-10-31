@@ -28,6 +28,7 @@ type RouterParams struct {
 	ISOService         *services.ISOService
 	StorageService     *services.StorageService
 	GameServerService  *services.GameServerService
+	AndroidService     *services.AndroidService
 	AIAssistantService *services.AIAssistantService
 	MCPService         *services.MCPService
 	AIAgentService     *services.AIAgentService
@@ -57,6 +58,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 				"admin_iso_management",
 				"openrouter_ai_assistant",
 				"game_server_hosting",
+				"android_cloud",
 			},
 		})
 	})
@@ -78,10 +80,11 @@ func SetupRouter(p RouterParams) *gin.Engine {
 	isoHandler := handlers.NewISOHandler(p.ISOService)
 	storageHandler := handlers.NewStorageHandler(p.StorageService)
 	gameServerHandler := handlers.NewGameServerHandler(p.GameServerService)
+	androidHandler := handlers.NewAndroidHandler(p.AndroidService)
 	aiAssistantHandler := handlers.NewAIAssistantHandler(p.AIAssistantService)
 	mcpHandler := handlers.NewMCPHandler(p.MCPService)
 	aiAgentHandler := handlers.NewAIAgentHandler(p.AIAgentService)
-	resourceHandler := handlers.NewResourceHandler(p.InstanceService, p.AppService, p.AutomationService, p.OpenClawService, p.StorageService, p.GameServerService, p.QuotaService)
+	resourceHandler := handlers.NewResourceHandler(p.InstanceService, p.AppService, p.AutomationService, p.OpenClawService, p.StorageService, p.GameServerService, p.AndroidService, p.QuotaService)
 
 	// API v1 group
 	v1 := router.Group("/api/v1")
@@ -306,6 +309,44 @@ func SetupRouter(p RouterParams) *gin.Engine {
 				gs.DELETE("/:id/backups/:backupId", gameServerHandler.DeleteBackup)
 			}
 
+			// Waydroid Android Cloud routes per PRD Section 67 & 76
+			android := protected.Group("/android")
+			{
+				android.GET("/instances", androidHandler.List)
+				android.POST("/instances", androidHandler.Create)
+				android.GET("/plans", androidHandler.ListPlans)
+				android.GET("/images", androidHandler.ListImages)
+				android.GET("/images/:id", androidHandler.GetImage)
+
+				android.GET("/instances/:id", androidHandler.Get)
+				android.PATCH("/instances/:id", androidHandler.Update)
+				android.DELETE("/instances/:id", androidHandler.Delete)
+
+				android.POST("/instances/:id/start", androidHandler.Start)
+				android.POST("/instances/:id/stop", androidHandler.Stop)
+				android.POST("/instances/:id/restart", androidHandler.Restart)
+				android.POST("/instances/:id/suspend", androidHandler.Suspend)
+				android.POST("/instances/:id/resume", androidHandler.Resume)
+				android.POST("/instances/:id/reinstall", androidHandler.Reinstall)
+
+				android.GET("/instances/:id/session", androidHandler.CreateSession)
+				android.GET("/instances/:id/sessions", androidHandler.ListSessions)
+				android.DELETE("/instances/:id/sessions/:sessionId", androidHandler.TerminateSession)
+
+				android.GET("/instances/:id/metrics", androidHandler.Metrics)
+				android.GET("/instances/:id/logs", androidHandler.Logs)
+
+				android.GET("/instances/:id/applications", androidHandler.ListApplications)
+				android.POST("/instances/:id/applications", androidHandler.InstallAPK)
+				android.DELETE("/instances/:id/applications/:packageName", androidHandler.UninstallApplication)
+				android.GET("/instances/:id/applications/:packageName", androidHandler.GetApplication)
+
+				android.GET("/instances/:id/backups", androidHandler.ListBackups)
+				android.POST("/instances/:id/backups", androidHandler.CreateBackup)
+				android.POST("/instances/:id/backups/:backupId/restore", androidHandler.RestoreBackup)
+				android.DELETE("/instances/:id/backups/:backupId", androidHandler.DeleteBackup)
+			}
+
 			// First-party MCP JSON-RPC 2.0 Endpoint
 			protected.POST("/mcp/rpc", mcpHandler.HandleRPC)
 
@@ -344,6 +385,18 @@ func SetupRouter(p RouterParams) *gin.Engine {
 			admin.POST("/isos/upload", isoHandler.Upload)
 			admin.PATCH("/isos/:id/publish", isoHandler.SetPublished)
 			admin.DELETE("/isos/:id", isoHandler.Delete)
+
+			// Admin Waydroid Image Management per PRD Section 69
+			adminAndroid := admin.Group("/android")
+			{
+				adminAndroid.GET("/images", androidHandler.AdminListImages)
+				adminAndroid.POST("/images", androidHandler.AdminCreateImage)
+				adminAndroid.PUT("/images/:id", androidHandler.AdminUpdateImage)
+				adminAndroid.DELETE("/images/:id", androidHandler.AdminDeleteImage)
+				adminAndroid.PATCH("/images/:id/publish", androidHandler.AdminPublishImage)
+				adminAndroid.PATCH("/images/:id/unpublish", androidHandler.AdminUnpublishImage)
+				adminAndroid.POST("/images/:id/verify", androidHandler.AdminVerifyImage)
+			}
 		}
 	}
 

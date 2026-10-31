@@ -636,7 +636,7 @@ export interface MCPAuditLog {
 
 export interface UnifiedResourceItem {
   id: string;
-  type: 'vps' | 'app' | 'automation' | 'ai_agent' | 'bucket' | 'game_server';
+  type: 'vps' | 'app' | 'automation' | 'ai_agent' | 'bucket' | 'game_server' | 'android_instance';
   name: string;
   status: string;
   endpoint?: string;
@@ -798,5 +798,163 @@ export interface GameServer {
   worlds?: GameServerWorld[];
   backups?: GameServerBackup[];
 }
+
+// Managed Waydroid Android Cloud Types (PRD Addendum 66-83)
+
+export type AndroidStatus = 'provisioning' | 'running' | 'stopped' | 'suspended' | 'error' | 'reinstalling';
+export type AndroidImageType = 'standard' | 'developer' | 'testing' | 'custom';
+
+export interface AndroidImageVersion {
+  id: string;
+  image_id: string;
+  version_tag: string;
+  channel: string;
+  release_notes?: string;
+  system_checksum?: string;
+  vendor_checksum?: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AndroidImage {
+  id: string;
+  name: string;
+  slug: string;
+  android_version: string;
+  architecture: string;
+  image_type: AndroidImageType;
+  system_image_url: string;
+  vendor_image_url: string;
+  image_source: string;
+  checksum_sha256: string;
+  min_cpu: number;
+  min_ram_mb: number;
+  min_storage_gb: number;
+  is_published: boolean;
+  is_verified: boolean;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  versions?: AndroidImageVersion[];
+}
+
+export interface AndroidWorkerNode {
+  id: string;
+  name: string;
+  proxmox_node_name: string;
+  ip_address: string;
+  status: string;
+  kernel_version: string;
+  binder_status: string;
+  total_cpu_cores: number;
+  total_memory_mb: number;
+  total_storage_gb: number;
+  active_instances_count: number;
+  last_health_check_at: string;
+}
+
+export interface AndroidApplication {
+  id: string;
+  instance_id: string;
+  package_name: string;
+  app_name: string;
+  version_name: string;
+  version_code: number;
+  file_size_bytes: number;
+  icon_url?: string;
+  is_system_app: boolean;
+  is_running: boolean;
+  installed_at: string;
+  last_launched_at?: string;
+}
+
+export interface AndroidSession {
+  id: string;
+  instance_id: string;
+  user_id: string;
+  session_token: string;
+  access_type: string;
+  client_ip: string;
+  user_agent?: string;
+  is_active: boolean;
+  expires_at: string;
+  started_at: string;
+  ended_at?: string;
+}
+
+export interface AndroidBackup {
+  id: string;
+  instance_id: string;
+  user_id: string;
+  backup_name: string;
+  backup_type: string;
+  file_size_bytes: number;
+  storage_path: string;
+  checksum_sha256: string;
+  is_automated: boolean;
+  status: string;
+  retention_days: number;
+  created_at: string;
+}
+
+export interface AndroidMetrics {
+  cpu_percent: number;
+  memory_usage_mb: number;
+  memory_limit_mb: number;
+  storage_usage_gb: number;
+  storage_limit_gb: number;
+  fps: number;
+  display_resolution: string;
+  active_sessions_count: number;
+  adb_connected: boolean;
+  uptime_seconds: number;
+}
+
+export interface AndroidPlan {
+  id: string;
+  name: string;
+  vcpus: number;
+  memory_mb: number;
+  storage_gb: number;
+  suggested_use: string;
+  monthly_price: number;
+}
+
+export interface AndroidInstance {
+  id: string;
+  owner_id: string;
+  image_id: string;
+  worker_node_id?: string;
+  name: string;
+  slug: string;
+  status: AndroidStatus;
+  plan_name: string;
+  vcpus: number;
+  memory_mb: number;
+  storage_gb: number;
+  display_resolution: string;
+  display_density: number;
+  orientation: 'portrait' | 'landscape';
+  remote_access_type: string;
+  access_url: string;
+  session_token?: string;
+  ip_address: string;
+  gateway_port: number;
+  adb_enabled: boolean;
+  adb_port: number;
+  adb_auth_key?: string;
+  persistence_enabled: boolean;
+  auto_backup_enabled: boolean;
+  backup_schedule: string;
+  uptime_seconds: number;
+  created_at: string;
+  updated_at: string;
+  image?: AndroidImage;
+  worker_node?: AndroidWorkerNode;
+  applications?: AndroidApplication[];
+  backups?: AndroidBackup[];
+  sessions?: AndroidSession[];
+}
+
 
 
