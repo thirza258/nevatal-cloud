@@ -25,6 +25,7 @@ type AIAgentService struct {
 	automationService *AutomationService
 	openClawService   *OpenClawService
 	storageService    *StorageService
+	gameServerService *GameServerService
 	quotaService      *QuotaService
 	mcpService        *MCPService
 	pve               proxmox.ProxmoxClient
@@ -39,6 +40,7 @@ func NewAIAgentService(
 	automationService *AutomationService,
 	openClawService *OpenClawService,
 	storageService *StorageService,
+	gameServerService *GameServerService,
 	quotaService *QuotaService,
 	mcpService *MCPService,
 	pve proxmox.ProxmoxClient,
@@ -51,6 +53,7 @@ func NewAIAgentService(
 		automationService: automationService,
 		openClawService:   openClawService,
 		storageService:    storageService,
+		gameServerService: gameServerService,
 		quotaService:      quotaService,
 		mcpService:        mcpService,
 		pve:               pve,
@@ -96,7 +99,7 @@ func (s *AIAgentService) CreateConversation(userID uuid.UUID, title string) (*mo
 		ConversationID: conv.ID,
 		UserID:         userID,
 		Role:           "assistant",
-		Content:        "👋 **Hello! I am your Nevatal AI Cloud Agent.**\n\nI can help you design, configure, and provision production cloud infrastructure through simple natural language.\n\n**What would you like to build today?**\n- 🖥️ **Virtual Private Server (VPS)** with Ubuntu, Debian, Alpine, or WordPress\n- 🌐 **Deploy a Web Application** from GitHub or GitLab\n- ⚡ **n8n Workflow Automation** instance\n- 🤖 **OpenClaw Autonomous AI Agent**\n- 🗄️ **S3-compatible Object Storage Bucket**\n- 🔍 **Inspect resources, health, or troubleshoot issues**",
+		Content:        "👋 **Hello! I am your Nevatal AI Cloud Agent.**\n\nI can help you design, configure, and provision production cloud infrastructure through simple natural language.\n\n**What would you like to build today?**\n- 🖥️ **Virtual Private Server (VPS)** with Ubuntu, Debian, Alpine, or WordPress\n- 🌐 **Deploy a Web Application** from GitHub or GitLab\n- ⚡ **n8n Workflow Automation** instance\n- 🤖 **OpenClaw Autonomous AI Agent**\n- 🗄️ **S3-compatible Object Storage Bucket**\n- 🎮 **Game Server Hosting** (Minecraft Java/Bedrock, Terraria)\n- 🔍 **Inspect resources, health, or troubleshoot issues**",
 		CreatedAt:      time.Now(),
 	}
 	_ = s.db.Create(&welcomeMsg)
@@ -293,6 +296,10 @@ func (s *AIAgentService) ProcessUserMessage(
 	case "create_storage":
 		assistantReply, uiPayload, planProposal, newPlanID = s.handleStorageWorkflow(
 			convID, userID, convState, reqs,
+		)
+	case "game_server":
+		assistantReply, uiPayload, planProposal, newPlanID = s.handleGameServerWorkflow(
+			convID, userID, convState, reqs, quotaUsage,
 		)
 	case "troubleshoot":
 		assistantReply = s.handleTroubleshooting(msgLower, userID)
@@ -985,6 +992,285 @@ func (s *AIAgentService) handleStorageWorkflow(
 	return reply, models.UIComponentsPayload{PlanProposal: planView}, planView, resPlan.ID.String()
 }
 
+func (s *AIAgentService) handleGameServerWorkflow(
+	convID, userID uuid.UUID,
+	state *models.AIConversationState,
+	reqs map[string]string,
+	quota *models.QuotaUsage,
+) (string, models.UIComponentsPayload, *models.StructuredPlanView, string) {
+	gameType := reqs["game_type"]
+
+	// Step 1: Detect Game Type (Minecraft Java, Minecraft Bedrock, Terraria)
+	if gameType == "" {
+		state.State = models.StateClarifyingRequirements
+		question := models.StructuredQuestion{
+			ID:          "q_game_type",
+			Key:         "game_type",
+			Title:       "Which game would you like to host?",
+			Description: "Nevatal Cloud deploys managed game servers with dedicated networking and persistent world storage.",
+			Type:        "single_choice",
+			Required:    true,
+			Options: []models.StructuredQuestionOption{
+				{ID: "mc_java", Label: "Minecraft Java Edition", Value: models.GameTypeMinecraftJava, Description: "PC Minecraft with support for Paper, Fabric, Forge, plugins & mods", IsDefault: true},
+				{ID: "mc_bedrock", Label: "Minecraft Bedrock Edition", Value: models.GameTypeMinecraftBedrock, Description: "Cross-platform Minecraft for Windows, iOS, Android, Xbox, and Switch"},
+				{ID: "terraria", Label: "Terraria Dedicated Server", Value: models.GameTypeTerraria, Description: "Official multiplayer server with classic, expert, or master worlds"},
+			},
+		}
+		return question.Title, models.UIComponentsPayload{
+			Questions: []models.StructuredQuestion{question},
+		}, nil, ""
+	}
+
+	// Step 2: Minecraft Java specific questions
+	if gameType == models.GameTypeMinecraftJava {
+		software := reqs["server_software"]
+		if software == "" {
+			state.State = models.StateClarifyingRequirements
+			question := models.StructuredQuestion{
+				ID:          "q_server_software",
+				Key:         "server_software",
+				Title:       "Which Minecraft Java server software would you prefer?",
+				Description: "Select your preferred server engine.",
+				Type:        "single_choice",
+				Required:    true,
+				Options: []models.StructuredQuestionOption{
+					{ID: "paper", Label: "Paper (Recommended)", Value: models.SoftwarePaper, Description: "High-performance server with Bukkit/Spigot plugin support", IsDefault: true},
+					{ID: "fabric", Label: "Fabric (Modded)", Value: models.SoftwareFabric, Description: "Lightweight, modern modding ecosystem"},
+					{ID: "forge", Label: "Forge (Modded)", Value: models.SoftwareForge, Description: "Traditional modding engine for large modpacks"},
+					{ID: "vanilla", Label: "Vanilla", Value: models.SoftwareVanilla, Description: "Official pure Mojang Minecraft server experience"},
+					{ID: "purpur", Label: "Purpur", Value: models.SoftwarePurpur, Description: "Extended Paper fork with extra custom gameplay knobs"},
+				},
+			}
+			return question.Title, models.UIComponentsPayload{
+				Questions: []models.StructuredQuestion{question},
+			}, nil, ""
+		}
+
+		difficulty := reqs["difficulty"]
+		gamemode := reqs["gamemode"]
+		if difficulty == "" || gamemode == "" {
+			state.State = models.StateClarifyingRequirements
+			question := models.StructuredQuestion{
+				ID:          "q_mc_mode",
+				Key:         "difficulty",
+				Title:       "Do you want a survival or creative world, and what difficulty level?",
+				Description: "Configures default world rules for new players.",
+				Type:        "single_choice",
+				Required:    true,
+				Options: []models.StructuredQuestionOption{
+					{ID: "survival_normal", Label: "Survival — Normal Difficulty", Value: "normal", Description: "Standard Minecraft multiplayer survival experience", IsDefault: true},
+					{ID: "survival_hard", Label: "Survival — Hard Difficulty", Value: "hard", Description: "Challenging gameplay with full mob damage"},
+					{ID: "survival_peaceful", Label: "Survival — Peaceful", Value: "peaceful", Description: "No hostile mobs, safe exploration and building"},
+					{ID: "creative", Label: "Creative Mode", Value: "creative", Description: "Infinite resources and flight enabled for all builders"},
+				},
+			}
+			return question.Title, models.UIComponentsPayload{
+				Questions: []models.StructuredQuestion{question},
+			}, nil, ""
+		}
+	} else if gameType == models.GameTypeTerraria {
+		difficulty := reqs["difficulty"]
+		if difficulty == "" {
+			state.State = models.StateClarifyingRequirements
+			question := models.StructuredQuestion{
+				ID:          "q_terraria_difficulty",
+				Key:         "difficulty",
+				Title:       "Which Terraria difficulty would you like for your world?",
+				Description: "Affects enemy damage, health, and exclusive boss loot drops.",
+				Type:        "single_choice",
+				Required:    true,
+				Options: []models.StructuredQuestionOption{
+					{ID: "classic", Label: "Classic", Value: "classic", Description: "Standard Terraria combat and monster stats", IsDefault: true},
+					{ID: "expert", Label: "Expert", Value: "expert", Description: "Tougher enemies with unique boss accessories and AI"},
+					{ID: "master", Label: "Master", Value: "master", Description: "Ultimate challenge with exclusive relic and pet trophies"},
+				},
+			}
+			return question.Title, models.UIComponentsPayload{
+				Questions: []models.StructuredQuestion{question},
+			}, nil, ""
+		}
+
+		worldSize := reqs["world_size"]
+		if worldSize == "" {
+			state.State = models.StateClarifyingRequirements
+			question := models.StructuredQuestion{
+				ID:          "q_terraria_world_size",
+				Key:         "world_size",
+				Title:       "What world size would you like to generate?",
+				Description: "Select the physical boundaries and exploration size of your Terraria map.",
+				Type:        "single_choice",
+				Required:    true,
+				Options: []models.StructuredQuestionOption{
+					{ID: "medium", Label: "Medium World (Recommended)", Value: "medium", Description: "Balanced world size with plenty of biomes", IsDefault: true},
+					{ID: "large", Label: "Large World", Value: "large", Description: "Vast expanses, abundant sky islands and subterranean caverns"},
+					{ID: "small", Label: "Small World", Value: "small", Description: "Quick to explore, ideal for 2 to 4 players"},
+				},
+			}
+			return question.Title, models.UIComponentsPayload{
+				Questions: []models.StructuredQuestion{question},
+			}, nil, ""
+		}
+	}
+
+	// Step 3: Determine Sizing & Plan
+	playerSlots := 10
+	if reqs["player_slots"] != "" {
+		fmt.Sscanf(reqs["player_slots"], "%d", &playerSlots)
+		if playerSlots <= 0 {
+			playerSlots = 10
+		}
+	}
+
+	planName := "basic"
+	vcpus := 2
+	memoryMB := 4096
+	diskGB := 20
+
+	if playerSlots <= 5 {
+		planName = "starter"
+		vcpus = 1
+		memoryMB = 2048
+		diskGB = 10
+	} else if playerSlots > 20 || reqs["server_software"] == models.SoftwareForge {
+		planName = "advanced"
+		vcpus = 4
+		memoryMB = 8192
+		diskGB = 80
+	} else if playerSlots > 10 || reqs["server_software"] == models.SoftwareFabric || reqs["server_software"] == models.SoftwareTModLoader {
+		planName = "standard"
+		vcpus = 3
+		memoryMB = 6144
+		diskGB = 40
+	}
+
+	serverName := reqs["name"]
+	if serverName == "" {
+		if gameType == models.GameTypeMinecraftJava {
+			serverName = fmt.Sprintf("minecraft-%s-%d", reqs["server_software"], time.Now().Unix()%1000)
+		} else if gameType == models.GameTypeMinecraftBedrock {
+			serverName = fmt.Sprintf("bedrock-%d", time.Now().Unix()%1000)
+		} else {
+			serverName = fmt.Sprintf("terraria-%s-%d", reqs["difficulty"], time.Now().Unix()%1000)
+		}
+	}
+
+	gameVersion := "1.21.4"
+	if gameType == models.GameTypeMinecraftBedrock {
+		gameVersion = "1.21.51"
+	} else if gameType == models.GameTypeTerraria {
+		gameVersion = "1.4.4.9"
+	}
+
+	software := reqs["server_software"]
+	if software == "" {
+		if gameType == models.GameTypeTerraria {
+			software = models.SoftwareTerraria
+		} else if gameType == models.GameTypeMinecraftBedrock {
+			software = models.SoftwareBedrock
+		} else {
+			software = models.SoftwarePaper
+		}
+	}
+
+	difficulty := reqs["difficulty"]
+	if difficulty == "" {
+		difficulty = "normal"
+	}
+
+	planTitle := fmt.Sprintf("Provision Dedicated %s Game Server (%s)", strings.ReplaceAll(gameType, "_", " "), serverName)
+	planSummary := fmt.Sprintf("Fully managed multiplayer %s server (%s v%s) with persistent ZFS storage, dynamic port allocation, and daily backups.", strings.ReplaceAll(gameType, "_", " "), software, gameVersion)
+
+	planView := &models.StructuredPlanView{
+		Title:                planTitle,
+		Intent:               "game_server",
+		Summary:              planSummary,
+		Reversible:           true,
+		RequiresConfirmation: true,
+		Status:               "awaiting_confirmation",
+		EstimatedAllocations: map[string]interface{}{
+			"vcpus":     vcpus,
+			"memory_mb": memoryMB,
+			"disk_gb":   diskGB,
+		},
+		Resources: []models.StructuredResourceView{
+			{
+				Type:    "Game Server",
+				Name:    serverName,
+				Summary: fmt.Sprintf("%s (%s v%s)", strings.ReplaceAll(gameType, "_", " "), software, gameVersion),
+				Details: map[string]interface{}{
+					"Game Type":       strings.ReplaceAll(gameType, "_", " "),
+					"Server Software": software,
+					"Version":         gameVersion,
+					"Plan Tier":       planName,
+					"Player Slots":    playerSlots,
+					"Difficulty":      difficulty,
+					"Port":            "Assigned dynamically upon provisioning",
+					"Backups":         "Automated Daily Snapshot",
+				},
+			},
+		},
+	}
+
+	planJSONBytes, _ := json.Marshal(planView)
+
+	resPlan := models.AIResourcePlan{
+		ConversationID:       convID,
+		UserID:               userID,
+		Version:              1,
+		Intent:               "game_server",
+		Status:               "draft",
+		Title:                planTitle,
+		Description:          planSummary,
+		PlanJSON:             string(planJSONBytes),
+		EstimatedCosts:       `{"monthly_estimate": "$10.00 / month", "included_bandwidth": "Unmetered 1Gbps"}`,
+		RequiresConfirmation: true,
+		CreatedAt:            time.Now(),
+		UpdatedAt:            time.Now(),
+	}
+	_ = s.db.Create(&resPlan)
+
+	cfgMap := map[string]interface{}{
+		"name":            serverName,
+		"game_type":       gameType,
+		"game_version":    gameVersion,
+		"server_software": software,
+		"plan_name":       planName,
+		"cpu_cores":       vcpus,
+		"memory_mb":       memoryMB,
+		"storage_gb":      diskGB,
+		"player_slots":    playerSlots,
+		"difficulty":      difficulty,
+		"world_size":      reqs["world_size"],
+		"motd":            fmt.Sprintf("Nevatal Cloud | %s Multiplayer", serverName),
+	}
+	cfgBytes, _ := json.Marshal(cfgMap)
+
+	_ = s.db.Create(&models.AIPlanResource{
+		PlanID:         resPlan.ID,
+		ResourceType:   "game_server",
+		ResourceName:   serverName,
+		ConfigJSON:     string(cfgBytes),
+		Status:         "pending",
+		ExecutionOrder: 1,
+		CreatedAt:      time.Now(),
+	})
+
+	_ = s.db.Create(&models.AIApproval{
+		PlanID:    resPlan.ID,
+		UserID:    userID,
+		Version:   1,
+		Status:    "pending",
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		CreatedAt: time.Now(),
+	})
+
+	state.State = models.StateAwaitingConfirmation
+	state.ActivePlanID = &resPlan.ID
+
+	reply := fmt.Sprintf("I have prepared the deployment proposal for your **%s** multiplayer server (**`%s`**). Review the plan below and click **Approve and Provision** to deploy your server!", strings.ReplaceAll(gameType, "_", " "), serverName)
+	return reply, models.UIComponentsPayload{PlanProposal: planView}, planView, resPlan.ID.String()
+}
+
 // Plan Approval & Orchestration Execution (Section 36, 39, 41)
 
 type ApprovePlanInput struct {
@@ -1225,6 +1511,55 @@ func (s *AIAgentService) ApprovePlan(
 			resultDetails["bucket_id"] = b.ID
 			resultDetails["bucket_name"] = b.Name
 			resultDetails["s3_endpoint"] = fmt.Sprintf("https://s3.nevatal.id/%s", b.Name)
+
+		case "game_server":
+			var gsCfg struct {
+				Name           string `json:"name"`
+				GameType       string `json:"game_type"`
+				GameVersion    string `json:"game_version"`
+				ServerSoftware string `json:"server_software"`
+				PlanName       string `json:"plan_name"`
+				CPUCores       int    `json:"cpu_cores"`
+				MemoryMB       int    `json:"memory_mb"`
+				StorageGB      int    `json:"storage_gb"`
+				PlayerSlots    int    `json:"player_slots"`
+				MOTD           string `json:"motd"`
+				Difficulty     string `json:"difficulty"`
+				WorldSize      string `json:"world_size"`
+			}
+			_ = json.Unmarshal([]byte(res.ConfigJSON), &gsCfg)
+
+			gs, err := s.gameServerService.Create(userID, CreateGameServerInput{
+				Name:           gsCfg.Name,
+				GameType:       gsCfg.GameType,
+				GameVersion:    gsCfg.GameVersion,
+				ServerSoftware: gsCfg.ServerSoftware,
+				PlanName:       gsCfg.PlanName,
+				CPUCores:       gsCfg.CPUCores,
+				MemoryMB:       gsCfg.MemoryMB,
+				StorageGB:      gsCfg.StorageGB,
+				PlayerSlots:    gsCfg.PlayerSlots,
+				MOTD:           gsCfg.MOTD,
+				Difficulty:     gsCfg.Difficulty,
+				WorldSize:      gsCfg.WorldSize,
+			}, clientIP)
+
+			if err != nil {
+				executionErr = err
+				res.Status = "failed"
+				_ = s.db.Save(&res)
+				break
+			}
+
+			res.Status = "completed"
+			res.ProvisionedID = gs.ID.String()
+			_ = s.db.Save(&res)
+
+			resultDetails["game_server_id"] = gs.ID
+			resultDetails["game_server_name"] = gs.Name
+			resultDetails["public_address"] = gs.PublicAddress
+			resultDetails["assigned_port"] = gs.AssignedPort
+			resultDetails["game_type"] = gs.GameType
 		}
 
 		if executionErr != nil {
@@ -1353,6 +1688,13 @@ func (s *AIAgentService) CancelPlan(convID uuid.UUID, planID uuid.UUID, userID u
 // Helpers for Intelligent Dynamic Parsing
 
 func detectIntent(msg string) string {
+	if strings.Contains(msg, "minecraft") || strings.Contains(msg, "terraria") ||
+		strings.Contains(msg, "game server") || strings.Contains(msg, "game") ||
+		strings.Contains(msg, "paper") || strings.Contains(msg, "bedrock") ||
+		strings.Contains(msg, "fabric") || strings.Contains(msg, "forge") ||
+		strings.Contains(msg, "purpur") || strings.Contains(msg, "tmodloader") {
+		return "game_server"
+	}
 	if strings.Contains(msg, "openclaw") || strings.Contains(msg, "agent") || strings.Contains(msg, "ai agent") {
 		return "openclaw_instance"
 	}
@@ -1425,6 +1767,65 @@ func extractRequirementsFromText(
 	gitURLRegex := regexp.MustCompile(`https?://[^\s]+\.git|https?://github\.com/[^\s]+|https?://gitlab\.com/[^\s]+`)
 	if match := gitURLRegex.FindString(msg); match != "" {
 		reqs["git_repo"] = match
+	}
+
+	// Detect Game Server preferences per PRD Section 57.1 & 57.2
+	if strings.Contains(msg, "minecraft") {
+		if strings.Contains(msg, "bedrock") {
+			reqs["game_type"] = models.GameTypeMinecraftBedrock
+		} else {
+			reqs["game_type"] = models.GameTypeMinecraftJava
+		}
+	} else if strings.Contains(msg, "terraria") {
+		reqs["game_type"] = models.GameTypeTerraria
+	}
+
+	if strings.Contains(msg, "paper") {
+		reqs["server_software"] = models.SoftwarePaper
+	} else if strings.Contains(msg, "fabric") {
+		reqs["server_software"] = models.SoftwareFabric
+	} else if strings.Contains(msg, "forge") {
+		reqs["server_software"] = models.SoftwareForge
+	} else if strings.Contains(msg, "purpur") {
+		reqs["server_software"] = models.SoftwarePurpur
+	} else if strings.Contains(msg, "vanilla") {
+		reqs["server_software"] = models.SoftwareVanilla
+	} else if strings.Contains(msg, "tmodloader") {
+		reqs["server_software"] = models.SoftwareTModLoader
+	}
+
+	if strings.Contains(msg, "survival") {
+		reqs["gamemode"] = "survival"
+	} else if strings.Contains(msg, "creative") {
+		reqs["gamemode"] = "creative"
+	}
+
+	if strings.Contains(msg, "expert") {
+		reqs["difficulty"] = "expert"
+	} else if strings.Contains(msg, "master") {
+		reqs["difficulty"] = "master"
+	} else if strings.Contains(msg, "classic") {
+		reqs["difficulty"] = "classic"
+	} else if strings.Contains(msg, "hard") {
+		reqs["difficulty"] = "hard"
+	} else if strings.Contains(msg, "normal") {
+		reqs["difficulty"] = "normal"
+	} else if strings.Contains(msg, "peaceful") {
+		reqs["difficulty"] = "peaceful"
+	}
+
+	if strings.Contains(msg, "large") {
+		reqs["world_size"] = "large"
+	} else if strings.Contains(msg, "medium") {
+		reqs["world_size"] = "medium"
+	} else if strings.Contains(msg, "small") {
+		reqs["world_size"] = "small"
+	}
+
+	// Player numbers e.g. "10 friends", "10 players", "6 friends"
+	playerRegex := regexp.MustCompile(`(\d+)\s*(?:players?|friends?|slots?)`)
+	if match := playerRegex.FindStringSubmatch(msg); len(match) > 1 {
+		reqs["player_slots"] = match[1]
 	}
 }
 

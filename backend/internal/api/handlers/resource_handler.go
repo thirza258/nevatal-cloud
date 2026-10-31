@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nevatal/cloud/internal/api/middleware"
@@ -14,6 +16,7 @@ type ResourceHandler struct {
 	automationService *services.AutomationService
 	openClawService   *services.OpenClawService
 	storageService    *services.StorageService
+	gameServerService *services.GameServerService
 	quotaService      *services.QuotaService
 }
 
@@ -23,6 +26,7 @@ func NewResourceHandler(
 	automationService *services.AutomationService,
 	openClawService *services.OpenClawService,
 	storageService *services.StorageService,
+	gameServerService *services.GameServerService,
 	quotaService *services.QuotaService,
 ) *ResourceHandler {
 	return &ResourceHandler{
@@ -31,6 +35,7 @@ func NewResourceHandler(
 		automationService: automationService,
 		openClawService:   openClawService,
 		storageService:    storageService,
+		gameServerService: gameServerService,
 		quotaService:      quotaService,
 	}
 }
@@ -150,6 +155,29 @@ func (h *ResourceHandler) ListAll(c *gin.Context) {
 		}
 	}
 
+	// 6. Game Servers per PRD Section 49 & 65
+	gameServers, err := h.gameServerService.List(userID, false, "")
+	if err == nil {
+		for _, gs := range gameServers {
+			items = append(items, UnifiedResourceItem{
+				ID:        gs.ID.String(),
+				Type:      "game_server",
+				Name:      gs.Name,
+				Status:    gs.Status,
+				Endpoint:  gs.PublicAddress,
+				Specs:     fmt.Sprintf("%s (%s v%s)", strings.ReplaceAll(gs.GameType, "_", " "), gs.ServerSoftware, gs.GameVersion),
+				CreatedAt: gs.CreatedAt.Format("2006-01-02 15:04"),
+				Details: map[string]interface{}{
+					"game_type":       gs.GameType,
+					"server_software": gs.ServerSoftware,
+					"port":            gs.AssignedPort,
+					"players":         fmt.Sprintf("%d/%d", gs.OnlinePlayerCount, gs.PlayerSlots),
+					"tps":             gs.TPS,
+				},
+			})
+		}
+	}
+
 	usage, _ := h.quotaService.GetUsage(userID)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -157,12 +185,13 @@ func (h *ResourceHandler) ListAll(c *gin.Context) {
 			"resources": items,
 			"usage":     usage,
 			"counts": gin.H{
-				"total":       len(items),
-				"vps":         len(instances),
-				"apps":        len(apps),
-				"automations": len(autos),
-				"ai_agents":   len(agents),
-				"buckets":     len(buckets),
+				"total":        len(items),
+				"vps":          len(instances),
+				"apps":         len(apps),
+				"automations":  len(autos),
+				"ai_agents":    len(agents),
+				"buckets":      len(buckets),
+				"game_servers": len(gameServers),
 			},
 		},
 	})

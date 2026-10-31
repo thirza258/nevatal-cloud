@@ -23,6 +23,7 @@ import {
   Disc,
   Sparkles,
   Code,
+  Gamepad2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { AIAssistantWidget } from '../ai/AIAssistantWidget';
@@ -54,6 +55,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
     { label: 'Automations (n8n)', path: '/dashboard/automation', icon: Workflow },
     { label: 'AI Agents', path: '/dashboard/ai-agents', icon: Bot },
     { label: 'Object Storage', path: '/dashboard/storage', icon: Database },
+    { label: 'Game Servers', path: '/dashboard/game-servers', icon: Gamepad2 },
     { label: 'SSH Keys', path: '/dashboard/ssh-keys', icon: Key },
     { label: 'Usage & Quotas', path: '/dashboard/usage', icon: PieChart },
     { label: 'Activity Log', path: '/dashboard/activity', icon: Activity },

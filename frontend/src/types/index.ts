@@ -636,13 +636,167 @@ export interface MCPAuditLog {
 
 export interface UnifiedResourceItem {
   id: string;
-  type: 'vps' | 'app' | 'automation' | 'ai_agent' | 'bucket';
+  type: 'vps' | 'app' | 'automation' | 'ai_agent' | 'bucket' | 'game_server';
   name: string;
   status: string;
   endpoint?: string;
   specs?: string;
   created_at: string;
   details?: Record<string, any>;
+}
+
+// Game Server Hosting Types (PRD Addendum 49-65)
+
+export type GameType = 'minecraft_java' | 'minecraft_bedrock' | 'terraria';
+export type GameServerStatus = 'provisioning' | 'running' | 'stopped' | 'restarting' | 'error' | 'reinstalling';
+
+export interface GameServerPlan {
+  id: string;
+  name: string;
+  vcpus: number;
+  memory_mb: number;
+  storage_gb: number;
+  max_players: number;
+  suggested_use: string;
+}
+
+export interface GameServerVersion {
+  id: string;
+  template_id: string;
+  version_name: string;
+  is_latest: boolean;
+  release_type: string;
+  download_url?: string;
+}
+
+export interface GameServerTemplate {
+  id: string;
+  name: string;
+  game_type: GameType;
+  server_software: string;
+  default_version: string;
+  default_port: number;
+  protocol: string;
+  icon: string;
+  description: string;
+  versions?: GameServerVersion[];
+}
+
+export interface GameServerPlayer {
+  id: string;
+  server_id: string;
+  player_uuid?: string;
+  player_name: string;
+  is_online: boolean;
+  is_whitelisted: boolean;
+  is_operator: boolean;
+  is_banned: boolean;
+  ban_reason?: string;
+  first_joined_at?: string;
+  last_seen_at?: string;
+}
+
+export interface GameServerPlugin {
+  id: string;
+  server_id: string;
+  name: string;
+  filename: string;
+  file_size_bytes: number;
+  version: string;
+  enabled: boolean;
+  is_official: boolean;
+  author?: string;
+  description?: string;
+  created_at: string;
+}
+
+export interface GameServerMod {
+  id: string;
+  server_id: string;
+  name: string;
+  filename: string;
+  file_size_bytes: number;
+  version: string;
+  enabled: boolean;
+  mod_loader: string;
+  author?: string;
+  description?: string;
+  created_at: string;
+}
+
+export interface GameServerWorld {
+  id: string;
+  server_id: string;
+  world_name: string;
+  size_bytes: number;
+  world_seed?: string;
+  difficulty?: string;
+  gamemode?: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface GameServerBackup {
+  id: string;
+  server_id: string;
+  user_id: string;
+  backup_name: string;
+  file_size_bytes: number;
+  storage_path: string;
+  world_name: string;
+  is_automated: boolean;
+  checksum?: string;
+  status: string;
+  created_at: string;
+}
+
+export interface GameServerMetrics {
+  cpu_percent: number;
+  memory_usage_mb: number;
+  memory_limit_mb: number;
+  disk_usage_gb: number;
+  disk_limit_gb: number;
+  online_players: number;
+  max_players: number;
+  tps: number;
+  mspt: number;
+  uptime_seconds: number;
+}
+
+export interface GameServer {
+  id: string;
+  user_id: string;
+  name: string;
+  slug: string;
+  game_type: GameType;
+  server_software: string;
+  game_version: string;
+  plan_name: string;
+  vcpus: number;
+  memory_mb: number;
+  storage_gb: number;
+  assigned_port: number;
+  protocol: string;
+  connection_address: string;
+  custom_domain?: string;
+  srv_record_hint?: string;
+  max_players: number;
+  online_player_count: number;
+  motd: string;
+  status: GameServerStatus;
+  uptime_seconds: number;
+  proxmox_node: string;
+  auto_backup_enabled: boolean;
+  backup_schedule: string;
+  world_name: string;
+  created_at: string;
+  updated_at: string;
+  template?: GameServerTemplate;
+  players?: GameServerPlayer[];
+  plugins?: GameServerPlugin[];
+  mods?: GameServerMod[];
+  worlds?: GameServerWorld[];
+  backups?: GameServerBackup[];
 }
 
 

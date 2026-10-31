@@ -14,6 +14,7 @@ import {
   Cpu,
   PlusCircle,
   HardDrive,
+  Gamepad2,
 } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { UnifiedResourceItem, QuotaUsage } from '../../types';
@@ -31,7 +32,8 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
     automations: number;
     ai_agents: number;
     buckets: number;
-  }>({ total: 0, vps: 0, apps: 0, automations: 0, ai_agents: 0, buckets: 0 });
+    game_servers: number;
+  }>({ total: 0, vps: 0, apps: 0, automations: 0, ai_agents: 0, buckets: 0, game_servers: 0 });
   const [usage, setUsage] = useState<QuotaUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -80,6 +82,8 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
         return <Bot className="w-4 h-4 text-purple-400" />;
       case 'bucket':
         return <Database className="w-4 h-4 text-cyan-400" />;
+      case 'game_server':
+        return <Gamepad2 className="w-4 h-4 text-violet-400" />;
       default:
         return <Layers className="w-4 h-4 text-slate-400" />;
     }
@@ -97,6 +101,8 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
         return 'OpenClaw Agent';
       case 'bucket':
         return 'S3 Storage Bucket';
+      case 'game_server':
+        return 'Game Server';
       default:
         return type;
     }
@@ -150,6 +156,9 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
         break;
       case 'bucket':
         onNavigate('/dashboard/storage/files', r.id);
+        break;
+      case 'game_server':
+        onNavigate('/dashboard/game-servers', r.id);
         break;
       default:
         break;
@@ -217,6 +226,10 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
           <div className="text-[10px] uppercase font-bold text-cyan-400">S3 Buckets</div>
           <div className="text-xl font-bold text-white mt-1">{counts.buckets}</div>
         </div>
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-violet-400">Game Servers</div>
+          <div className="text-xl font-bold text-white mt-1">{counts.game_servers}</div>
+        </div>
       </div>
 
       {/* Search & Filter Bar */}
@@ -230,6 +243,7 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
             { id: 'automation', label: 'n8n', icon: Workflow },
             { id: 'ai_agent', label: 'OpenClaw', icon: Bot },
             { id: 'bucket', label: 'S3 Buckets', icon: Database },
+            { id: 'game_server', label: 'Game Servers', icon: Gamepad2 },
           ].map((tab) => {
             const active = filterType === tab.id;
             return (

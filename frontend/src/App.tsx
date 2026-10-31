@@ -42,6 +42,11 @@ import { StorageOverviewPage } from './pages/storage/StorageOverview';
 import { FileManager } from './pages/storage/FileManager';
 import { AccessKeys } from './pages/storage/AccessKeys';
 
+// Game Server Hosting (PRD Addendum 49-65)
+import { GameServersList } from './pages/game-servers/GameServersList';
+import { CreateGameServer } from './pages/game-servers/CreateGameServer';
+import { GameServerDetails } from './pages/game-servers/GameServerDetails';
+
 // Admin Pages
 import { AdminOverview } from './pages/admin/AdminOverview';
 import { AdminUsers } from './pages/admin/AdminUsers';
@@ -178,6 +183,17 @@ export const App: React.FC = () => {
 
       {currentPath === '/dashboard/storage/access-keys' && (
         <AccessKeys onNavigate={handleNavigate} />
+      )}
+
+      {/* Game Server Hosting Routes (PRD Addendum 49-65) */}
+      {currentPath === '/dashboard/game-servers' && !param && (
+        <GameServersList onNavigate={handleNavigate} />
+      )}
+      {currentPath === '/dashboard/game-servers' && param && (
+        <GameServerDetails serverId={param} onNavigate={handleNavigate} />
+      )}
+      {currentPath === '/dashboard/game-servers/new' && (
+        <CreateGameServer onNavigate={handleNavigate} />
       )}
 
       {/* Account & Administration */}

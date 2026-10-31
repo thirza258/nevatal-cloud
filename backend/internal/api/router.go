@@ -27,6 +27,7 @@ type RouterParams struct {
 	OpenClawService    *services.OpenClawService
 	ISOService         *services.ISOService
 	StorageService     *services.StorageService
+	GameServerService  *services.GameServerService
 	AIAssistantService *services.AIAssistantService
 	MCPService         *services.MCPService
 	AIAgentService     *services.AIAgentService
@@ -55,6 +56,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 				"s3_object_storage",
 				"admin_iso_management",
 				"openrouter_ai_assistant",
+				"game_server_hosting",
 			},
 		})
 	})
@@ -75,10 +77,11 @@ func SetupRouter(p RouterParams) *gin.Engine {
 	openClawHandler := handlers.NewOpenClawHandler(p.OpenClawService)
 	isoHandler := handlers.NewISOHandler(p.ISOService)
 	storageHandler := handlers.NewStorageHandler(p.StorageService)
+	gameServerHandler := handlers.NewGameServerHandler(p.GameServerService)
 	aiAssistantHandler := handlers.NewAIAssistantHandler(p.AIAssistantService)
 	mcpHandler := handlers.NewMCPHandler(p.MCPService)
 	aiAgentHandler := handlers.NewAIAgentHandler(p.AIAgentService)
-	resourceHandler := handlers.NewResourceHandler(p.InstanceService, p.AppService, p.AutomationService, p.OpenClawService, p.StorageService, p.QuotaService)
+	resourceHandler := handlers.NewResourceHandler(p.InstanceService, p.AppService, p.AutomationService, p.OpenClawService, p.StorageService, p.GameServerService, p.QuotaService)
 
 	// API v1 group
 	v1 := router.Group("/api/v1")
@@ -247,6 +250,60 @@ func SetupRouter(p RouterParams) *gin.Engine {
 				mcp.GET("/connections/:id/tools", mcpHandler.GetConnectionTools)
 				mcp.PATCH("/connections/:id/permissions", mcpHandler.UpdatePermission)
 				mcp.GET("/audit-logs", mcpHandler.ListAuditLogs)
+			}
+
+			// Game Servers routes per PRD Section 59
+			gs := protected.Group("/game-servers")
+			{
+				gs.GET("", gameServerHandler.List)
+				gs.POST("", gameServerHandler.Create)
+				gs.GET("/templates", gameServerHandler.ListTemplates)
+				gs.GET("/versions", gameServerHandler.ListVersions)
+				gs.GET("/plans", gameServerHandler.GetPlans)
+
+				gs.GET("/:id", gameServerHandler.Get)
+				gs.PATCH("/:id", gameServerHandler.Update)
+				gs.DELETE("/:id", gameServerHandler.Delete)
+
+				gs.POST("/:id/start", gameServerHandler.Start)
+				gs.POST("/:id/stop", gameServerHandler.Stop)
+				gs.POST("/:id/restart", gameServerHandler.Restart)
+				gs.POST("/:id/reinstall", gameServerHandler.Reinstall)
+
+				gs.GET("/:id/status", gameServerHandler.Get)
+				gs.GET("/:id/metrics", gameServerHandler.GetMetrics)
+				gs.GET("/:id/logs", gameServerHandler.GetLogs)
+				gs.POST("/:id/command", gameServerHandler.ExecuteCommand)
+
+				gs.GET("/:id/configuration", gameServerHandler.GetConfiguration)
+				gs.PATCH("/:id/configuration", gameServerHandler.UpdateConfiguration)
+
+				gs.GET("/:id/players", gameServerHandler.ListPlayers)
+				gs.POST("/:id/players/kick", gameServerHandler.KickPlayer)
+				gs.POST("/:id/players/ban", gameServerHandler.BanPlayer)
+				gs.POST("/:id/players/unban", gameServerHandler.UnbanPlayer)
+				gs.POST("/:id/players/op", gameServerHandler.SetOperator)
+				gs.POST("/:id/players/whitelist", gameServerHandler.SetWhitelist)
+
+				gs.GET("/:id/plugins", gameServerHandler.ListPlugins)
+				gs.POST("/:id/plugins", gameServerHandler.InstallPlugin)
+				gs.PATCH("/:id/plugins/:pluginId", gameServerHandler.TogglePlugin)
+				gs.DELETE("/:id/plugins/:pluginId", gameServerHandler.RemovePlugin)
+
+				gs.GET("/:id/mods", gameServerHandler.ListMods)
+				gs.POST("/:id/mods", gameServerHandler.InstallMod)
+				gs.PATCH("/:id/mods/:modId", gameServerHandler.ToggleMod)
+				gs.DELETE("/:id/mods/:modId", gameServerHandler.RemoveMod)
+
+				gs.GET("/:id/worlds", gameServerHandler.ListWorlds)
+				gs.POST("/:id/worlds", gameServerHandler.CreateWorld)
+				gs.POST("/:id/worlds/reset", gameServerHandler.ResetWorld)
+				gs.DELETE("/:id/worlds/:worldId", gameServerHandler.DeleteWorld)
+
+				gs.GET("/:id/backups", gameServerHandler.ListBackups)
+				gs.POST("/:id/backups", gameServerHandler.CreateBackup)
+				gs.POST("/:id/backups/:backupId/restore", gameServerHandler.RestoreBackup)
+				gs.DELETE("/:id/backups/:backupId", gameServerHandler.DeleteBackup)
 			}
 
 			// First-party MCP JSON-RPC 2.0 Endpoint

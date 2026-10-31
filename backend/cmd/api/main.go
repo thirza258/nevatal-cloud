@@ -45,9 +45,11 @@ func main() {
 	openClawService := services.NewOpenClawService(db, auditService)
 	isoService := services.NewISOService(db, auditService)
 	storageService := services.NewStorageService(db, "")
+	portService := services.NewPortService(db)
+	gameServerService := services.NewGameServerService(db, cfg, portService, auditService, quotaService, pveClient)
 	aiAssistantService := services.NewAIAssistantService(db, cfg, instanceService, quotaService, auditService)
-	mcpService := services.NewMCPService(db, instanceService, appService, automationService, openClawService, storageService, quotaService, pveClient)
-	aiAgentService := services.NewAIAgentService(db, cfg, instanceService, appService, automationService, openClawService, storageService, quotaService, mcpService, pveClient)
+	mcpService := services.NewMCPService(db, instanceService, appService, automationService, openClawService, storageService, gameServerService, quotaService, pveClient)
+	aiAgentService := services.NewAIAgentService(db, cfg, instanceService, appService, automationService, openClawService, storageService, gameServerService, quotaService, mcpService, pveClient)
 
 	// 5. Initialize Router & Endpoints
 	router := api.SetupRouter(api.RouterParams{
@@ -65,6 +67,7 @@ func main() {
 		OpenClawService:    openClawService,
 		ISOService:         isoService,
 		StorageService:     storageService,
+		GameServerService:  gameServerService,
 		AIAssistantService: aiAssistantService,
 		MCPService:         mcpService,
 		AIAgentService:     aiAgentService,

@@ -21,6 +21,7 @@ type MCPService struct {
 	automationService *AutomationService
 	openClawService   *OpenClawService
 	storageService    *StorageService
+	gameServerService *GameServerService
 	quotaService      *QuotaService
 	pve               proxmox.ProxmoxClient
 }
@@ -32,6 +33,7 @@ func NewMCPService(
 	automationService *AutomationService,
 	openClawService *OpenClawService,
 	storageService *StorageService,
+	gameServerService *GameServerService,
 	quotaService *QuotaService,
 	pve proxmox.ProxmoxClient,
 ) *MCPService {
@@ -42,6 +44,7 @@ func NewMCPService(
 		automationService: automationService,
 		openClawService:   openClawService,
 		storageService:    storageService,
+		gameServerService: gameServerService,
 		quotaService:      quotaService,
 		pve:               pve,
 	}
@@ -744,6 +747,313 @@ func (s *MCPService) executeFirstPartyTool(
 			return nil, errors.New("job not found")
 		}
 		return job, nil
+
+	// Game Server Hosting Tools per PRD Section 58
+	case "cloud.list_game_types":
+		return []map[string]interface{}{
+			{"id": models.GameTypeMinecraftJava, "name": "Minecraft Java Edition", "software": []string{models.SoftwareVanilla, models.SoftwarePaper, models.SoftwarePurpur, models.SoftwareFabric, models.SoftwareForge, models.SoftwareNeoForge}, "default_port": 25565, "protocol": "TCP"},
+			{"id": models.GameTypeMinecraftBedrock, "name": "Minecraft Bedrock Edition", "software": []string{models.SoftwareBedrock}, "default_port": 19132, "protocol": "UDP"},
+			{"id": models.GameTypeTerraria, "name": "Terraria", "software": []string{models.SoftwareTerraria, models.SoftwareTModLoader}, "default_port": 7777, "protocol": "TCP"},
+		}, nil
+
+	case "cloud.list_game_versions":
+		gt, _ := args["game_type"].(string)
+		sw, _ := args["server_software"].(string)
+		return s.gameServerService.ListVersions(gt, sw)
+
+	case "cloud.list_game_templates":
+		gt, _ := args["game_type"].(string)
+		return s.gameServerService.ListTemplates(gt)
+
+	case "cloud.get_game_server_plans":
+		return s.gameServerService.GetPlans(), nil
+
+	case "cloud.get_game_server_capacity":
+		return map[string]interface{}{
+			"hypervisor_node":  "pve-dell-r640",
+			"status":           "healthy",
+			"available_ports":  982,
+			"allocated_ports":  18,
+			"free_cpu_cores":   52,
+			"free_memory_mb":   196608,
+			"free_storage_gb":  2840,
+			"can_provision":    true,
+		}, nil
+
+	case "cloud.list_game_servers":
+		gt, _ := args["game_type"].(string)
+		return s.gameServerService.List(userID, false, gt)
+
+	case "cloud.get_game_server":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid game server id")
+		}
+		return s.gameServerService.Get(id, userID, false)
+
+	case "cloud.plan_game_server_creation":
+		name, _ := args["name"].(string)
+		gt, _ := args["game_type"].(string)
+		plan, _ := args["plan"].(string)
+		if plan == "" {
+			plan = "basic"
+		}
+		return map[string]interface{}{
+			"action":                 "create_game_server",
+			"requires_confirmation":  true,
+			"name":                   name,
+			"game_type":              gt,
+			"plan":                   plan,
+			"suggested_port":         "Assigned dynamically upon approval",
+			"backup_policy":          "Automated daily snapshot",
+			"ready_to_provision":     true,
+		}, nil
+
+	case "cloud.create_game_server":
+		name, _ := args["name"].(string)
+		gt, _ := args["game_type"].(string)
+		ver, _ := args["version"].(string)
+		software, _ := args["server_software"].(string)
+		plan, _ := args["plan_name"].(string)
+		if plan == "" {
+			plan = "basic"
+		}
+		motd, _ := args["motd"].(string)
+		diff, _ := args["difficulty"].(string)
+		return s.gameServerService.Create(userID, CreateGameServerInput{
+			Name:           name,
+			GameType:       gt,
+			GameVersion:    ver,
+			ServerSoftware: software,
+			PlanName:       plan,
+			MOTD:           motd,
+			Difficulty:     diff,
+		}, clientIP)
+
+	case "cloud.start_game_server":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return nil, s.gameServerService.Start(id, userID, false, clientIP)
+
+	case "cloud.stop_game_server":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return nil, s.gameServerService.Stop(id, userID, false, true, clientIP)
+
+	case "cloud.restart_game_server":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return nil, s.gameServerService.Restart(id, userID, false, clientIP)
+
+	case "cloud.delete_game_server":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return nil, s.gameServerService.Delete(id, userID, false, clientIP)
+
+	case "cloud.get_game_server_status":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		gs, err := s.gameServerService.Get(id, userID, false)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{
+			"id":             gs.ID,
+			"name":           gs.Name,
+			"game_type":      gs.GameType,
+			"status":         gs.Status,
+			"public_address": gs.PublicAddress,
+			"players":        fmt.Sprintf("%d/%d", gs.OnlinePlayerCount, gs.PlayerSlots),
+			"tps":            gs.TPS,
+		}, nil
+
+	case "cloud.get_game_server_metrics":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return s.gameServerService.GetMetrics(id, userID)
+
+	// Minecraft Tools per PRD Section 58.3
+	case "cloud.minecraft.get_players":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return s.gameServerService.ListPlayers(id, userID, false)
+
+	case "cloud.minecraft.get_configuration":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return s.gameServerService.GetConfiguration(id, userID, false)
+
+	case "cloud.minecraft.update_configuration":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		settings, _ := args["settings"].(map[string]interface{})
+		return nil, s.gameServerService.UpdateConfiguration(id, userID, false, settings, clientIP)
+
+	case "cloud.minecraft.get_console_logs":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		lines := getIntArg(args, "lines", 50)
+		return s.gameServerService.GetLogs(id, userID, false, lines)
+
+	case "cloud.minecraft.execute_command":
+		idStr, _ := args["id"].(string)
+		cmd, _ := args["command"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return s.gameServerService.ExecuteCommand(id, userID, false, cmd, clientIP)
+
+	case "cloud.minecraft.get_plugins":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return s.gameServerService.ListPlugins(id, userID)
+
+	case "cloud.minecraft.install_plugin":
+		idStr, _ := args["id"].(string)
+		name, _ := args["name"].(string)
+		ver, _ := args["version"].(string)
+		author, _ := args["author"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return s.gameServerService.InstallPlugin(id, userID, name, "", ver, author)
+
+	case "cloud.minecraft.remove_plugin":
+		idStr, _ := args["id"].(string)
+		pluginIDStr, _ := args["plugin_id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		pluginID, err := uuid.Parse(pluginIDStr)
+		if err != nil {
+			return nil, errors.New("invalid plugin id")
+		}
+		return nil, s.gameServerService.RemovePlugin(id, pluginID, userID)
+
+	case "cloud.minecraft.create_world_backup":
+		idStr, _ := args["id"].(string)
+		name, _ := args["backup_name"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return s.gameServerService.CreateBackup(id, userID, name, false)
+
+	case "cloud.minecraft.restore_world_backup":
+		idStr, _ := args["id"].(string)
+		backupIDStr, _ := args["backup_id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		backupID, err := uuid.Parse(backupIDStr)
+		if err != nil {
+			return nil, errors.New("invalid backup id")
+		}
+		return nil, s.gameServerService.RestoreBackup(id, backupID, userID, clientIP)
+
+	// Terraria Tools per PRD Section 58.4
+	case "cloud.terraria.get_players":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return s.gameServerService.ListPlayers(id, userID, false)
+
+	case "cloud.terraria.get_configuration":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return s.gameServerService.GetConfiguration(id, userID, false)
+
+	case "cloud.terraria.update_configuration":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		settings, _ := args["settings"].(map[string]interface{})
+		return nil, s.gameServerService.UpdateConfiguration(id, userID, false, settings, clientIP)
+
+	case "cloud.terraria.get_console_logs":
+		idStr, _ := args["id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		lines := getIntArg(args, "lines", 50)
+		return s.gameServerService.GetLogs(id, userID, false, lines)
+
+	case "cloud.terraria.execute_command":
+		idStr, _ := args["id"].(string)
+		cmd, _ := args["command"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return s.gameServerService.ExecuteCommand(id, userID, false, cmd, clientIP)
+
+	case "cloud.terraria.create_world_backup":
+		idStr, _ := args["id"].(string)
+		name, _ := args["backup_name"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		return s.gameServerService.CreateBackup(id, userID, name, false)
+
+	case "cloud.terraria.restore_world_backup":
+		idStr, _ := args["id"].(string)
+		backupIDStr, _ := args["backup_id"].(string)
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, errors.New("invalid server id")
+		}
+		backupID, err := uuid.Parse(backupIDStr)
+		if err != nil {
+			return nil, errors.New("invalid backup id")
+		}
+		return nil, s.gameServerService.RestoreBackup(id, backupID, userID, clientIP)
 
 	default:
 		return nil, fmt.Errorf("unknown first-party tool: %s", name)

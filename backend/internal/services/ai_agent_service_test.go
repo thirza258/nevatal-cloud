@@ -83,7 +83,7 @@ func TestWorkflowStateTransitions(t *testing.T) {
 
 func TestMCPToolRiskClassification(t *testing.T) {
 	cfg := &config.Config{}
-	svc := NewAIAgentService(nil, cfg, nil, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewAIAgentService(nil, cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if svc == nil {
 		t.Fatalf("Expected non-nil agent service")
 	}

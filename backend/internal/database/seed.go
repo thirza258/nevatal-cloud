@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -193,10 +194,10 @@ func Seed(db *gorm.DB) error {
 		if err := db.Create(&demoUser).Error; err == nil {
 			demoQuota := models.ResourceQuota{
 				UserID:       demoUser.ID,
-				MaxVCPUs:     4,
-				MaxMemoryMB:  8192,
-				MaxStorageGB: 100,
-				MaxInstances: 3,
+				MaxVCPUs:     16,
+				MaxMemoryMB:  32768,
+				MaxStorageGB: 500,
+				MaxInstances: 10,
 			}
 			_ = db.Create(&demoQuota)
 
@@ -511,34 +512,36 @@ func Seed(db *gorm.DB) error {
 		log.Printf("Warning: failed to seed MCP servers: %v", err)
 	}
 
+	// 9. Seed Game Server Templates, Versions & Demo Instances (PRD Section 56 & 65)
+	if err := seedGameServers(db); err != nil {
+		log.Printf("Warning: failed to seed game servers: %v", err)
+	}
+
 	return nil
 }
 
 func seedMCPServers(db *gorm.DB) error {
-	var serverCount int64
-	db.Model(&models.MCPServer{}).Count(&serverCount)
-	if serverCount > 0 {
-		return nil
-	}
-
 	now := time.Now()
 
 	// 1. First-Party Nevatal Cloud MCP Server
-	coreServer := models.MCPServer{
-		Name:         "nevatal-cloud",
-		DisplayName:  "Nevatal Cloud Control Plane (First-Party)",
-		Description:  "First-party Model Context Protocol server exposing approved Nevatal Cloud infrastructure capabilities and hardware orchestration.",
-		Transport:    "in_process",
-		EndpointURL:  "/api/v1/mcp/rpc",
-		IsFirstParty: true,
-		Enabled:      true,
-		AuthType:     "bearer",
-		Icon:         "Zap",
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	}
-	if err := db.Create(&coreServer).Error; err != nil {
-		return err
+	var coreServer models.MCPServer
+	if err := db.Where("name = ?", "nevatal-cloud").First(&coreServer).Error; err != nil {
+		coreServer = models.MCPServer{
+			Name:         "nevatal-cloud",
+			DisplayName:  "Nevatal Cloud Control Plane (First-Party)",
+			Description:  "First-party Model Context Protocol server exposing approved Nevatal Cloud infrastructure capabilities and hardware orchestration.",
+			Transport:    "in_process",
+			EndpointURL:  "/api/v1/mcp/rpc",
+			IsFirstParty: true,
+			Enabled:      true,
+			AuthType:     "bearer",
+			Icon:         "Zap",
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		if err := db.Create(&coreServer).Error; err != nil {
+			return err
+		}
 	}
 
 	coreTools := []models.MCPTool{
@@ -590,10 +593,48 @@ func seedMCPServers(db *gorm.DB) error {
 		{ServerID: coreServer.ID, Name: "cloud.get_service_health", Description: "Inspect service health and ping status", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
 		{ServerID: coreServer.ID, Name: "cloud.get_recent_events", Description: "Inspect audit and provisioning events", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"limit":{"type":"integer"}}}`, Enabled: true, CreatedAt: now},
 		{ServerID: coreServer.ID, Name: "cloud.get_provisioning_status", Description: "Track in-progress provisioning job status", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"job_id":{"type":"string"}},"required":["job_id"]}`, Enabled: true, CreatedAt: now},
+
+		// Game server hosting per PRD Section 58
+		{ServerID: coreServer.ID, Name: "cloud.list_game_types", Description: "List supported game types and software engines", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.list_game_versions", Description: "List supported game versions for a game type", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"game_type":{"type":"string"}}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.list_game_templates", Description: "List published game server deployment templates", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"game_type":{"type":"string"}}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_game_server_plans", Description: "List predefined game server resource tiers", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_game_server_capacity", Description: "Check cluster port allocation and memory capacity", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.list_game_servers", Description: "List customer game server instances", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"game_type":{"type":"string"}}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_game_server", Description: "Get details and status of a game server", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.plan_game_server_creation", Description: "Prepare and dry-run validate a game server proposal", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"name":{"type":"string"},"game_type":{"type":"string"},"plan":{"type":"string"}},"required":["name","game_type"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.create_game_server", Description: "Provision a new multiplayer game server", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"name":{"type":"string"},"game_type":{"type":"string"},"plan_name":{"type":"string"},"difficulty":{"type":"string"}},"required":["name","game_type"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.start_game_server", Description: "Start an inactive game server", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.stop_game_server", Description: "Gracefully shut down a game server", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.restart_game_server", Description: "Restart a game server instance", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.delete_game_server", Description: "Permanently delete a game server and release ports", RiskLevel: "destructive", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_game_server_status", Description: "Check online player count and status", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_game_server_metrics", Description: "Fetch live TPS, MSPT, CPU, and RAM telemetry", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.minecraft.get_players", Description: "Get current players and whitelist for Minecraft", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.minecraft.get_configuration", Description: "Fetch Minecraft server.properties settings", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.minecraft.update_configuration", Description: "Update Minecraft server.properties settings", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"settings":{"type":"object"}},"required":["id","settings"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.minecraft.get_console_logs", Description: "Fetch live console logs from Minecraft server", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.minecraft.execute_command", Description: "Execute admin command in Minecraft console", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"command":{"type":"string"}},"required":["id","command"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.minecraft.get_plugins", Description: "List installed plugins on Paper/Purpur server", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.minecraft.install_plugin", Description: "Install approved plugin JAR onto Minecraft server", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id","name"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.minecraft.remove_plugin", Description: "Remove a plugin from Minecraft server", RiskLevel: "destructive", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"plugin_id":{"type":"string"}},"required":["id","plugin_id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.minecraft.create_world_backup", Description: "Create persistent world snapshot for Minecraft", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"backup_name":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.minecraft.restore_world_backup", Description: "Restore Minecraft world from a backup archive", RiskLevel: "destructive", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"backup_id":{"type":"string"}},"required":["id","backup_id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.terraria.get_players", Description: "List connected players on Terraria server", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.terraria.get_configuration", Description: "Fetch Terraria server config", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.terraria.update_configuration", Description: "Update Terraria server config", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"settings":{"type":"object"}},"required":["id","settings"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.terraria.get_console_logs", Description: "Fetch live console logs from Terraria server", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.terraria.execute_command", Description: "Execute admin command in Terraria server", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"command":{"type":"string"}},"required":["id","command"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.terraria.create_world_backup", Description: "Create persistent world snapshot for Terraria", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"backup_name":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.terraria.restore_world_backup", Description: "Restore Terraria world from a backup archive", RiskLevel: "destructive", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"backup_id":{"type":"string"}},"required":["id","backup_id"]}`, Enabled: true, CreatedAt: now},
 	}
 
 	for _, tool := range coreTools {
-		_ = db.Create(&tool)
+		tool.ServerID = coreServer.ID
+		var existing models.MCPTool
+		if err := db.Where("server_id = ? AND name = ?", coreServer.ID, tool.Name).First(&existing).Error; err != nil {
+			_ = db.Create(&tool)
+		}
 	}
 
 	// 2. Curated External MCP Servers
@@ -691,23 +732,30 @@ func seedMCPServers(db *gorm.DB) error {
 		}
 	}
 
-	// 3. Auto-connect default customer user to core server and github
-	var demoUser models.User
-	if err := db.First(&demoUser, "email = ?", "customer@nevatal.local").Error; err == nil {
-		coreConn := models.MCPConnection{
-			UserID:          demoUser.ID,
-			ServerID:        coreServer.ID,
-			Status:          "connected",
-			ConfigJSON:      `{"token":"internal-tenant-session"}`,
-			LastHealthCheck: &now,
-			CreatedAt:       now,
-			UpdatedAt:       now,
+	// 3. Auto-connect customer users to core server and github
+	var targetUsers []models.User
+	db.Where("email IN ?", []string{"customer@nevatal.local", "demo@nevatal.id"}).Find(&targetUsers)
+	for _, targetUser := range targetUsers {
+		var coreConn models.MCPConnection
+		if err := db.Where("user_id = ? AND server_id = ?", targetUser.ID, coreServer.ID).First(&coreConn).Error; err != nil {
+			coreConn = models.MCPConnection{
+				UserID:          targetUser.ID,
+				ServerID:        coreServer.ID,
+				Status:          "connected",
+				ConfigJSON:      `{"token":"internal-tenant-session"}`,
+				LastHealthCheck: &now,
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			}
+			_ = db.Create(&coreConn)
 		}
-		if err := db.Create(&coreConn).Error; err == nil {
-			// Grant permissions for all core tools
-			var tools []models.MCPTool
-			db.Where("server_id = ?", coreServer.ID).Find(&tools)
-			for _, t := range tools {
+
+		// Grant permissions for all core tools
+		var tools []models.MCPTool
+		db.Where("server_id = ?", coreServer.ID).Find(&tools)
+		for _, t := range tools {
+			var perm models.MCPPermission
+			if err := db.Where("connection_id = ? AND tool_id = ?", coreConn.ID, t.ID).First(&perm).Error; err != nil {
 				_ = db.Create(&models.MCPPermission{
 					ConnectionID: coreConn.ID,
 					ToolID:       t.ID,
@@ -716,12 +764,11 @@ func seedMCPServers(db *gorm.DB) error {
 				})
 			}
 		}
-
 		// Connect GitHub
 		var ghServer models.MCPServer
 		if err := db.First(&ghServer, "name = ?", "github").Error; err == nil {
 			ghConn := models.MCPConnection{
-				UserID:          demoUser.ID,
+				UserID:          targetUser.ID,
 				ServerID:        ghServer.ID,
 				Status:          "connected",
 				ConfigJSON:      `{"connected_account":"customer-demo","scopes":["repo","read:user"]}`,
@@ -747,3 +794,379 @@ func seedMCPServers(db *gorm.DB) error {
 	log.Println("Seeded first-party & external MCP servers, tool definitions, and default connections.")
 	return nil
 }
+
+func seedGameServers(db *gorm.DB) error {
+	var count int64
+	db.Model(&models.GameServerTemplate{}).Count(&count)
+	if count > 0 {
+		return nil
+	}
+
+	now := time.Now()
+
+	// 1. Seed Templates per PRD Section 56
+	templates := []models.GameServerTemplate{
+		// Minecraft Templates
+		{
+			GameType:          models.GameTypeMinecraftJava,
+			Name:              "Vanilla Survival",
+			Slug:              "vanilla-survival",
+			ServerSoftware:    models.SoftwareVanilla,
+			Description:       "Pure official Mojang Minecraft Java server experience without modifications.",
+			MinCPU:            1,
+			MinRAMMB:          2048,
+			MinStorageGB:      10,
+			SupportedVersions: "1.21.4, 1.21.1, 1.20.4",
+			IsModded:          false,
+			Enabled:           true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		},
+		{
+			GameType:          models.GameTypeMinecraftJava,
+			Name:              "Paper Survival",
+			Slug:              "paper-survival",
+			ServerSoftware:    models.SoftwarePaper,
+			Description:       "High-performance Minecraft server with Bukkit, Spigot, and Paper plugin compatibility.",
+			MinCPU:            2,
+			MinRAMMB:          4096,
+			MinStorageGB:      20,
+			SupportedVersions: "1.21.4, 1.21.1, 1.20.4",
+			IsModded:          false,
+			Enabled:           true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		},
+		{
+			GameType:          models.GameTypeMinecraftJava,
+			Name:              "Creative World",
+			Slug:              "minecraft-creative",
+			ServerSoftware:    models.SoftwarePaper,
+			Description:       "Optimized creative mode world template with flight enabled and builder utilities.",
+			MinCPU:            2,
+			MinRAMMB:          4096,
+			MinStorageGB:      20,
+			SupportedVersions: "1.21.4, 1.21.1",
+			IsModded:          false,
+			Enabled:           true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		},
+		{
+			GameType:          models.GameTypeMinecraftJava,
+			Name:              "Fabric Modded",
+			Slug:              "fabric-modded",
+			ServerSoftware:    models.SoftwareFabric,
+			Description:       "Modern, lightweight modded Minecraft platform with fast startup times and extensive mod catalog.",
+			MinCPU:            3,
+			MinRAMMB:          6144,
+			MinStorageGB:      40,
+			SupportedVersions: "1.21.4, 1.21.1, 1.20.4",
+			IsModded:          true,
+			Enabled:           true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		},
+		{
+			GameType:          models.GameTypeMinecraftJava,
+			Name:              "Forge Modded",
+			Slug:              "forge-modded",
+			ServerSoftware:    models.SoftwareForge,
+			Description:       "Classic Minecraft Forge environment designed for heavy technical and RPG modpacks.",
+			MinCPU:            4,
+			MinRAMMB:          8192,
+			MinStorageGB:      80,
+			SupportedVersions: "1.20.4, 1.19.4",
+			IsModded:          true,
+			Enabled:           true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		},
+		{
+			GameType:          models.GameTypeMinecraftBedrock,
+			Name:              "Bedrock Dedicated Server",
+			Slug:              "minecraft-bedrock",
+			ServerSoftware:    models.SoftwareBedrock,
+			Description:       "Official Bedrock Dedicated Server supporting Windows 10/11, iOS, Android, and consoles.",
+			MinCPU:            2,
+			MinRAMMB:          4096,
+			MinStorageGB:      20,
+			SupportedVersions: "1.21.51, 1.21.50",
+			IsModded:          false,
+			Enabled:           true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		},
+
+		// Terraria Templates
+		{
+			GameType:          models.GameTypeTerraria,
+			Name:              "Classic Survival",
+			Slug:              "terraria-classic",
+			ServerSoftware:    models.SoftwareTerraria,
+			Description:       "Standard Terraria multiplayer server for relaxed exploration, building, and progression.",
+			MinCPU:            1,
+			MinRAMMB:          2048,
+			MinStorageGB:      10,
+			SupportedVersions: "1.4.4.9",
+			IsModded:          false,
+			Enabled:           true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		},
+		{
+			GameType:          models.GameTypeTerraria,
+			Name:              "Expert World",
+			Slug:              "terraria-expert",
+			ServerSoftware:    models.SoftwareTerraria,
+			Description:       "Challenging multiplayer world with smarter enemy AI, increased boss stats, and unique expert loot drops.",
+			MinCPU:            2,
+			MinRAMMB:          4096,
+			MinStorageGB:      20,
+			SupportedVersions: "1.4.4.9",
+			IsModded:          false,
+			Enabled:           true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		},
+		{
+			GameType:          models.GameTypeTerraria,
+			Name:              "Master World",
+			Slug:              "terraria-master",
+			ServerSoftware:    models.SoftwareTerraria,
+			Description:       "Highest standard Terraria difficulty level with exclusive master relics and gold trophies.",
+			MinCPU:            2,
+			MinRAMMB:          4096,
+			MinStorageGB:      20,
+			SupportedVersions: "1.4.4.9",
+			IsModded:          false,
+			Enabled:           true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		},
+		{
+			GameType:          models.GameTypeTerraria,
+			Name:              "Large World Explorer",
+			Slug:              "terraria-large-world",
+			ServerSoftware:    models.SoftwareTerraria,
+			Description:       "Massive procedural map generation for larger teams and extensive subterranean mining.",
+			MinCPU:            3,
+			MinRAMMB:          6144,
+			MinStorageGB:      40,
+			SupportedVersions: "1.4.4.9",
+			IsModded:          false,
+			Enabled:           true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		},
+		{
+			GameType:          models.GameTypeTerraria,
+			Name:              "tModLoader Modded",
+			Slug:              "terraria-tmodloader",
+			ServerSoftware:    models.SoftwareTModLoader,
+			Description:       "Extensible tModLoader server supporting Calamity, Thorium, and Steam Workshop mod packages.",
+			MinCPU:            3,
+			MinRAMMB:          6144,
+			MinStorageGB:      40,
+			SupportedVersions: "1.4.4.9",
+			IsModded:          true,
+			Enabled:           true,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		},
+	}
+
+	for _, tpl := range templates {
+		_ = db.Create(&tpl)
+	}
+
+	// 2. Seed Supported Versions
+	versions := []models.GameServerVersion{
+		{GameType: models.GameTypeMinecraftJava, ServerSoftware: models.SoftwarePaper, VersionString: "1.21.4", IsLatestStable: true, ReleaseDate: "2024-12-03", JavaVersion: "21", Enabled: true},
+		{GameType: models.GameTypeMinecraftJava, ServerSoftware: models.SoftwarePaper, VersionString: "1.21.1", IsLatestStable: false, ReleaseDate: "2024-08-08", JavaVersion: "21", Enabled: true},
+		{GameType: models.GameTypeMinecraftJava, ServerSoftware: models.SoftwarePaper, VersionString: "1.20.4", IsLatestStable: false, ReleaseDate: "2023-12-07", JavaVersion: "17", Enabled: true},
+		{GameType: models.GameTypeMinecraftJava, ServerSoftware: models.SoftwareVanilla, VersionString: "1.21.4", IsLatestStable: true, ReleaseDate: "2024-12-03", JavaVersion: "21", Enabled: true},
+		{GameType: models.GameTypeMinecraftJava, ServerSoftware: models.SoftwareVanilla, VersionString: "1.21.1", IsLatestStable: false, ReleaseDate: "2024-08-08", JavaVersion: "21", Enabled: true},
+		{GameType: models.GameTypeMinecraftJava, ServerSoftware: models.SoftwareFabric, VersionString: "1.21.4", IsLatestStable: true, ReleaseDate: "2024-12-03", JavaVersion: "21", Enabled: true},
+		{GameType: models.GameTypeMinecraftJava, ServerSoftware: models.SoftwareFabric, VersionString: "1.21.1", IsLatestStable: false, ReleaseDate: "2024-08-08", JavaVersion: "21", Enabled: true},
+		{GameType: models.GameTypeMinecraftJava, ServerSoftware: models.SoftwareForge, VersionString: "1.20.4", IsLatestStable: true, ReleaseDate: "2023-12-07", JavaVersion: "17", Enabled: true},
+		{GameType: models.GameTypeMinecraftJava, ServerSoftware: models.SoftwareForge, VersionString: "1.19.4", IsLatestStable: false, ReleaseDate: "2023-03-14", JavaVersion: "17", Enabled: true},
+		{GameType: models.GameTypeMinecraftBedrock, ServerSoftware: models.SoftwareBedrock, VersionString: "1.21.51", IsLatestStable: true, ReleaseDate: "2024-12-10", Enabled: true},
+		{GameType: models.GameTypeMinecraftBedrock, ServerSoftware: models.SoftwareBedrock, VersionString: "1.21.50", IsLatestStable: false, ReleaseDate: "2024-11-12", Enabled: true},
+		{GameType: models.GameTypeTerraria, ServerSoftware: models.SoftwareTerraria, VersionString: "1.4.4.9", IsLatestStable: true, ReleaseDate: "2022-11-17", Enabled: true},
+		{GameType: models.GameTypeTerraria, ServerSoftware: models.SoftwareTModLoader, VersionString: "1.4.4.9", IsLatestStable: true, ReleaseDate: "2023-06-01", Enabled: true},
+	}
+
+	for _, ver := range versions {
+		_ = db.Create(&ver)
+	}
+
+	// 3. Seed Demo Minecraft Server for Customer Demo User
+	var demoUser models.User
+	if err := db.First(&demoUser, "email = ?", "demo@nevatal.id").Error; err == nil {
+		mcID := uuid.New()
+		mcPort := 25565
+		mcVMID := 25565
+
+		mcServer := models.GameServer{
+			ID:                mcID,
+			OwnerID:           demoUser.ID,
+			Name:              "Nevatal SMP Community",
+			Slug:              "nevatal-smp-community",
+			GameType:          models.GameTypeMinecraftJava,
+			GameVersion:       "1.21.4",
+			ServerSoftware:    models.SoftwarePaper,
+			Status:            models.GameServerStatusRunning,
+			PlanName:          "basic",
+			CPUCores:          2,
+			MemoryMB:          4096,
+			StorageGB:         20,
+			PlayerSlots:       20,
+			AssignedPort:      mcPort,
+			QueryPort:         mcPort,
+			RCONPort:          25575,
+			RCONPassword:      "nevatal-rcon-secret",
+			PublicAddress:     "cloud.nevatal.id:25565",
+			MOTD:              "§bNevatal Cloud§r | Survival SMP §a[1.21.4 Paper]§r",
+			ProxmoxVMID:       &mcVMID,
+			NodeName:          "pve-dell-r640",
+			UptimeSeconds:     86400 * 3, // 3 days
+			TPS:               20.0,
+			MSPT:              12.4,
+			OnlinePlayerCount: 3,
+			AutoBackupEnabled: true,
+			LastHealthCheckAt: &now,
+			CreatedAt:         now.Add(-72 * time.Hour),
+			UpdatedAt:         now,
+		}
+		if err := db.Create(&mcServer).Error; err == nil {
+			// Port allocation
+			_ = db.Create(&models.GameServerPort{
+				ServerID:    mcID,
+				PortNumber:  mcPort,
+				Protocol:    "tcp",
+				ServiceType: "game",
+				NodeName:    "pve-dell-r640",
+				IsAllocated: true,
+				AllocatedAt: now,
+			})
+
+			// Active World
+			_ = db.Create(&models.GameServerWorld{
+				ServerID:   mcID,
+				WorldName:  "world",
+				IsActive:   true,
+				SizeBytes:  1024 * 1024 * 145, // 145 MB
+				Seed:       "-7492048219401284",
+				Difficulty: "normal",
+				CreatedAt:  now.Add(-72 * time.Hour),
+				UpdatedAt:  now,
+			})
+
+			// Demo Players
+			demoPlayers := []models.GameServerPlayer{
+				{ServerID: mcID, PlayerName: "AdminOwner", IsOnline: true, IsOperator: true, IsWhitelisted: true, FirstJoinedAt: &now, LastSeenAt: &now},
+				{ServerID: mcID, PlayerName: "Alex_Builder", IsOnline: true, IsOperator: false, IsWhitelisted: true, FirstJoinedAt: &now, LastSeenAt: &now},
+				{ServerID: mcID, PlayerName: "SteveMiner99", IsOnline: true, IsOperator: false, IsWhitelisted: true, FirstJoinedAt: &now, LastSeenAt: &now},
+				{ServerID: mcID, PlayerName: "GrieferBot", IsOnline: false, IsBanned: true, BanReason: "Attempted automated block disruption", FirstJoinedAt: &now, LastSeenAt: &now},
+			}
+			for _, p := range demoPlayers {
+				_ = db.Create(&p)
+			}
+
+			// Demo Plugins
+			demoPlugins := []models.GameServerPlugin{
+				{ServerID: mcID, Name: "EssentialsX", FileName: "EssentialsX-2.20.1.jar", Version: "2.20.1", Author: "EssentialsX Team", IsEnabled: true, IsCompatible: true, FileSizeBytes: 1024 * 1024 * 3, CreatedAt: now},
+				{ServerID: mcID, Name: "CoreProtect", FileName: "CoreProtect-22.4.jar", Version: "22.4", Author: "Intelli", IsEnabled: true, IsCompatible: true, FileSizeBytes: 1024 * 1024 * 2, CreatedAt: now},
+				{ServerID: mcID, Name: "LuckPerms", FileName: "LuckPerms-5.4.102.jar", Version: "5.4.102", Author: "Luck", IsEnabled: true, IsCompatible: true, FileSizeBytes: 1024 * 1024 * 4, CreatedAt: now},
+			}
+			for _, pl := range demoPlugins {
+				_ = db.Create(&pl)
+			}
+
+			// Demo Backup
+			_ = db.Create(&models.GameServerBackup{
+				ServerID:      mcID,
+				UserID:        demoUser.ID,
+				BackupName:    "backup-nevatal-smp-daily-01",
+				FileSizeBytes: 1024 * 1024 * 128,
+				StoragePath:   fmt.Sprintf("/storage/backups/game-servers/%s/backup-01.tar.gz", mcID),
+				WorldName:     "world",
+				IsAutomated:   true,
+				Checksum:      "sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+				Status:        "completed",
+				CreatedAt:     now.Add(-24 * time.Hour),
+			})
+		}
+
+		// 4. Seed Demo Terraria Server
+		terID := uuid.New()
+		terPort := 7777
+		terVMID := 27777
+
+		terServer := models.GameServer{
+			ID:                terID,
+			OwnerID:           demoUser.ID,
+			Name:              "Terraria Expert Realm",
+			Slug:              "terraria-expert-realm",
+			GameType:          models.GameTypeTerraria,
+			GameVersion:       "1.4.4.9",
+			ServerSoftware:    models.SoftwareTerraria,
+			Status:            models.GameServerStatusRunning,
+			PlanName:          "basic",
+			CPUCores:          2,
+			MemoryMB:          4096,
+			StorageGB:         20,
+			PlayerSlots:       8,
+			AssignedPort:      terPort,
+			QueryPort:         terPort,
+			PublicAddress:     "cloud.nevatal.id:7777",
+			MOTD:              "Nevatal Cloud | Terraria Expert World",
+			ProxmoxVMID:       &terVMID,
+			NodeName:          "pve-dell-r640",
+			UptimeSeconds:     86400 * 2,
+			TPS:               60.0,
+			MSPT:              8.1,
+			OnlinePlayerCount: 2,
+			AutoBackupEnabled: true,
+			LastHealthCheckAt: &now,
+			CreatedAt:         now.Add(-48 * time.Hour),
+			UpdatedAt:         now,
+		}
+		if err := db.Create(&terServer).Error; err == nil {
+			_ = db.Create(&models.GameServerPort{
+				ServerID:    terID,
+				PortNumber:  terPort,
+				Protocol:    "tcp",
+				ServiceType: "game",
+				NodeName:    "pve-dell-r640",
+				IsAllocated: true,
+				AllocatedAt: now,
+			})
+
+			_ = db.Create(&models.GameServerWorld{
+				ServerID:   terID,
+				WorldName:  "Aethelgard",
+				IsActive:   true,
+				SizeBytes:  1024 * 1024 * 42,
+				Difficulty: "expert",
+				WorldSize:  "large",
+				CreatedAt:  now.Add(-48 * time.Hour),
+				UpdatedAt:  now,
+			})
+
+			_ = db.Create(&models.GameServerPlayer{
+				ServerID:      terID,
+				PlayerName:    "TerrarianWarrior",
+				IsOnline:      true,
+				IsOperator:    true,
+				FirstJoinedAt: &now,
+				LastSeenAt:    &now,
+			})
+		}
+	}
+
+	log.Println("Seeded game server templates, versions, and sample instances.")
+	return nil
+}
+
