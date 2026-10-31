@@ -49,6 +49,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
   const faqs = [
     {
+      q: 'Is Nevatal Cloud free to use?',
+      a: 'Yes! Nevatal Cloud is currently 100% free for all registered developers during our public community phase. You receive generous compute, memory, storage quotas, game servers, Waydroid Android containers, and S3 buckets without needing a credit card or billing profile.',
+    },
+    {
       q: 'How does Nevatal Cloud compare to raw Proxmox VE?',
       a: 'Proxmox VE is an enterprise hypervisor built for system administrators. Nevatal Cloud connects directly to Proxmox VE via REST API v2, wrapping it in a developer-friendly web control plane. It automates cloud-init OS provisioning, user quota governance, multi-tenant network isolation, S3 storage, game servers, and Waydroid Android containers without needing manual Linux CLI interventions.',
     },
@@ -108,9 +112,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
         {/* Right CTA / Auth Status */}
         <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-md bg-zinc-900/60 border border-zinc-800 text-[11px] font-mono text-zinc-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Dell R640 Proxmox Cluster</span>
+          <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-950/40 border border-emerald-800/60 text-[11px] font-mono text-emerald-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>100% Free · Dell R640 Cluster</span>
           </div>
 
           {user ? (
@@ -156,21 +160,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
         <div className="max-w-5xl mx-auto text-center space-y-6 relative z-10">
           {/* Hardware & Engine Eyebrow */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span>BARE-METAL COMPUTE · PROXMOX VE 8 · DELL POWEREDGE R640</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-950/40 border border-emerald-800/60 text-[11px] font-mono text-emerald-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-semibold text-emerald-300">100% FREE FOR NOW</span>
+            <span className="text-emerald-700">·</span>
+            <span>NO CREDIT CARD REQUIRED</span>
+            <span className="text-emerald-700">·</span>
+            <span>PROXMOX VE 8 · DELL R640</span>
           </div>
 
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white max-w-4xl mx-auto leading-[1.12]">
             Cloud compute, game servers, and Android environments.
-            <span className="block text-zinc-400 font-normal">Bare-metal fast.</span>
+            <span className="block text-zinc-400 font-normal">Bare-metal fast. 100% free.</span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto leading-relaxed">
             Nevatal Cloud abstracts enterprise virtualization into a minimalist developer control plane.
-            Deploy Linux VPS instances, one-click Minecraft &amp; Terraria worlds, Waydroid Android containers, and autonomous AI agents in under 30 seconds.
+            Deploy Linux VPS instances, one-click Minecraft &amp; Terraria worlds, Waydroid Android containers, and autonomous AI agents in under 30 seconds—completely free.
           </p>
 
           {/* CTAs */}
@@ -179,7 +187,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               onClick={() => onNavigate(user ? '/dashboard/instances/new' : '/register')}
               className="flex items-center gap-2 text-xs sm:text-sm font-medium px-5 py-2.5 rounded-md bg-white text-zinc-950 hover:bg-zinc-200 transition-colors shadow-sm"
             >
-              <span>Deploy a Server Now</span>
+              <span>Deploy a Server Now — Free</span>
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
@@ -189,6 +197,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               <BookOpen className="w-4 h-4" />
               <span>Explore Documentation</span>
             </button>
+          </div>
+
+          <div className="text-xs text-zinc-400 font-mono">
+            All workloads are currently <span className="text-emerald-400 font-semibold">100% free</span> for developers. Zero billing or credit card setup.
           </div>
 
           {/* Curl Command Pill */}
@@ -642,18 +654,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       {/* Bottom CTA */}
       <section className="py-16 sm:py-20 px-4 sm:px-8 bg-zinc-900/30 text-center">
         <div className="max-w-3xl mx-auto space-y-5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/40 border border-emerald-800/60 text-[11px] font-mono text-emerald-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span>COMMUNITY ACCESS · 100% FREE FOR NOW</span>
+          </div>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
             Ready to deploy your next workload?
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400 max-w-lg mx-auto">
-            Experience bare-metal cloud performance backed by dedicated Dell PowerEdge R640 nodes and Proxmox VE hypervisor orchestration.
+            Experience bare-metal cloud performance backed by dedicated Dell PowerEdge R640 nodes. It is completely free for now—no payment or credit card required.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               onClick={() => onNavigate(user ? '/dashboard' : '/register')}
               className="text-xs sm:text-sm font-medium px-5 py-2.5 rounded-md bg-white text-zinc-950 hover:bg-zinc-200 transition-colors"
             >
-              Get Started Now
+              Get Started for Free
             </button>
             <button
               onClick={() => onNavigate('/docs')}
