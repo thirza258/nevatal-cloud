@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
 import { AppShell } from './components/layout/AppShell';
+
+// Public Landing & Documentation
+import { LandingPage } from './pages/LandingPage';
+import { DocsPage } from './pages/docs/DocsPage';
 
 // Customer Compute & Core Pages
 import { Login } from './pages/Login';
@@ -66,12 +70,27 @@ import { AdminAudit } from './pages/admin/AdminAudit';
 
 export const App: React.FC = () => {
   const { user, loading } = useAuth();
-  const [currentPath, setCurrentPath] = useState<string>('/dashboard');
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    const pathname = window.location.pathname;
+    return pathname && pathname !== '' ? pathname : '/';
+  });
   const [param, setParam] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const pathname = window.location.pathname;
+      setCurrentPath(pathname && pathname !== '' ? pathname : '/');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const handleNavigate = (path: string, routeParam?: string) => {
     setCurrentPath(path);
     setParam(routeParam);
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
     window.scrollTo(0, 0);
   };
 
@@ -86,12 +105,32 @@ export const App: React.FC = () => {
     );
   }
 
-  // Not authenticated view
+  // Public Landing Page
+  if (currentPath === '/' || currentPath === '/home' || currentPath === '/landing') {
+    return <LandingPage onNavigate={handleNavigate} />;
+  }
+
+  // Public Documentation Portal
+  if (currentPath.startsWith('/docs')) {
+    const slug = param || (currentPath !== '/docs' ? currentPath.replace('/docs/', '') : undefined);
+    return <DocsPage onNavigate={handleNavigate} initialArticleId={slug} />;
+  }
+
+  // Not authenticated view for protected or auth pages
   if (!user) {
     if (currentPath === '/register') {
       return <Register onNavigate={handleNavigate} />;
     }
     return <Login onNavigate={handleNavigate} />;
+  }
+
+  // Authenticated redirect from login/register
+  if (currentPath === '/login' || currentPath === '/register') {
+    return (
+      <AppShell currentPath="/dashboard" onNavigate={handleNavigate}>
+        <Dashboard onNavigate={handleNavigate} />
+      </AppShell>
+    );
   }
 
   // Authenticated view within AppShell

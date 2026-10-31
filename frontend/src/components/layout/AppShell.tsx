@@ -25,6 +25,7 @@ import {
   Code,
   Gamepad2,
   Smartphone,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { AIAssistantWidget } from '../ai/AIAssistantWidget';
@@ -149,6 +150,37 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
             </nav>
           </div>
 
+          {/* Resources & Docs section */}
+          <div>
+            <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+              Documentation &amp; Portal
+            </div>
+            <nav className="space-y-0.5">
+              <button
+                onClick={() => handleNav('/docs')}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  currentPath.startsWith('/docs')
+                    ? 'bg-zinc-800 text-white font-semibold'
+                    : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5 flex-shrink-0 text-zinc-400" />
+                <span className="truncate">Documentation</span>
+              </button>
+              <button
+                onClick={() => handleNav('/')}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  currentPath === '/'
+                    ? 'bg-zinc-800 text-white font-semibold'
+                    : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5 flex-shrink-0 text-zinc-400" />
+                <span className="truncate">Landing Page</span>
+              </button>
+            </nav>
+          </div>
+
           {/* Admin section */}
           {user?.role === 'admin' && (
             <div>
@@ -263,6 +295,15 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
               <span className="text-zinc-400">·</span>
               <span className="text-zinc-400">Proxmox VE</span>
             </div>
+
+            <button
+              onClick={() => handleNav('/docs')}
+              className="hidden md:flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white px-2.5 py-1.5 rounded-md hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition-colors"
+              title="Documentation"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Docs</span>
+            </button>
 
             <button
               onClick={() => handleNav('/dashboard/instances/new')}

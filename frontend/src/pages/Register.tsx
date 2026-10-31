@@ -189,13 +189,24 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
             </button>
           </form>
 
-          <div className="text-center pt-2">
-            <button
-              onClick={() => onNavigate('/login')}
-              className="text-xs text-zinc-400 hover:text-white transition-colors"
-            >
-              Already have an account? <span className="underline text-white">Sign In</span>
-            </button>
+          <div className="text-center pt-2 space-y-2">
+            <div>
+              <button
+                onClick={() => onNavigate('/login')}
+                className="text-xs text-zinc-400 hover:text-white transition-colors"
+              >
+                Already have an account? <span className="underline text-white">Sign In</span>
+              </button>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2 text-[11px] text-zinc-400 font-mono">
+              <button onClick={() => onNavigate('/')} className="hover:text-zinc-200 transition-colors">
+                ← Home
+              </button>
+              <span>·</span>
+              <button onClick={() => onNavigate('/docs')} className="hover:text-zinc-200 transition-colors">
+                Documentation
+              </button>
+            </div>
           </div>
         </div>
       </div>
