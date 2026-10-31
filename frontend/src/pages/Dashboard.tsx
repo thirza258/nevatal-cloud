@@ -79,60 +79,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-900 to-blue-950/30 p-6 rounded-2xl border border-slate-800 shadow-sm">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            Welcome back, {user?.display_name}!
+          <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
+            Overview
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Proxmox VE virtualization cluster is operational. Manage and deploy your virtual servers.
+          <p className="text-xs text-zinc-400 mt-1 font-mono">
+            Proxmox VE virtualization cluster operational · Dell PowerEdge R640
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => fetchSummary(true)}
             disabled={refreshing}
-            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/60 transition"
+            className="p-2 rounded-md bg-zinc-900 hover:bg-zinc-850 text-zinc-300 hover:text-white border border-zinc-800 transition"
             title="Refresh status"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={() => onNavigate('/dashboard/instances/new')}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-500/25 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white hover:bg-zinc-200 text-zinc-950 font-medium text-xs transition"
           >
-            <PlusCircle className="w-4 h-4" />
+            <PlusCircle className="w-3.5 h-3.5" />
             <span>Deploy Instance</span>
           </button>
         </div>
       </div>
 
-      {/* 34.1 Prominent Action Hero: "What would you like to build?" */}
-      <div className="relative overflow-hidden p-6 rounded-2xl bg-gradient-to-br from-indigo-950/60 via-slate-900 to-blue-950/40 border border-blue-500/30 shadow-lg space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                <span>What would you like to build?</span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                  AI Cloud Agent
-                </span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Describe your desired cloud architecture in natural language. Your agent plans, validates quotas, and provisions Dell PowerEdge R640 resources.
-              </p>
-            </div>
+      {/* Command & Quick Actions Bar */}
+      <div className="p-3.5 rounded-lg bg-zinc-900/40 border border-zinc-800 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-xs font-medium text-zinc-200">Nevatal AI Cloud Agent</span>
           </div>
           <button
             onClick={() => onNavigate('/dashboard/ai')}
-            className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-semibold px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 transition whitespace-nowrap self-start sm:self-auto"
+            className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1 transition"
           >
-            <span>Open AI Console</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span>Agent Console</span>
+            <ArrowRight className="w-3 h-3" />
           </button>
         </div>
 
@@ -148,55 +136,62 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             type="text"
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
-            placeholder="e.g. 'I want to create a VPS for hosting my Go API' or 'Deploy a website from GitHub'..."
-            className="flex-1 bg-slate-950/80 border border-slate-700/80 rounded-xl px-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-inner"
+            placeholder="Plan or provision infrastructure (e.g. 'Deploy Ubuntu 24.04 with 2 vCPUs' or 'Create WordPress')..."
+            className="flex-1 bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
           />
           <button
             type="submit"
-            className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs sm:text-sm shadow-md shadow-blue-600/30 transition flex items-center gap-2 flex-shrink-0"
+            className="px-3 py-2 rounded-md bg-white hover:bg-zinc-200 text-zinc-950 font-medium text-xs transition flex items-center gap-1.5 flex-shrink-0"
           >
-            <Sparkles className="w-4 h-4" />
-            <span className="hidden sm:inline">Ask AI Agent</span>
+            <span>Ask Agent</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </form>
 
         {/* Quick Builder Presets */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-[11px] font-semibold text-slate-400">Quick Start:</span>
+        <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] pt-0.5">
+          <span className="text-[10px] font-mono uppercase text-zinc-500 mr-1">Quick:</span>
           <button
-            onClick={() => onNavigate('/dashboard/ai')}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs transition border border-slate-700/60"
+            onClick={() => onNavigate('/dashboard/instances/new')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition"
           >
-            <Server className="w-3 h-3 text-blue-400" />
-            <span>Create VPS</span>
+            <Server className="w-3 h-3 text-zinc-400" />
+            <span>VPS</span>
           </button>
           <button
-            onClick={() => onNavigate('/dashboard/ai')}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs transition border border-slate-700/60"
+            onClick={() => onNavigate('/dashboard/apps/new')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition"
           >
-            <Globe className="w-3 h-3 text-emerald-400" />
-            <span>Deploy Website</span>
+            <Globe className="w-3 h-3 text-zinc-400" />
+            <span>App</span>
           </button>
           <button
-            onClick={() => onNavigate('/dashboard/ai')}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs transition border border-slate-700/60"
+            onClick={() => onNavigate('/dashboard/automation/new')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition"
           >
-            <Workflow className="w-3 h-3 text-amber-400" />
-            <span>n8n Setup</span>
+            <Workflow className="w-3 h-3 text-zinc-400" />
+            <span>n8n</span>
           </button>
           <button
-            onClick={() => onNavigate('/dashboard/ai')}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs transition border border-slate-700/60"
+            onClick={() => onNavigate('/dashboard/game-servers/create')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition"
           >
-            <Bot className="w-3 h-3 text-purple-400" />
-            <span>OpenClaw Setup</span>
+            <Server className="w-3 h-3 text-zinc-400" />
+            <span>Game Server</span>
           </button>
           <button
-            onClick={() => onNavigate('/dashboard/ai')}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs transition border border-slate-700/60"
+            onClick={() => onNavigate('/dashboard/android/create')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition"
           >
-            <Database className="w-3 h-3 text-cyan-400" />
-            <span>S3 Storage</span>
+            <Server className="w-3 h-3 text-zinc-400" />
+            <span>Android Cloud</span>
+          </button>
+          <button
+            onClick={() => onNavigate('/dashboard/storage')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition"
+          >
+            <Database className="w-3 h-3 text-zinc-400" />
+            <span>Storage</span>
           </button>
         </div>
       </div>
@@ -233,26 +228,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
       {/* Quotas & Capacity Overview */}
       {usage && (
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3.5">
             <div>
-              <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                <span>Account Quota Utilization</span>
-                <span className="text-xs font-normal text-slate-400">
-                  (Enforced per PRD limits)
-                </span>
+              <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-400">
+                Account Quota Utilization
               </h3>
             </div>
             <button
               onClick={() => onNavigate('/dashboard/usage')}
-              className="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1"
+              className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 transition"
             >
               <span>Quota Details</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3 h-3" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             <ProgressBar
               label="vCPU Cores"
               used={usage.used_vcpus}
@@ -284,29 +276,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       {/* Recent Instances & Activity Split */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Instances Table */}
-        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-          <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div className="lg:col-span-2 bg-zinc-900/40 border border-zinc-800 rounded-lg overflow-hidden">
+          <div className="p-3.5 border-b border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Server className="w-4 h-4 text-blue-400" />
-              <h3 className="text-sm font-semibold text-white">Recent Instances</h3>
+              <Server className="w-3.5 h-3.5 text-zinc-400" />
+              <h3 className="text-xs font-medium text-white">Recent Instances</h3>
             </div>
             <button
               onClick={() => onNavigate('/dashboard/instances')}
-              className="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1"
+              className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 transition"
             >
               <span>View All</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3 h-3" />
             </button>
           </div>
 
           <div className="overflow-x-auto">
             {!data?.recent_instances || data.recent_instances.length === 0 ? (
-              <div className="p-10 text-center text-slate-400 space-y-3">
-                <Server className="w-10 h-10 text-slate-600 mx-auto" />
-                <p className="text-sm">No instances deployed yet.</p>
+              <div className="p-8 text-center text-zinc-500 space-y-2">
+                <Server className="w-8 h-8 text-zinc-600 mx-auto" />
+                <p className="text-xs">No instances deployed yet.</p>
                 <button
                   onClick={() => onNavigate('/dashboard/instances/new')}
-                  className="inline-flex items-center gap-1 text-xs text-blue-400 font-medium hover:underline"
+                  className="inline-flex items-center gap-1 text-xs text-white hover:underline font-medium"
                 >
                   Deploy your first Linux VM
                 </button>
@@ -314,62 +306,62 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             ) : (
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-800 bg-slate-950/40 text-slate-400 font-medium uppercase tracking-wider">
-                    <th className="py-3 px-4">Name</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Specs</th>
-                    <th className="py-3 px-4">IP Address</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
+                  <tr className="border-b border-zinc-800 bg-zinc-950 text-zinc-400 font-mono text-[10px] uppercase tracking-wider">
+                    <th className="py-2.5 px-3.5">Name</th>
+                    <th className="py-2.5 px-3.5">Status</th>
+                    <th className="py-2.5 px-3.5">Specs</th>
+                    <th className="py-2.5 px-3.5">IP Address</th>
+                    <th className="py-2.5 px-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-zinc-850">
                   {data.recent_instances.map((inst) => (
                     <tr
                       key={inst.id}
                       onClick={() => onNavigate('/dashboard/instances', inst.id)}
-                      className="hover:bg-slate-800/40 cursor-pointer transition-colors"
+                      className="hover:bg-zinc-900/70 cursor-pointer transition-colors"
                     >
-                      <td className="py-3.5 px-4">
-                        <div className="font-semibold text-white">{inst.name}</div>
-                        <div className="text-[11px] text-slate-500 font-mono">
+                      <td className="py-3 px-3.5">
+                        <div className="font-medium text-white">{inst.name}</div>
+                        <div className="text-[10px] text-zinc-400 font-mono">
                           {inst.os_template?.distribution} {inst.os_template?.version}
                         </div>
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3 px-3.5">
                         <StatusBadge status={inst.status} size="sm" />
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-300">
+                      <td className="py-3 px-3.5 font-mono text-zinc-300 text-[11px]">
                         {inst.vcpus} vCPU • {Math.round(inst.memory_mb / 1024)}GB • {inst.disk_gb}GB
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-300">
-                        {inst.private_ip || <span className="text-slate-500">—</span>}
+                      <td className="py-3 px-3.5 font-mono text-zinc-300 text-[11px]">
+                        {inst.private_ip || <span className="text-zinc-600">—</span>}
                       </td>
-                      <td className="py-3.5 px-4 text-right">
+                      <td className="py-3 px-3.5 text-right">
                         <div className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           {inst.status === 'stopped' && (
                             <button
                               onClick={(e) => handleAction(e, inst.id, 'start')}
-                              className="p-1.5 rounded-lg bg-emerald-950/60 text-emerald-400 hover:bg-emerald-900 border border-emerald-800/60 transition"
+                              className="p-1.5 rounded bg-zinc-850 hover:bg-zinc-800 text-emerald-400 border border-zinc-750 transition"
                               title="Start VM"
                             >
-                              <Play className="w-3.5 h-3.5" />
+                              <Play className="w-3 h-3" />
                             </button>
                           )}
                           {inst.status === 'running' && (
                             <>
                               <button
                                 onClick={(e) => handleAction(e, inst.id, 'shutdown')}
-                                className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+                                className="p-1.5 rounded bg-zinc-850 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-750 transition"
                                 title="Graceful Shutdown"
                               >
-                                <Square className="w-3.5 h-3.5" />
+                                <Square className="w-3 h-3" />
                               </button>
                               <button
                                 onClick={(e) => handleAction(e, inst.id, 'restart')}
-                                className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+                                className="p-1.5 rounded bg-zinc-850 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-750 transition"
                                 title="Restart VM"
                               >
-                                <RotateCcw className="w-3.5 h-3.5" />
+                                <RotateCcw className="w-3 h-3" />
                               </button>
                             </>
                           )}
@@ -384,32 +376,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         </div>
 
         {/* Recent Activity Feed */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg p-3.5 space-y-3">
+          <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800">
             <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-blue-400" />
-              <h3 className="text-sm font-semibold text-white">Recent Activity</h3>
+              <Activity className="w-3.5 h-3.5 text-zinc-400" />
+              <h3 className="text-xs font-medium text-white">Recent Activity</h3>
             </div>
             <button
               onClick={() => onNavigate('/dashboard/activity')}
-              className="text-xs text-blue-400 hover:text-blue-300 font-medium"
+              className="text-[11px] text-zinc-400 hover:text-white"
             >
               Full Log
             </button>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {!data?.recent_activity || data.recent_activity.length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-6">No recent events recorded.</p>
+              <p className="text-xs text-zinc-500 text-center py-6">No recent events recorded.</p>
             ) : (
               data.recent_activity.slice(0, 6).map((item) => (
-                <div key={item.id} className="flex items-start gap-2.5 text-xs">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                <div key={item.id} className="flex items-start gap-2 text-xs">
+                  <div className="w-1.5 h-1.5 rounded-full bg-zinc-500 mt-1.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-slate-200 font-medium truncate">
-                      <span className="font-mono text-blue-400 mr-1">{item.action}</span>
+                    <p className="text-zinc-200 font-mono text-[11px] truncate">
+                      {item.action}
                     </p>
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-[10px] text-zinc-400 font-mono">
                       {new Date(item.created_at).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
@@ -418,10 +410,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                     </span>
                   </div>
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-mono border ${
                       item.result === 'success'
-                        ? 'text-emerald-400 bg-emerald-950/40 border border-emerald-800/40'
-                        : 'text-rose-400 bg-rose-950/40 border border-rose-800/40'
+                        ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                        : 'text-rose-400 bg-rose-500/10 border-rose-500/20'
                     }`}
                   >
                     {item.result}

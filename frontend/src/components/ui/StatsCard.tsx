@@ -18,26 +18,26 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   trendPositive,
 }) => {
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-slate-700/80 transition-all shadow-sm">
+    <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-lg p-4 hover:border-zinc-700/70 transition-colors">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+        <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
           {title}
         </span>
-        <div className="p-2 bg-slate-800/80 rounded-xl text-blue-400">{icon}</div>
+        <div className="text-zinc-400">{icon}</div>
       </div>
-      <div className="mt-3 flex items-baseline gap-2">
-        <span className="text-2xl font-bold text-white tracking-tight">{value}</span>
+      <div className="mt-2.5 flex items-baseline gap-2">
+        <span className="text-2xl font-semibold text-white tracking-tight">{value}</span>
         {trend && (
           <span
-            className={`text-xs font-medium ${
-              trendPositive ? 'text-emerald-400' : 'text-slate-400'
+            className={`text-[11px] font-mono ${
+              trendPositive ? 'text-emerald-400' : 'text-zinc-400'
             }`}
           >
             {trend}
           </span>
         )}
       </div>
-      {subtext && <p className="text-xs text-slate-400 mt-1">{subtext}</p>}
+      {subtext && <p className="text-xs text-zinc-400 mt-1">{subtext}</p>}
     </div>
   );
 };

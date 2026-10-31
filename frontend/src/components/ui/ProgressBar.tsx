@@ -17,7 +17,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 }) => {
   const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
 
-  let color = 'bg-blue-500';
+  let color = 'bg-zinc-200';
   if (percent >= 90) {
     color = 'bg-rose-500';
   } else if (percent >= 75) {
@@ -27,15 +27,15 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs">
-        <span className="font-medium text-slate-300">{label}</span>
-        <span className="text-slate-400">
-          <strong className="text-white font-semibold">{used}</strong> / {total} {unit}
-          {showPercent && <span className="ml-1 text-slate-500">({percent}%)</span>}
+        <span className="font-medium text-zinc-300">{label}</span>
+        <span className="text-zinc-400 font-mono text-[11px]">
+          <strong className="text-zinc-100 font-semibold">{used}</strong> / {total} {unit}
+          {showPercent && <span className="ml-1 text-zinc-500">({percent}%)</span>}
         </span>
       </div>
-      <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+      <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
         <div
-          className={`h-full ${color} transition-all duration-500 rounded-full`}
+          className={`h-full ${color} transition-all duration-300 rounded-full`}
           style={{ width: `${percent}%` }}
         />
       </div>

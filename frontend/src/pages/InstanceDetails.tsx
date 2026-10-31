@@ -392,16 +392,16 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-slate-800 gap-6 text-xs font-semibold">
+      <div className="flex border-b border-zinc-800 gap-6 text-xs font-medium">
         <button
           onClick={() => setActiveTab('overview')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition ${
             activeTab === 'overview'
-              ? 'border-blue-500 text-blue-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-white text-white font-semibold'
+              : 'border-transparent text-zinc-400 hover:text-zinc-200'
           }`}
         >
-          <Server className="w-4 h-4" />
+          <Server className="w-3.5 h-3.5" />
           <span>Overview</span>
         </button>
 
@@ -409,11 +409,11 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
           onClick={() => setActiveTab('console')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition ${
             activeTab === 'console'
-              ? 'border-blue-500 text-blue-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-white text-white font-semibold'
+              : 'border-transparent text-zinc-400 hover:text-zinc-200'
           }`}
         >
-          <Terminal className="w-4 h-4" />
+          <Terminal className="w-3.5 h-3.5" />
           <span>Web Console</span>
         </button>
 
@@ -421,11 +421,11 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
           onClick={() => setActiveTab('snapshots')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition ${
             activeTab === 'snapshots'
-              ? 'border-blue-500 text-blue-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-white text-white font-semibold'
+              : 'border-transparent text-zinc-400 hover:text-zinc-200'
           }`}
         >
-          <Camera className="w-4 h-4" />
+          <Camera className="w-3.5 h-3.5" />
           <span>Snapshots</span>
         </button>
 
@@ -433,11 +433,11 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
           onClick={() => setActiveTab('resize')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition ${
             activeTab === 'resize'
-              ? 'border-blue-500 text-blue-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-white text-white font-semibold'
+              : 'border-transparent text-zinc-400 hover:text-zinc-200'
           }`}
         >
-          <Sliders className="w-4 h-4" />
+          <Sliders className="w-3.5 h-3.5" />
           <span>Hardware Resize</span>
         </button>
       </div>
@@ -448,10 +448,10 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
           {/* Left Column: Specs & Info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Overview Cards */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
-              <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                <Server className="w-4 h-4 text-blue-400" />
-                <span>Hardware & Infrastructure</span>
+            <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg p-5">
+              <h3 className="text-xs font-semibold text-white mb-4 flex items-center gap-2">
+                <Server className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Hardware &amp; Infrastructure</span>
               </h3>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -527,21 +527,21 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
             {/* WordPress Application Integration Panel */}
             {(instance.os_template?.name?.toLowerCase().includes('wordpress') ||
               instance.name?.toLowerCase().includes('wp-')) && (
-              <div className="bg-gradient-to-r from-blue-950/40 to-slate-900 border border-blue-800/60 rounded-2xl p-6 shadow-sm">
+              <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-[#21759b] flex items-center justify-center text-white shadow-md">
-                      <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                    <div className="w-7 h-7 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                         <path d="M12 2C6.477 2 2 6.477 2 12c0 4.237 2.636 7.855 6.356 9.312L4.62 11.23c-.31-.83-.434-1.492-.434-2.035 0-1.897 1.385-3.328 3.328-3.328.124 0 .245.008.367.016L12 2zm8.016 4.09c.65 1.258 1.016 2.688 1.016 4.203 0 2.92-1.383 5.518-3.535 7.184l3.193-8.875c.01-.035.016-.07.016-.105 0-.895-.563-1.637-1.39-1.984l.7-.423zm-7.984 8.785l-2.484 7.22C10.22 22.04 11.1 22.09 12 22.09c.99 0 1.948-.06 2.87-.174l-2.838-7.042zm-5.748-4.48c.414 0 .783.055 1.107.165l2.42 6.942-1.696-4.996c-.302-.893-.524-1.455-.664-1.688-.23-.377-.557-.577-.967-.577-.107 0-.21.014-.308.032l.108.122zM12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0z" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-white">WordPress Production Stack</h3>
-                      <p className="text-[11px] text-blue-300">Nginx &bull; PHP 8.3-FPM &bull; MariaDB 10.11 &bull; WP-CLI</p>
+                      <h3 className="text-xs font-semibold text-white">WordPress Production Stack</h3>
+                      <p className="text-[11px] text-zinc-400 font-mono">Nginx · PHP 8.3-FPM · MariaDB · WP-CLI</p>
                     </div>
                   </div>
-                  <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-950/80 border border-emerald-800/80 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     Stack Active
                   </span>
                 </div>

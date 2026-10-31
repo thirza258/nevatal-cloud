@@ -171,36 +171,31 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ onNavigate
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-40 p-3.5 rounded-2xl bg-gradient-to-tr from-purple-600 to-blue-600 text-white shadow-xl shadow-purple-500/30 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer flex items-center gap-2 group border border-purple-400/30"
+          className="fixed bottom-5 right-5 z-40 px-3 py-2 rounded-full bg-zinc-900 hover:bg-zinc-850 text-zinc-300 hover:text-white border border-zinc-750 shadow-lg text-xs font-medium flex items-center gap-2 transition-all cursor-pointer"
           title="Open AI Assistant"
         >
-          <div className="relative">
-            <Bot className="w-6 h-6" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900 animate-pulse" />
-          </div>
-          <span className="text-xs font-semibold tracking-tight pr-1 hidden sm:inline">
-            AI Assistant
-          </span>
+          <Bot className="w-3.5 h-3.5 text-zinc-300" />
+          <span className="text-xs">AI Assistant</span>
         </button>
       )}
 
       {/* Floating Chat Drawer */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-[92vw] sm:w-[420px] h-[550px] max-h-[85vh] bg-slate-900/95 border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div className="fixed bottom-5 right-5 z-50 w-[92vw] sm:w-[390px] h-[520px] max-h-[85vh] bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in duration-150">
           {/* Header */}
-          <div className="p-3.5 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
+          <div className="p-3 border-b border-zinc-850 bg-zinc-900/60 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-blue-600 flex items-center justify-center text-white shadow-md shadow-purple-500/20">
-                <Bot className="w-4 h-4" />
+              <div className="w-7 h-7 rounded-md bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
+                <Bot className="w-3.5 h-3.5" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-white tracking-tight">AI Cloud Copilot</span>
-                  <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                    OpenRouter
+                  <span className="text-xs font-semibold text-white tracking-tight">AI Cloud Assistant</span>
+                  <span className="text-[10px] font-mono text-zinc-400 px-1 py-0.2 rounded bg-zinc-900 border border-zinc-800">
+                    copilot
                   </span>
                 </div>
-                <span className="text-[10px] text-slate-400 block">Proxmox VE & Container Assistant</span>
+                <span className="text-[10px] text-zinc-400 font-mono block">Proxmox VE &amp; Instances</span>
               </div>
             </div>
 
@@ -211,15 +206,15 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ onNavigate
                   onNavigate('/dashboard/ai-assistant');
                 }}
                 title="Expand to Full Page"
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+                className="p-1.5 text-zinc-400 hover:text-white rounded-md hover:bg-zinc-900 transition cursor-pointer"
               >
-                <Maximize2 className="w-4 h-4" />
+                <Maximize2 className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+                className="p-1.5 text-zinc-400 hover:text-white rounded-md hover:bg-zinc-900 transition cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -243,23 +238,23 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ onNavigate
                   className={`flex gap-2 max-w-[90%] ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
                 >
                   <div
-                    className={`p-3 rounded-xl leading-relaxed whitespace-pre-wrap ${
+                    className={`p-2.5 rounded-lg leading-relaxed whitespace-pre-wrap ${
                       isUser
-                        ? 'bg-blue-600 text-white rounded-tr-none'
-                        : 'bg-slate-950 border border-slate-800 text-slate-200 rounded-tl-none'
+                        ? 'bg-zinc-800 text-white'
+                        : 'bg-zinc-900 border border-zinc-800 text-zinc-200'
                     }`}
                   >
                     <div>{m.content}</div>
 
                     {/* Action Card inside Widget */}
                     {params && (
-                      <div className="mt-2.5 p-2.5 rounded-lg bg-slate-900 border border-purple-500/30 space-y-2">
-                        <div className="flex items-center justify-between text-[11px] font-semibold text-white">
-                          <span className="flex items-center gap-1 text-purple-400">
-                            <Server className="w-3.5 h-3.5" />
+                      <div className="mt-2 p-2 rounded bg-zinc-950 border border-zinc-800 space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] font-mono text-zinc-300">
+                          <span className="flex items-center gap-1 text-zinc-300">
+                            <Server className="w-3 h-3 text-zinc-400" />
                             {params.name || 'new-container'}
                           </span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-zinc-500">
                             {params.vcpus} vCPU • {(params.memory_mb / 1024).toFixed(1)}GB
                           </span>
                         </div>
@@ -268,7 +263,7 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ onNavigate
                           <button
                             onClick={() => handleExecuteAction(m)}
                             disabled={executingMsgId === m.id}
-                            className="w-full py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium text-[11px] transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                            className="w-full py-1 rounded bg-white hover:bg-zinc-200 text-zinc-950 font-medium text-[11px] transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                           >
                             {executingMsgId === m.id ? (
                               <>
@@ -278,14 +273,14 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ onNavigate
                             ) : (
                               <>
                                 <Play className="w-3 h-3 fill-current" />
-                                <span>Deploy Container Now</span>
+                                <span>Deploy Container</span>
                               </>
                             )}
                           </button>
                         ) : (
-                          <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Provisioning Queued ✓</span>
+                          <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Queued</span>
                           </div>
                         )}
                       </div>
@@ -296,15 +291,15 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ onNavigate
             })}
 
             {loading && (
-              <div className="flex items-center gap-2 text-slate-400 text-xs py-2 px-3 bg-slate-950/60 rounded-xl w-fit">
-                <RefreshCw className="w-3 h-3 animate-spin text-purple-400" />
-                <span>Generating response...</span>
+              <div className="flex items-center gap-2 text-zinc-500 text-xs py-1 px-2 font-mono">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                <span>Thinking...</span>
               </div>
             )}
 
             {statusNotice && (
-              <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 text-[11px] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
+              <div className="p-2 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px] flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
                 <span>{statusNotice}</span>
               </div>
             )}
@@ -313,48 +308,48 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ onNavigate
           </div>
 
           {/* Quick Prompts */}
-          <div className="px-3 py-1.5 border-t border-slate-800/80 bg-slate-950/40 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <div className="px-2.5 py-1.5 border-t border-zinc-850 bg-zinc-950 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             <button
               onClick={() => handleSend('Create an Ubuntu 24.04 container with 2 vCPUs and 4GB RAM')}
-              className="text-[10px] whitespace-nowrap px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 cursor-pointer"
+              className="text-[10px] whitespace-nowrap px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850 transition cursor-pointer font-mono"
             >
               + Ubuntu Container
             </button>
             <button
               onClick={() => handleSend('How do I connect to instances via SSH?')}
-              className="text-[10px] whitespace-nowrap px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 cursor-pointer"
+              className="text-[10px] whitespace-nowrap px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850 transition cursor-pointer font-mono"
             >
               SSH Help
             </button>
             <button
               onClick={() => handleSend('What are my current quotas and remaining capacity?')}
-              className="text-[10px] whitespace-nowrap px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 cursor-pointer"
+              className="text-[10px] whitespace-nowrap px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850 transition cursor-pointer font-mono"
             >
-              Check Quota
+              Quotas
             </button>
           </div>
 
           {/* Input Footer */}
-          <div className="p-2.5 border-t border-slate-800 bg-slate-950">
+          <div className="p-2 border-t border-zinc-850 bg-zinc-950">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="flex items-center gap-2"
+              className="flex items-center gap-1.5"
             >
               <input
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="Ask to create container or support..."
+                placeholder="Ask or plan infrastructure..."
                 disabled={loading}
-                className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-700"
               />
               <button
                 type="submit"
                 disabled={loading || !inputText.trim()}
-                className="p-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-40 transition cursor-pointer"
+                className="p-1.5 rounded-md bg-white hover:bg-zinc-200 text-zinc-950 disabled:opacity-40 transition cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
               </button>

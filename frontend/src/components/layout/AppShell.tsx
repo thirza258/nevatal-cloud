@@ -82,52 +82,52 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
   };
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
+    <div className="flex h-screen bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
       {/* Mobile Drawer Backdrop */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800/80 flex flex-col transition-transform duration-200 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-60 bg-zinc-950 border-r border-zinc-800/80 flex flex-col transition-transform duration-200 lg:static lg:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand / Logo */}
-        <div className="h-16 px-6 flex items-center justify-between border-b border-slate-800">
+        <div className="h-14 px-4 flex items-center justify-between border-b border-zinc-800">
           <div
             onClick={() => handleNav('/dashboard')}
-            className="flex items-center gap-3 cursor-pointer select-none"
+            className="flex items-center gap-2.5 cursor-pointer select-none"
           >
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
-              <Zap className="w-4 h-4" />
+            <div className="w-6 h-6 rounded bg-zinc-100 flex items-center justify-center text-zinc-950 font-bold text-xs tracking-tighter">
+              NV
             </div>
-            <div>
-              <span className="font-bold text-base tracking-tight text-white">Nevatal</span>
-              <span className="ml-1 text-xs font-semibold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                CLOUD
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-sm tracking-tight text-white">Nevatal</span>
+              <span className="text-[10px] font-mono text-zinc-400 px-1 py-0.2 rounded bg-zinc-900 border border-zinc-800">
+                cloud
               </span>
             </div>
           </div>
           <button
             onClick={() => setMobileMenuOpen(false)}
-            className="lg:hidden text-slate-400 hover:text-white"
+            className="lg:hidden text-zinc-400 hover:text-white"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Navigation list */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
           <div>
-            <div className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              Compute & Cloud
+            <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+              Compute &amp; Cloud
             </div>
-            <nav className="space-y-1">
+            <nav className="space-y-0.5">
               {customerNav.map((item) => {
                 const Icon = item.icon;
                 const active = currentPath === item.path;
@@ -135,16 +135,14 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
                   <button
                     key={item.path}
                     onClick={() => handleNav(item.path)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                    className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                       active
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                        : item.highlight
-                        ? 'text-blue-400 hover:bg-slate-800/80 hover:text-white'
-                        : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                        ? 'bg-zinc-800 text-white font-semibold'
+                        : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
                     }`}
                   >
-                    <Icon className="w-4 h-4 flex-shrink-0" />
-                    <span>{item.label}</span>
+                    <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? 'text-white' : 'text-zinc-400'}`} />
+                    <span className="truncate">{item.label}</span>
                   </button>
                 );
               })}
@@ -154,11 +152,11 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
           {/* Admin section */}
           {user?.role === 'admin' && (
             <div>
-              <div className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-amber-500/80 flex items-center justify-between">
+              <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400 flex items-center justify-between">
                 <span>Infrastructure Admin</span>
-                <Shield className="w-3 h-3 text-amber-400" />
+                <Shield className="w-3 h-3 text-zinc-400" />
               </div>
-              <nav className="space-y-1">
+              <nav className="space-y-0.5">
                 {adminNav.map((item) => {
                   const Icon = item.icon;
                   const active = currentPath === item.path;
@@ -166,14 +164,14 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
                     <button
                       key={item.path}
                       onClick={() => handleNav(item.path)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                         active
-                          ? 'bg-amber-600 text-white shadow-md shadow-amber-600/20'
-                          : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                          ? 'bg-zinc-800 text-white font-semibold'
+                          : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
                       }`}
                     >
-                      <Icon className="w-4 h-4 flex-shrink-0" />
-                      <span>{item.label}</span>
+                      <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? 'text-white' : 'text-zinc-400'}`} />
+                      <span className="truncate">{item.label}</span>
                     </button>
                   );
                 })}
@@ -183,28 +181,28 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
         </div>
 
         {/* Demo Switcher Quick Bar */}
-        <div className="p-3 mx-3 mb-2 bg-slate-950/60 border border-slate-800 rounded-xl">
-          <div className="text-[10px] uppercase font-semibold text-slate-500 mb-1.5 flex items-center justify-between">
+        <div className="p-2 mx-2 mb-2 bg-zinc-900/40 border border-zinc-800 rounded-lg">
+          <div className="text-[10px] font-mono uppercase text-zinc-400 mb-1 flex items-center justify-between">
             <span>Role Switcher (Demo)</span>
-            <span className="text-[10px] text-blue-400 font-mono">{user?.role}</span>
+            <span className="text-zinc-300 font-mono text-[10px]">{user?.role}</span>
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-2 gap-1">
             <button
               onClick={() => switchDemoUser('customer')}
-              className={`text-xs py-1 px-2 rounded-lg font-medium transition-colors ${
+              className={`text-[11px] py-1 px-2 rounded font-medium transition-colors ${
                 user?.role === 'customer'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:text-white'
+                  ? 'bg-zinc-800 text-white font-semibold'
+                  : 'bg-zinc-900 text-zinc-400 hover:text-white'
               }`}
             >
               Customer
             </button>
             <button
               onClick={() => switchDemoUser('admin')}
-              className={`text-xs py-1 px-2 rounded-lg font-medium transition-colors ${
+              className={`text-[11px] py-1 px-2 rounded font-medium transition-colors ${
                 user?.role === 'admin'
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:text-white'
+                  ? 'bg-zinc-800 text-white font-semibold'
+                  : 'bg-zinc-900 text-zinc-400 hover:text-white'
               }`}
             >
               Admin
@@ -213,45 +211,45 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
         </div>
 
         {/* User Card & Logout */}
-        <div className="p-3 border-t border-slate-800 bg-slate-900/40">
+        <div className="p-2.5 border-t border-zinc-800 bg-zinc-950">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-blue-400">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div className="w-7 h-7 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-mono text-xs text-zinc-300">
                 {user?.display_name?.charAt(0) || 'U'}
               </div>
               <div className="truncate">
-                <div className="text-xs font-semibold text-white truncate">
+                <div className="text-xs font-medium text-white truncate">
                   {user?.display_name}
                 </div>
-                <div className="text-[11px] text-slate-500 truncate">{user?.email}</div>
+                <div className="text-[10px] text-zinc-400 font-mono truncate">{user?.email}</div>
               </div>
             </div>
             <button
               onClick={logout}
               title="Logout"
-              className="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+              className="text-zinc-400 hover:text-white p-1 rounded-md hover:bg-zinc-900 transition-colors"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-zinc-950">
         {/* Top Navbar */}
-        <header className="h-16 bg-slate-900/60 backdrop-blur border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between">
+        <header className="h-14 bg-zinc-950/80 backdrop-blur border-b border-zinc-800 px-4 sm:px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+              className="lg:hidden p-1.5 text-zinc-400 hover:text-white rounded-md hover:bg-zinc-900"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-4 h-4" />
             </button>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <span>Nevatal Cloud</span>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
-              <span className="text-white capitalize">
+            <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-mono">
+              <span className="text-zinc-400">nevatal</span>
+              <span className="text-zinc-600">/</span>
+              <span className="text-zinc-200 capitalize">
                 {currentPath.split('/').pop()?.replace('-', ' ') || 'Dashboard'}
               </span>
             </div>
@@ -259,15 +257,16 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
 
           <div className="flex items-center gap-3">
             {/* Cluster / Node Badge */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/70 border border-slate-700/60 text-xs">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-slate-300 font-medium">Dell PowerEdge R640</span>
-              <span className="text-slate-500 font-mono text-[11px]">Proxmox VE</span>
+            <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md bg-zinc-900/60 border border-zinc-800 text-xs font-mono text-zinc-300">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Dell PowerEdge R640</span>
+              <span className="text-zinc-400">·</span>
+              <span className="text-zinc-400">Proxmox VE</span>
             </div>
 
             <button
               onClick={() => handleNav('/dashboard/instances/new')}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-white text-zinc-950 hover:bg-zinc-200 transition-colors"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">New Instance</span>

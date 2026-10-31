@@ -118,15 +118,15 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
     const s = status.toLowerCase();
     if (s === 'running' || s === 'active' || s === 'completed') {
       return (
-        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
           <span className="capitalize">{status}</span>
         </span>
       );
     }
     if (s === 'provisioning' || s === 'starting' || s === 'queued') {
       return (
-        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
+        <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20 inline-flex items-center gap-1.5">
           <RefreshCw className="w-3 h-3 animate-spin" />
           <span className="capitalize">{status}</span>
         </span>
@@ -134,13 +134,13 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
     }
     if (s === 'stopped') {
       return (
-        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">
+        <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-zinc-900 text-zinc-400 border border-zinc-800">
           Stopped
         </span>
       );
     }
     return (
-      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 capitalize">
+      <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-rose-500/10 text-rose-400 border border-rose-500/20 capitalize">
         {status}
       </span>
     );
@@ -177,100 +177,100 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800 backdrop-blur">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Cloud Resources</h1>
-            <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold">
-              Unified Inventory
+            <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">Cloud Resources</h1>
+            <span className="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-[10px]">
+              unified
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Aggregate overview of virtual machines, applications, automations, and storage provisioned by Nevatal AI Cloud Agent.
+          <p className="text-xs text-zinc-400 mt-1 font-mono">
+            Inventory of virtual machines, applications, automations, and storage provisioned on the hypervisor
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={loadResources}
             disabled={loading}
-            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition"
+            className="p-2 rounded-md bg-zinc-900 hover:bg-zinc-850 text-zinc-300 hover:text-white border border-zinc-800 transition"
             title="Refresh Resources"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={() => onNavigate('/dashboard/ai')}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-lg shadow-blue-500/25 transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white hover:bg-zinc-200 text-zinc-950 font-medium text-xs transition"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Ask AI Agent to Build</span>
+            <span>AI Cloud Agent</span>
           </button>
         </div>
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-slate-500">Total Resources</div>
-          <div className="text-xl font-bold text-white mt-1">{counts.total}</div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+        <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
+          <div className="text-[10px] uppercase font-mono text-zinc-400">Total</div>
+          <div className="text-xl font-semibold text-white mt-1">{counts.total}</div>
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-blue-400">Compute VPS</div>
-          <div className="text-xl font-bold text-white mt-1">{counts.vps}</div>
+        <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
+          <div className="text-[10px] uppercase font-mono text-zinc-400">Compute VPS</div>
+          <div className="text-xl font-semibold text-white mt-1">{counts.vps}</div>
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-emerald-400">Web Apps</div>
-          <div className="text-xl font-bold text-white mt-1">{counts.apps}</div>
+        <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
+          <div className="text-[10px] uppercase font-mono text-zinc-400">Web Apps</div>
+          <div className="text-xl font-semibold text-white mt-1">{counts.apps}</div>
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-amber-400">n8n Automations</div>
-          <div className="text-xl font-bold text-white mt-1">{counts.automations}</div>
+        <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
+          <div className="text-[10px] uppercase font-mono text-zinc-400">Automations</div>
+          <div className="text-xl font-semibold text-white mt-1">{counts.automations}</div>
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-purple-400">AI Agents</div>
-          <div className="text-xl font-bold text-white mt-1">{counts.ai_agents}</div>
+        <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
+          <div className="text-[10px] uppercase font-mono text-zinc-400">AI Agents</div>
+          <div className="text-xl font-semibold text-white mt-1">{counts.ai_agents}</div>
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-cyan-400">S3 Buckets</div>
-          <div className="text-xl font-bold text-white mt-1">{counts.buckets}</div>
+        <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
+          <div className="text-[10px] uppercase font-mono text-zinc-400">S3 Buckets</div>
+          <div className="text-xl font-semibold text-white mt-1">{counts.buckets}</div>
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-violet-400">Game Servers</div>
-          <div className="text-xl font-bold text-white mt-1">{counts.game_servers}</div>
+        <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
+          <div className="text-[10px] uppercase font-mono text-zinc-400">Game Servers</div>
+          <div className="text-xl font-semibold text-white mt-1">{counts.game_servers}</div>
         </div>
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-emerald-400">Android Cloud</div>
-          <div className="text-xl font-bold text-white mt-1">{counts.android_instances || 0}</div>
+        <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
+          <div className="text-[10px] uppercase font-mono text-zinc-400">Android Cloud</div>
+          <div className="text-xl font-semibold text-white mt-1">{counts.android_instances || 0}</div>
         </div>
       </div>
 
       {/* Search & Filter Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Type Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
           {[
-            { id: 'all', label: 'All Resources' },
+            { id: 'all', label: 'All' },
             { id: 'vps', label: 'VPS', icon: Server },
             { id: 'app', label: 'Apps', icon: Globe },
             { id: 'automation', label: 'n8n', icon: Workflow },
             { id: 'ai_agent', label: 'OpenClaw', icon: Bot },
-            { id: 'bucket', label: 'S3 Buckets', icon: Database },
-            { id: 'game_server', label: 'Game Servers', icon: Gamepad2 },
-            { id: 'android_instance', label: 'Android Cloud', icon: Smartphone },
+            { id: 'bucket', label: 'S3', icon: Database },
+            { id: 'game_server', label: 'Games', icon: Gamepad2 },
+            { id: 'android_instance', label: 'Android', icon: Smartphone },
           ].map((tab) => {
             const active = filterType === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setFilterType(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition ${
                   active
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800'
+                    ? 'bg-zinc-800 text-white font-semibold'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-850'
                 }`}
               >
-                {tab.icon && <tab.icon className="w-3.5 h-3.5" />}
+                {tab.icon && <tab.icon className="w-3 h-3 text-zinc-400" />}
                 <span>{tab.label}</span>
               </button>
             );
@@ -278,38 +278,38 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
         </div>
 
         {/* Search */}
-        <div className="relative min-w-[240px]">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+        <div className="relative min-w-[220px]">
+          <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name, IP, or endpoint..."
-            className="w-full bg-slate-900/80 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            placeholder="Search resources..."
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-md pl-8 pr-2.5 py-1 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-700"
           />
         </div>
       </div>
 
       {/* Resources Table */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/60 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+            <thead className="bg-zinc-950 text-zinc-400 uppercase font-mono text-[10px] tracking-wider border-b border-zinc-800">
               <tr>
-                <th className="px-5 py-3.5">Resource</th>
-                <th className="px-4 py-3.5">Type</th>
-                <th className="px-4 py-3.5">Status</th>
-                <th className="px-4 py-3.5">Endpoint / Access</th>
-                <th className="px-4 py-3.5">Details</th>
-                <th className="px-4 py-3.5">Created</th>
-                <th className="px-5 py-3.5 text-right">Actions</th>
+                <th className="px-3.5 py-2.5">Resource</th>
+                <th className="px-3.5 py-2.5">Type</th>
+                <th className="px-3.5 py-2.5">Status</th>
+                <th className="px-3.5 py-2.5">Endpoint / Access</th>
+                <th className="px-3.5 py-2.5">Details</th>
+                <th className="px-3.5 py-2.5">Created</th>
+                <th className="px-3.5 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-200">
+            <tbody className="divide-y divide-zinc-850 text-zinc-200">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-slate-500">
-                    No matching resources found. Use the AI Cloud Agent to spin up your first service!
+                  <td colSpan={7} className="px-3.5 py-10 text-center text-zinc-500">
+                    No matching resources found.
                   </td>
                 </tr>
               ) : (
@@ -317,46 +317,46 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
                   <tr
                     key={item.id}
                     onClick={() => handleOpenResource(item)}
-                    className="hover:bg-slate-800/40 cursor-pointer transition"
+                    className="hover:bg-zinc-900/60 cursor-pointer transition"
                   >
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-slate-800/80 border border-slate-700/60 flex items-center justify-center">
+                    <td className="px-3.5 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400">
                           {getIcon(item.type)}
                         </div>
                         <div>
-                          <div className="font-bold text-white text-xs">{item.name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono truncate max-w-[140px]">{item.id}</div>
+                          <div className="font-medium text-white text-xs">{item.name}</div>
+                          <div className="text-[10px] text-zinc-400 font-mono truncate max-w-[140px]">{item.id}</div>
                         </div>
                       </div>
                     </td>
 
-                    <td className="px-4 py-3.5 text-slate-300 font-medium">{getTypeLabel(item.type)}</td>
+                    <td className="px-3.5 py-3 text-zinc-300 font-medium">{getTypeLabel(item.type)}</td>
 
-                    <td className="px-4 py-3.5">{getStatusBadge(item.status)}</td>
+                    <td className="px-3.5 py-3">{getStatusBadge(item.status)}</td>
 
-                    <td className="px-4 py-3.5 font-mono text-[11px] text-slate-300">
+                    <td className="px-3.5 py-3 font-mono text-[11px] text-zinc-300">
                       {item.endpoint ? (
-                        <span className="truncate max-w-[200px] block text-blue-400">{item.endpoint}</span>
+                        <span className="truncate max-w-[200px] block text-zinc-200 hover:underline">{item.endpoint}</span>
                       ) : (
-                        <span className="text-slate-500">-</span>
+                        <span className="text-zinc-600">-</span>
                       )}
                     </td>
 
-                    <td className="px-4 py-3.5 text-slate-400">{item.specs || '-'}</td>
+                    <td className="px-3.5 py-3 text-zinc-400 text-[11px]">{item.specs || '-'}</td>
 
-                    <td className="px-4 py-3.5 text-slate-500 font-mono text-[11px]">{item.created_at}</td>
+                    <td className="px-3.5 py-3 text-zinc-400 font-mono text-[10px]">{item.created_at}</td>
 
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-3.5 py-3 text-right">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleOpenResource(item);
                         }}
-                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                        className="p-1 rounded bg-zinc-850 hover:bg-zinc-800 text-zinc-400 hover:text-white transition"
                         title="Manage Resource"
                       >
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </td>
                   </tr>

@@ -255,94 +255,94 @@ export const AICloudAgent: React.FC<AICloudAgentProps> = ({ conversationId, onNa
   const getStateBadge = (state: WorkflowState) => {
     switch (state) {
       case 'UnderstandingRequest':
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">Understanding</span>;
+        return <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">Understanding</span>;
       case 'ClarifyingRequirements':
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Clarifying</span>;
+        return <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">Clarifying</span>;
       case 'Planning':
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">Planning</span>;
+        return <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700">Planning</span>;
       case 'AwaitingConfirmation':
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-400/20 text-amber-300 border border-amber-400/40 animate-pulse">Awaiting Approval</span>;
+        return <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30">Awaiting Approval</span>;
       case 'Provisioning':
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-500/20 text-blue-300 border border-blue-500/40 animate-pulse">Provisioning</span>;
+        return <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/30">Provisioning</span>;
       case 'Completed':
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Completed</span>;
+        return <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Completed</span>;
       case 'Cancelled':
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">Cancelled</span>;
+        return <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-zinc-900 text-zinc-400 border border-zinc-800">Cancelled</span>;
       case 'Failed':
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">Failed</span>;
+        return <span className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-rose-500/10 text-rose-400 border border-rose-500/20">Failed</span>;
       default:
         return null;
     }
   };
 
   return (
-    <div className="flex h-[calc(100vh-8.5rem)] rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden shadow-2xl backdrop-blur">
+    <div className="flex h-[calc(100vh-7.5rem)] rounded-lg border border-zinc-800 bg-zinc-950 overflow-hidden">
       {/* Sidebar: Conversations & Presets */}
-      <div className="w-80 border-r border-slate-800 flex flex-col bg-slate-950/40">
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+      <div className="w-72 border-r border-zinc-800 flex flex-col bg-zinc-950">
+        <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <Sparkles className="w-4 h-4" />
+            <div className="w-6 h-6 rounded bg-zinc-850 border border-zinc-750 flex items-center justify-center text-zinc-300">
+              <Sparkles className="w-3.5 h-3.5" />
             </div>
             <div>
-              <div className="text-xs font-bold text-white tracking-tight">AI Cloud Agent</div>
-              <div className="text-[10px] text-slate-400">Conversational Console</div>
+              <div className="text-xs font-semibold text-white tracking-tight">AI Cloud Agent</div>
+              <div className="text-[10px] text-zinc-500 font-mono">Console</div>
             </div>
           </div>
           <button
             onClick={() => handleNewConversation()}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition shadow-sm"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-medium transition"
           >
             <PlusCircle className="w-3.5 h-3.5" />
-            <span>New Chat</span>
+            <span>New</span>
           </button>
         </div>
 
         {/* Quick Presets */}
-        <div className="p-3 border-b border-slate-800/80 bg-slate-900/30">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2 px-1">
+        <div className="p-2.5 border-b border-zinc-800 bg-zinc-950">
+          <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-1.5 px-1">
             Quick Builders
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-2 gap-1">
             <button
               onClick={() => handleNewConversation('Create an Ubuntu 24.04 VPS with 4GB RAM')}
-              className="flex items-center gap-1.5 p-2 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700/40 text-left text-xs text-slate-200 transition"
+              className="flex items-center gap-1.5 p-1.5 rounded-md bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-left text-xs text-zinc-200 transition"
             >
-              <Server className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+              <Server className="w-3 h-3 text-zinc-400 flex-shrink-0" />
               <span className="truncate">Deploy VPS</span>
             </button>
             <button
               onClick={() => handleNewConversation('Deploy a web application from GitHub repository')}
-              className="flex items-center gap-1.5 p-2 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700/40 text-left text-xs text-slate-200 transition"
+              className="flex items-center gap-1.5 p-1.5 rounded-md bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-left text-xs text-zinc-200 transition"
             >
-              <Globe className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+              <Globe className="w-3 h-3 text-zinc-400 flex-shrink-0" />
               <span className="truncate">Web App</span>
             </button>
             <button
               onClick={() => handleNewConversation('Setup dedicated n8n workflow automation instance')}
-              className="flex items-center gap-1.5 p-2 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700/40 text-left text-xs text-slate-200 transition"
+              className="flex items-center gap-1.5 p-1.5 rounded-md bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-left text-xs text-zinc-200 transition"
             >
-              <Workflow className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+              <Workflow className="w-3 h-3 text-zinc-400 flex-shrink-0" />
               <span className="truncate">n8n Setup</span>
             </button>
             <button
               onClick={() => handleNewConversation('Deploy OpenClaw autonomous AI agent container')}
-              className="flex items-center gap-1.5 p-2 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700/40 text-left text-xs text-slate-200 transition"
+              className="flex items-center gap-1.5 p-1.5 rounded-md bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-left text-xs text-zinc-200 transition"
             >
-              <Bot className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+              <Bot className="w-3 h-3 text-zinc-400 flex-shrink-0" />
               <span className="truncate">OpenClaw</span>
             </button>
           </div>
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            Recent Conversations
+        <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
+          <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+            Recent
           </div>
           {conversations.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-500">
-              No conversations yet. Start by describing what you want to build!
+            <div className="p-3 text-center text-xs text-zinc-500">
+              No conversations yet.
             </div>
           ) : (
             conversations.map((c) => {
@@ -354,14 +354,14 @@ export const AICloudAgent: React.FC<AICloudAgentProps> = ({ conversationId, onNa
                     setActiveConvId(c.id);
                     onNavigate('/dashboard/ai/conversations', c.id);
                   }}
-                  className={`group relative flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs transition ${
+                  className={`group relative flex items-center justify-between p-2 rounded-md cursor-pointer text-xs transition ${
                     active
-                      ? 'bg-blue-600/15 border border-blue-500/30 text-white font-medium shadow-sm'
-                      : 'hover:bg-slate-800/60 text-slate-300 border border-transparent'
+                      ? 'bg-zinc-850 text-white font-medium'
+                      : 'hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
-                  <div className="flex items-center gap-2 overflow-hidden pr-6">
-                    <MessageSquare className={`w-3.5 h-3.5 flex-shrink-0 ${active ? 'text-blue-400' : 'text-slate-500'}`} />
+                  <div className="flex items-center gap-2 overflow-hidden pr-4">
+                    <MessageSquare className={`w-3.5 h-3.5 flex-shrink-0 ${active ? 'text-zinc-200' : 'text-zinc-500'}`} />
                     <span className="truncate">{c.title}</span>
                   </div>
 
@@ -370,9 +370,9 @@ export const AICloudAgent: React.FC<AICloudAgentProps> = ({ conversationId, onNa
                     <button
                       onClick={(e) => handleDeleteConversation(e, c.id)}
                       title="Delete Conversation"
-                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 rounded transition"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 rounded transition"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
@@ -431,22 +431,22 @@ export const AICloudAgent: React.FC<AICloudAgentProps> = ({ conversationId, onNa
               >
                 {/* Avatar */}
                 <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-md ${
+                  className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 text-xs font-mono border ${
                     isUser
-                      ? 'bg-blue-600 shadow-blue-600/20'
-                      : 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-indigo-500/20'
+                      ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
+                      : 'bg-zinc-900 text-white border-zinc-750'
                   }`}
                 >
-                  {isUser ? 'U' : <Sparkles className="w-4 h-4" />}
+                  {isUser ? 'U' : <Sparkles className="w-3.5 h-3.5" />}
                 </div>
 
                 {/* Message Body */}
-                <div className={`space-y-3.5 flex-1 ${isUser ? 'items-end text-right' : ''}`}>
+                <div className={`space-y-3 flex-1 ${isUser ? 'items-end text-right' : ''}`}>
                   <div
-                    className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed border shadow-sm ${
+                    className={`p-3.5 rounded-lg text-xs sm:text-sm leading-relaxed border ${
                       isUser
-                        ? 'bg-blue-600 text-white border-blue-500/50 rounded-tr-none'
-                        : 'bg-slate-900 border-slate-800 text-slate-200 rounded-tl-none'
+                        ? 'bg-zinc-850 text-white border-zinc-750'
+                        : 'bg-zinc-900/60 border-zinc-800 text-zinc-200'
                     }`}
                   >
                     <div className="prose prose-invert prose-xs max-w-none whitespace-pre-wrap font-sans">
@@ -456,12 +456,12 @@ export const AICloudAgent: React.FC<AICloudAgentProps> = ({ conversationId, onNa
 
                   {/* Render Structured UI Components if attached */}
                   {!isUser && uiPayload && (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {/* 1. Dynamic Requirement Gathering Questions */}
                       {uiPayload.questions && uiPayload.questions.length > 0 && (
-                        <div className="space-y-3 p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
-                          <div className="text-xs font-bold text-white tracking-tight flex items-center gap-1.5">
-                            <Sliders className="w-3.5 h-3.5 text-blue-400" />
+                        <div className="space-y-2.5 p-3.5 rounded-lg bg-zinc-950 border border-zinc-800">
+                          <div className="text-xs font-medium text-white tracking-tight flex items-center gap-1.5">
+                            <Sliders className="w-3.5 h-3.5 text-zinc-400" />
                             <span>Select Configuration Options</span>
                           </div>
 
@@ -498,23 +498,23 @@ export const AICloudAgent: React.FC<AICloudAgentProps> = ({ conversationId, onNa
 
                       {/* 2. Structured Plan Proposal Review Card */}
                       {uiPayload.plan_proposal && (
-                        <div className="p-5 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-blue-500/30 shadow-xl space-y-4">
-                          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div className="p-4 rounded-lg bg-zinc-950 border border-zinc-800 space-y-3.5">
+                          <div className="flex items-center justify-between border-b border-zinc-850 pb-2.5">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-lg bg-blue-600/20 flex items-center justify-center text-blue-400 border border-blue-500/30">
+                              <div className="w-6 h-6 rounded bg-zinc-900 flex items-center justify-center text-zinc-300 border border-zinc-800">
                                 <Cpu className="w-3.5 h-3.5" />
                               </div>
                               <div>
-                                <h4 className="text-xs font-bold text-white tracking-tight">
+                                <h4 className="text-xs font-semibold text-white tracking-tight">
                                   {uiPayload.plan_proposal.title}
                                 </h4>
-                                <span className="text-[11px] text-slate-400">
-                                  Plan Version {uiPayload.plan_proposal.version} • {uiPayload.plan_proposal.summary}
+                                <span className="text-[11px] text-zinc-400 font-mono">
+                                  v{uiPayload.plan_proposal.version} · {uiPayload.plan_proposal.summary}
                                 </span>
                               </div>
                             </div>
-                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 font-medium">
-                              Confirmation Required
+                            <span className="text-[10px] px-2 py-0.5 rounded font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                              Requires Approval
                             </span>
                           </div>
 
@@ -658,9 +658,9 @@ export const AICloudAgent: React.FC<AICloudAgentProps> = ({ conversationId, onNa
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-md animate-pulse">
                 <Sparkles className="w-4 h-4" />
               </div>
-              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 text-xs flex items-center gap-2.5">
-                <div className="w-3 h-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-                <span>AI Cloud Agent is analyzing requirements and validating cluster capacity...</span>
+              <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs flex items-center gap-2 font-mono">
+                <div className="w-3 h-3 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin" />
+                <span>Analyzing requirements &amp; capacity...</span>
               </div>
             </div>
           )}
@@ -669,7 +669,7 @@ export const AICloudAgent: React.FC<AICloudAgentProps> = ({ conversationId, onNa
         </div>
 
         {/* Bottom Input Area */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/60">
+        <div className="p-3 border-t border-zinc-800 bg-zinc-950">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -682,19 +682,19 @@ export const AICloudAgent: React.FC<AICloudAgentProps> = ({ conversationId, onNa
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="What would you like to build? (e.g. 'Create an Ubuntu VPS with 4GB RAM' or 'Deploy website')..."
-              className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+              className="flex-1 bg-zinc-900 border border-zinc-800 rounded-md px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-700 transition"
               disabled={loading}
             />
             <button
               type="submit"
               disabled={!inputText.trim() || loading}
-              className="p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/25 transition disabled:opacity-50"
+              className="p-2 rounded-md bg-white hover:bg-zinc-200 text-zinc-950 transition disabled:opacity-50 cursor-pointer"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-3.5 h-3.5" />
             </button>
           </form>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2 px-1">
-            <span>Powered by Model Context Protocol (MCP) and Proxmox VE Hardware Orchestration</span>
+          <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono mt-1.5 px-1">
+            <span>Model Context Protocol (MCP) · Proxmox VE Hardware Orchestration</span>
             <span>State persisted in PostgreSQL</span>
           </div>
         </div>
