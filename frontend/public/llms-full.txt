@@ -1,0 +1,711 @@
+# Nevatal Cloud — Complete Documentation Corpus
+
+> Single-document reference for LLMs, AI agents, and automated crawlers.
+> Generated for https://cloud.nevatal.id/docs
+
+
+## Platform Overview
+
+**URL**: https://cloud.nevatal.id/docs/overview  
+**Category**: Getting Started | **Read Time**: 4 min read | **Last Updated**: October 2026
+
+Learn what Nevatal Cloud is, its core capabilities, and how it bridges enterprise hypervisors with modern developer workflows.
+
+
+### Introduction to Nevatal Cloud
+
+Nevatal Cloud is a developer-first cloud platform engineered to run directly on enterprise bare-metal infrastructure. It abstracts the complexity of virtualization hypervisors like Proxmox VE into a clean, minimalist web control plane and REST API. Instead of struggling with raw Linux command lines, firewall rules, or hypervisor dashboards, developers can provision virtual machines, game servers, Android environments, and AI agents in seconds.
+
+
+### Core Capabilities
+
+The platform provides an integrated suite of cloud services designed for high-density computing and rapid iteration:
+
+
+| Capability | Engine / Technology | Primary Use Case |
+| --- | --- | --- |
+| Compute (VPS) | Proxmox VE 8 + Cloud-Init | High-performance Linux virtual servers (Ubuntu, Debian, Alpine) |
+| WordPress LEMP | Nginx 1.26 + PHP 8.3 + MariaDB | Production-ready CMS with OPcache and WP-CLI pre-configured |
+| Game Servers | Managed Containerized Daemons | Low-latency multiplayer servers for Minecraft (Java/Bedrock) & Terraria |
+| Android Cloud | Waydroid LXC Containerization | Browser-streamed remote Android 11/13 environments with ADB access |
+| App Hosting | Git-to-Cloud Builder Pipeline | Automated deployments for Node.js, Python, Go, and static websites |
+| Automations | Managed n8n Runtime | Workflow automation with 400+ SaaS triggers and database nodes |
+| Object Storage | MinIO S3-Compatible Storage | High-throughput object buckets with access keys and pre-signed URLs |
+| AI Cloud Agent | OpenRouter & Model Context Protocol | Natural language infrastructure management and DevOps copilot |
+
+
+### Multi-Tenant Architecture
+
+Nevatal Cloud enforces strict multi-tenant isolation at the hypervisor, network, and database layers. Each user is constrained by allocated vCPU, RAM, and NVMe disk quotas, preventing noisy-neighbor starvation and ensuring deterministic performance.
+
+
+---
+
+
+## 5-Minute Quickstart
+
+**URL**: https://cloud.nevatal.id/docs/quickstart  
+**Category**: Getting Started | **Read Time**: 3 min read | **Last Updated**: October 2026
+
+Step-by-step guide to provisioning your first virtual server and establishing SSH connectivity.
+
+
+### Step 1: Account Access
+
+Sign in to the Nevatal Cloud dashboard using your credentials or register a new developer account. For evaluation purposes, pre-configured demo credentials are provided in local environments.
+
+
+### Step 2: Add Your Public SSH Key
+
+Before launching an instance, upload your public SSH key to ensure secure, passwordless authentication. Nevatal Cloud automatically injects your keys into the instance during cloud-init bootstrap.
+
+
+```bash
+# Generate an ed25519 key if you do not have one
+ssh-keygen -t ed25519 -C "developer@nevatal"
+
+# Display public key to paste into Dashboard > SSH Keys
+cat ~/.ssh/id_ed25519.pub
+```
+
+
+### Step 3: Deploy an Instance
+
+Navigate to "Compute" or click "New Instance" in the top bar. Choose your desired operating system (e.g., Ubuntu 24.04 LTS), select a resource plan (e.g., Basic: 2 vCPU / 4 GB RAM), choose your SSH key, and click "Launch Instance".
+
+
+### Step 4: Connect via SSH
+
+Once the asynchronous job completes (typically under 30 seconds), your instance IP address will appear on the dashboard.
+
+
+```bash
+ssh ubuntu@<INSTANCE_IP_ADDRESS>
+```
+
+
+---
+
+
+## Hardware & Infrastructure
+
+**URL**: https://cloud.nevatal.id/docs/architecture  
+**Category**: Getting Started | **Read Time**: 5 min read | **Last Updated**: October 2026
+
+In-depth overview of the physical Dell PowerEdge R640 nodes, ZFS NVMe storage pools, and hypervisor networking.
+
+
+### Physical Hardware Specifications
+
+Nevatal Cloud nodes run on enterprise Dell PowerEdge R640 dual-socket servers configured for maximum virtualization density and I/O resilience:
+
+
+| Subsystem | Specification | Notes |
+| --- | --- | --- |
+| Chassis | Dell PowerEdge R640 1U Rackmount | Dual redundant 750W Titanium PSUs |
+| Processors | 2x Intel Xeon Scalable (Gold/Silver) | Multi-core hyper-threading with VT-x & EPT |
+| Memory | 128 GB - 256 GB ECC Registered DDR4 | Fault-tolerant ECC error correction |
+| Primary Storage | Enterprise NVMe SSDs in ZFS Mirror | Extreme low latency and high IOPS throughput |
+| Network | Dual 10GbE SFP+ + Gigabit Management | LACP bonded uplink to datacenter distribution switches |
+| Hypervisor | Proxmox VE 8.x (Linux Kernel 6.8+) | KVM virtualization with QEMU guest agent |
+
+
+### Networking Model
+
+Instances are connected to a software Linux bridge (`vmbr0`) mapped directly to the physical uplinks. Cloud-init automatically negotiates IP addresses through DHCP or assigns static host addresses according to your plan configuration.
+
+
+---
+
+
+## Deploying Virtual Machines
+
+**URL**: https://cloud.nevatal.id/docs/instances  
+**Category**: Compute & VPS | **Read Time**: 4 min read | **Last Updated**: October 2026
+
+How virtual machines are cloned, configured, and managed through the Nevatal Cloud asynchronous worker.
+
+
+### Supported Operating Systems
+
+Nevatal Cloud maintains pre-baked cloud-init base templates optimized for minimal footprint and security:
+
+
+| Distribution | Version | Base Template VMID | Default User |
+| --- | --- | --- | --- |
+| Ubuntu Server | 24.04 LTS (Noble Numbat) | #9000 | ubuntu |
+| Debian Linux | 12 (Bookworm) / 13 (Trixie) | #9001 | debian |
+| Alpine Linux | 3.20 Standard (Musl/OpenRC) | #9002 | alpine |
+| WordPress LEMP | Ubuntu 24.04 + PHP 8.3 + MariaDB | #9003 | ubuntu |
+
+
+### Asynchronous Provisioning Lifecycle
+
+When you submit a creation request, the backend Go worker coordinates four discrete hypervisor operations:
+1. Full clone of the base template to a new unique VMID.
+2. Dynamic hardware allocation (vCPU cores, memory, and NVMe disk resizing).
+3. Cloud-init user-data generation (hostname, user credentials, authorized keys).
+4. Power-on command and continuous polling of the QEMU Guest Agent for IP assignment.
+
+
+### Power Controls
+
+You can issue ACPI shutdown, forced stop, reboot, and terminate actions at any time. Changes are reflected in real time across the web control plane.
+
+
+---
+
+
+## Cloud-Init & SSH Key Automation
+
+**URL**: https://cloud.nevatal.id/docs/cloud-init  
+**Category**: Compute & VPS | **Read Time**: 3 min read | **Last Updated**: October 2026
+
+Understanding metadata injection, custom startup scripts, and secure authentication.
+
+
+### How Cloud-Init Operates
+
+Cloud-init is the industry-standard multi-distribution package that handles early initialization of a cloud instance. Nevatal Cloud attaches an ISO cloud-init drive to IDE bus 2 (`local-zfs:cloudinit`), containing user-data, meta-data, and network-config.
+
+
+### Custom User Data Example
+
+You can supply custom Bash or cloud-config scripts during creation to automatically install packages and configure system services upon first boot:
+
+
+```yaml
+#cloud-config
+package_update: true
+packages:
+  - curl
+  - git
+  - htop
+  - ufw
+
+runcmd:
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+  - echo "Instance successfully provisioned by Nevatal Cloud" > /var/log/provision.log
+```
+
+
+---
+
+
+## WordPress 6.7 LEMP Appliance
+
+**URL**: https://cloud.nevatal.id/docs/wordpress-lemp  
+**Category**: Compute & VPS | **Read Time**: 4 min read | **Last Updated**: October 2026
+
+Deploy an enterprise WordPress site with high-performance Nginx, PHP 8.3-FPM, MariaDB, and WP-CLI.
+
+
+### Pre-Packaged LEMP Stack
+
+The WordPress LEMP appliance provides an instant production environment that bypasses manual Linux software installation. It is built on Ubuntu 24.04 and tuned with OPcache and MariaDB query buffers.
+
+
+### Appliance Credentials & Access
+
+Upon instance creation, the Instance Details view displays a dedicated "WordPress & LEMP Stack Integration" card containing your generated credentials:
+
+
+| Component | Default Port / Location | Credential Source |
+| --- | --- | --- |
+| Web Interface | http://<INSTANCE_IP>/ | Complete final web installer on first load |
+| MariaDB Database | localhost:3306 (db: `wordpress`) | Randomly generated password in Instance Details |
+| Database User | `wp_user` | Granted full privileges on `wordpress` database |
+| WP-CLI Utility | `/usr/local/bin/wp` | Available over SSH via standard terminal |
+
+
+### Managing with WP-CLI
+
+Connect via SSH and run WP-CLI commands directly:
+
+
+```bash
+# Check WordPress core version
+wp core version --path=/var/www/html --allow-root
+
+# Install and activate a plugin
+wp plugin install redis-cache --activate --path=/var/www/html --allow-root
+```
+
+
+---
+
+
+## noVNC Console & Networking
+
+**URL**: https://cloud.nevatal.id/docs/console-networking  
+**Category**: Compute & VPS | **Read Time**: 3 min read | **Last Updated**: October 2026
+
+Accessing instances out-of-band using HTML5 noVNC web console and network configurations.
+
+
+### HTML5 noVNC Console
+
+When SSH is unavailable due to firewall adjustments or failed network interfaces, the noVNC console provides direct out-of-band kernel console access through your browser. Click the "Open VNC Console" button on the instance details page.
+
+
+### Firewall & Port Rules
+
+All public IP instances have standard outbound access. For inbound traffic, ensure your operating system firewall (`ufw` or `iptables`) permits the target ports for your services (e.g., 22 for SSH, 80/443 for Web).
+
+
+---
+
+
+## Minecraft Java Edition
+
+**URL**: https://cloud.nevatal.id/docs/minecraft-java  
+**Category**: Game Server Hosting | **Read Time**: 5 min read | **Last Updated**: October 2026
+
+Deploy Paper, Purpur, Fabric, Forge, or Vanilla servers with graphical properties editor and live console.
+
+
+### Supported Server Software
+
+Nevatal Cloud automates the installation of popular Minecraft Java server engines:
+
+
+| Software | Architecture | Best Suited For |
+| --- | --- | --- |
+| Paper | High-performance Spigot fork | General multiplayer, survival communities, plugin support |
+| Purpur | Paper fork with deep customization | Server owners desiring granular gameplay configuration |
+| Fabric | Modern lightweight modloader | Technical players, performance mods (Lithium, FerriteCore) |
+| Forge / NeoForge | Heavy modding framework | Modpacks with custom dimensions, machinery, and items |
+| Vanilla | Official Mojang server release | Pure, unmodified Minecraft experience |
+
+
+### Visual Server Configuration
+
+Edit essential gameplay parameters without editing raw `server.properties` files:
+- Server MOTD & Player Slots (1-100)
+- Game Mode (Survival, Creative, Adventure)
+- Difficulty (Peaceful, Easy, Normal, Hard)
+- Online Mode (Mojang Auth enforcement)
+- View Distance & Simulation Distance
+- PvP & Whitelist toggles
+
+
+### Live Console & In-Game Commands
+
+Send commands directly to the running server daemon without logging into the game:
+
+
+```bash
+# Common console commands
+op <player_name>
+say Server restart scheduled in 5 minutes
+whitelist add <player_name>
+save-all
+```
+
+
+---
+
+
+## Minecraft Bedrock Edition
+
+**URL**: https://cloud.nevatal.id/docs/minecraft-bedrock  
+**Category**: Game Server Hosting | **Read Time**: 3 min read | **Last Updated**: October 2026
+
+Host official Bedrock Dedicated Servers for mobile, Windows 10/11, and console cross-play.
+
+
+### Bedrock Dedicated Server (BDS)
+
+Nevatal Cloud runs official Bedrock server binaries inside hardened containers. Players on iOS, iPadOS, Android, Windows, and compatible consoles can join using your server address and UDP port 19132.
+
+
+### Player Permissions & Allowlist
+
+Manage `permissions.json` and `allowlist.json` directly from the dashboard to govern operator access and restrict who can enter your world.
+
+
+---
+
+
+## Terraria Dedicated Server
+
+**URL**: https://cloud.nevatal.id/docs/terraria  
+**Category**: Game Server Hosting | **Read Time**: 3 min read | **Last Updated**: October 2026
+
+Run vanilla Terraria and tModLoader servers with automated world generation and difficulty modes.
+
+
+### World Generation Settings
+
+When provisioning a Terraria server, configure world parameters in advance:
+- World Size: Small, Medium, Large
+- Difficulty: Classic, Expert, Master, Journey
+- Server Password: Secure private multiplayer sessions
+- Default Port: 7777 TCP
+
+
+---
+
+
+## Backups & World Persistence
+
+**URL**: https://cloud.nevatal.id/docs/game-backups  
+**Category**: Game Server Hosting | **Read Time**: 3 min read | **Last Updated**: October 2026
+
+Schedule automated world backups, download archives, and restore prior states with zero data loss.
+
+
+### Automated Snapshots
+
+World directories are saved periodically to local NVMe storage and optionally replicated to MinIO S3 Object Storage. You can take an on-demand snapshot prior to updating game versions or installing new plugins.
+
+
+### 1-Click Restoration
+
+To roll back after accidental griefing or corrupt world files, select the desired backup snapshot and click "Restore World". The server daemon will stop gracefully, swap world files, and restart automatically.
+
+
+---
+
+
+## Waydroid Container Architecture
+
+**URL**: https://cloud.nevatal.id/docs/android-overview  
+**Category**: Android Cloud (Waydroid) | **Read Time**: 4 min read | **Last Updated**: October 2026
+
+How containerized Android runs directly on Linux without heavy hardware emulation overhead.
+
+
+### What is Waydroid?
+
+Waydroid is a container-based approach to boot a full Android operating system on a regular GNU/Linux system like Ubuntu. Unlike traditional emulators (which translate CPU instructions through slow QEMU virtualization), Waydroid shares the host Linux kernel directly via LXC namespaces and cgroups.
+
+
+### Performance Advantage
+
+By leveraging the host Dell PowerEdge R640 Xeon CPUs directly, Waydroid achieves near bare-metal execution speeds, minimal RAM overhead, and rapid cold boots (< 8 seconds).
+
+
+---
+
+
+## Browser Remote Touch Streaming
+
+**URL**: https://cloud.nevatal.id/docs/android-streaming  
+**Category**: Android Cloud (Waydroid) | **Read Time**: 3 min read | **Last Updated**: October 2026
+
+Interact with Android apps in real time directly inside your web browser via low-latency streaming.
+
+
+### Web-Based Display Session
+
+Every Android instance exposes an interactive display canvas streaming at up to 60 FPS over WebSockets/WebRTC. Mouse movements translate into touch events, clicks act as finger taps, and keypresses are sent to the Android software input system.
+
+
+### Configuring Resolution & Density
+
+You can adjust virtual screen dimensions in Instance Settings:
+
+
+| Profile | Resolution (W x H) | Recommended DPI | Use Case |
+| --- | --- | --- | --- |
+| Phone Standard | 720 x 1280 (HD) | 240 DPI | Mobile app testing and automation |
+| Phone High-Res | 1080 x 1920 (FHD) | 320 DPI | High-density UI layout verification |
+| Tablet Landscape | 1920 x 1080 (FHD) | 280 DPI | Landscape dashboard and productivity tools |
+
+
+---
+
+
+## ADB Connectivity & App Testing
+
+**URL**: https://cloud.nevatal.id/docs/adb-apps  
+**Category**: Android Cloud (Waydroid) | **Read Time**: 4 min read | **Last Updated**: October 2026
+
+Connect Android Debug Bridge (ADB) over network for automated testing, APK installation, and logcat debugging.
+
+
+### Connecting via Network ADB
+
+Each Android Cloud instance exposes an ADB daemon on port 5555. You can connect from your local terminal or CI/CD runner:
+
+
+```bash
+# Connect to remote Android instance
+adb connect <INSTANCE_IP>:5555
+
+# Verify connected devices
+adb devices
+
+# Install an APK package
+adb install my-test-app.apk
+
+# Stream logcat output
+adb logcat -v time *:E
+```
+
+
+### Automated CI/CD Test Execution
+
+Run Appium, Espresso, or Maestro automated UI tests against cloud-hosted Android instances without maintaining physical test devices.
+
+
+---
+
+
+## Git Web App Deployments
+
+**URL**: https://cloud.nevatal.id/docs/git-deploy  
+**Category**: Apps, Automations & AI | **Read Time**: 4 min read | **Last Updated**: October 2026
+
+Deploy Node.js, Python, Go, and static applications straight from GitHub and GitLab repositories.
+
+
+### Continuous Deployment Workflow
+
+Link your Git repository and branch. The platform automatically detects the project framework, executes the build pipeline, isolates dependencies, and configures reverse proxy routing.
+
+
+### Environment Variables
+
+Configure secure runtime secrets and environment keys in the App Settings tab. Variables are injected into the runtime container securely without writing credentials to disk.
+
+
+---
+
+
+## Managed n8n Workflow Automation
+
+**URL**: https://cloud.nevatal.id/docs/n8n-automation  
+**Category**: Apps, Automations & AI | **Read Time**: 3 min read | **Last Updated**: October 2026
+
+Run high-throughput workflow automations with 400+ pre-built integration nodes and webhook triggers.
+
+
+### Dedicated n8n Instance
+
+Nevatal Cloud provisions a dedicated n8n instance backed by persistent SQLite or PostgreSQL storage. You retain complete ownership of your workflow data, API credentials, and webhooks.
+
+
+### Webhooks & Scheduled Triggers
+
+Receive inbound webhooks from Stripe, GitHub, Slack, or IoT sensors, process payloads with JavaScript, and trigger automated cloud scaling actions.
+
+
+---
+
+
+## OpenClaw Autonomous AI Agents
+
+**URL**: https://cloud.nevatal.id/docs/openclaw-agents  
+**Category**: Apps, Automations & AI | **Read Time**: 4 min read | **Last Updated**: October 2026
+
+Deploy persistent AI agent runtimes equipped with tools, memory, and scheduled task triggers.
+
+
+### Agent Framework
+
+OpenClaw provides a sandboxed environment for LLM-driven agents capable of autonomous multi-step reasoning, external tool execution, and state persistence.
+
+
+---
+
+
+## S3-Compatible Object Storage
+
+**URL**: https://cloud.nevatal.id/docs/s3-storage  
+**Category**: Storage & APIs | **Read Time**: 4 min read | **Last Updated**: October 2026
+
+High-throughput MinIO object buckets with AWS S3 API compatibility and web file browser.
+
+
+### Connecting with AWS SDKs
+
+Nevatal Cloud S3 buckets are compatible with the official AWS SDK, `aws-cli`, `rclone`, and `s3cmd`. Simply configure your custom endpoint URL:
+
+
+```bash
+# Configure AWS CLI with Nevatal Cloud endpoint
+aws configure set aws_access_key_id <YOUR_ACCESS_KEY>
+aws configure set aws_secret_access_key <YOUR_SECRET_KEY>
+aws configure set default.region us-east-1
+
+# List buckets
+aws --endpoint-url https://cloud.nevatal.id:9000 s3 ls
+
+# Upload a file
+aws --endpoint-url https://cloud.nevatal.id:9000 s3 cp dataset.tar.gz s3://my-bucket/
+```
+
+
+### Access Keys & Permissions
+
+Create read-only or read-write access keys from "Storage > Access Keys". Revoke keys instantly when rotating application credentials.
+
+
+---
+
+
+## Nevatal REST API v1 Reference
+
+**URL**: https://cloud.nevatal.id/docs/rest-api  
+**Category**: Storage & APIs | **Read Time**: 5 min read | **Last Updated**: October 2026
+
+Programmatically manage cloud instances, retrieve telemetry, and automate deployments via REST API.
+
+
+### Authentication & Headers
+
+Authenticate all API requests by providing your session JWT token in the `Authorization` header:
+
+
+```http
+GET /api/v1/instances HTTP/1.1
+Host: cloud.nevatal.id
+Authorization: Bearer <YOUR_SESSION_JWT>
+Content-Type: application/json
+```
+
+
+### Core Endpoints
+
+Key endpoints available for automation and CI/CD pipelines:
+
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | /api/v1/dashboard | Retrieve quota usage, active counts, and recent instances |
+| GET | /api/v1/instances | List all compute virtual machines for the user |
+| POST | /api/v1/instances | Provision a new virtual server from template |
+| POST | /api/v1/instances/:id/reboot | Trigger graceful ACPI or hard reboot |
+| POST | /api/v1/instances/:id/stop | Halt running virtual machine |
+| POST | /api/v1/instances/:id/start | Power on stopped virtual machine |
+| DELETE | /api/v1/instances/:id | Destroy instance and release quota allocations |
+| GET | /api/v1/game-servers | List managed game servers and statuses |
+| POST | /api/v1/game-servers | Create a new Minecraft or Terraria game server |
+| GET | /api/v1/android/instances | List Waydroid Android instances |
+
+
+---
+
+
+## Model Context Protocol (MCP) Integration
+
+**URL**: https://cloud.nevatal.id/docs/mcp-protocol  
+**Category**: Storage & APIs | **Read Time**: 4 min read | **Last Updated**: October 2026
+
+Connect your cloud infrastructure directly to AI agents in Claude Desktop, Cursor, and IDEs.
+
+
+### What is MCP?
+
+Model Context Protocol (MCP) is an open standard that allows LLMs to interact with external tools and databases safely. Nevatal Cloud provides a native MCP server exposing secure tools for querying instances, starting/stopping workloads, and inspecting telemetry.
+
+
+### Connecting Claude Desktop or Cursor
+
+Add Nevatal Cloud to your `claude_desktop_config.json`:
+
+
+```json
+{
+  "mcpServers": {
+    "nevatal-cloud": {
+      "command": "npx",
+      "args": ["-y", "@nevatal/mcp-server"],
+      "env": {
+        "NEVATAL_API_ENDPOINT": "https://cloud.nevatal.id/api/v1",
+        "NEVATAL_API_TOKEN": "<YOUR_API_TOKEN>"
+      }
+    }
+  }
+}
+```
+
+
+---
+
+
+## Proxmox VE Hypervisor Setup
+
+**URL**: https://cloud.nevatal.id/docs/proxmox-setup  
+**Category**: Infrastructure & Admin | **Read Time**: 4 min read | **Last Updated**: October 2026
+
+How administrators connect physical Proxmox hypervisor nodes to the Nevatal Cloud backend.
+
+
+### Creating the Proxmox API Token
+
+Nevatal Cloud uses dedicated Proxmox API tokens for zero-password hypervisor orchestration. In your Proxmox Web GUI:
+1. Navigate to Datacenter > Permissions > Users > Add: `nevatal-cloud@pve`.
+2. Navigate to API Tokens > Add: token ID `api-token`.
+3. Assign `PVEVMAdmin` and `PVEDatastoreUser` permissions to `/`.
+
+
+### Environment Configuration
+
+Supply the credentials in `.env`:
+
+
+```bash
+PROXMOX_MOCK=false
+PROXMOX_HOST=192.168.1.100
+PROXMOX_PORT=8006
+PROXMOX_TOKEN_ID=nevatal-cloud@pve!api-token
+PROXMOX_TOKEN_SECRET=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+PROXMOX_NODE_NAME=pve-dell-r640
+PROXMOX_STORAGE=local-zfs
+PROXMOX_VERIFY_TLS=false
+```
+
+
+---
+
+
+## Creating Base VM Templates (#9000+)
+
+**URL**: https://cloud.nevatal.id/docs/cloudinit-templates  
+**Category**: Infrastructure & Admin | **Read Time**: 4 min read | **Last Updated**: October 2026
+
+How base cloud-init templates are prepared and converted into VM templates on Proxmox.
+
+
+### CLI Template Generation Workflow
+
+Execute the following commands on the Proxmox host via SSH to bake an official Ubuntu 24.04 Cloud-Init template:
+
+
+```bash
+wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+
+qm create 9000 --name "ubuntu-2404-template" --memory 2048 --cores 2 --net0 virtio,bridge=vmbr0
+qm importdisk 9000 noble-server-cloudimg-amd64.img local-zfs
+qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-zfs:vm-9000-disk-0
+qm set 9000 --boot c --bootdisk scsi0
+qm set 9000 --ide2 local-zfs:cloudinit
+qm set 9000 --serial0 socket --vga serial0
+qm set 9000 --agent enabled=1
+qm template 9000
+```
+
+
+---
+
+
+## Uploading ISO Media
+
+**URL**: https://cloud.nevatal.id/docs/iso-catalog  
+**Category**: Infrastructure & Admin | **Read Time**: 3 min read | **Last Updated**: October 2026
+
+Manage raw installation ISO images on Proxmox datastores via the Administrator ISO Catalog.
+
+
+### Media Catalog
+
+Administrators can upload standard operating system ISOs directly through the web UI at `/admin/isos`. Uploaded ISOs reside in the Proxmox `local:iso` datastore and can be mounted to virtual machines for manual installation.
+
+
+---

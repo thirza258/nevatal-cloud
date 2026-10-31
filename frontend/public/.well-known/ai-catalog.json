@@ -1,0 +1,46 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Nevatal Cloud",
+    "identifier": "did:web:cloud.nevatal.id"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:cloud.nevatal.id:server:mcp",
+      "displayName": "Nevatal Cloud Model Context Protocol (MCP) Server",
+      "type": "application/mcp-server-card+json",
+      "url": "https://cloud.nevatal.id/.well-known/mcp/server-card.json",
+      "representativeQueries": [
+        "list my running virtual machines",
+        "deploy a new ubuntu server",
+        "create a minecraft paper server",
+        "launch an android test container",
+        "check cloud quota usage"
+      ]
+    },
+    {
+      "identifier": "urn:air:cloud.nevatal.id:agent:a2a",
+      "displayName": "Nevatal Cloud A2A Agent",
+      "type": "application/json",
+      "url": "https://cloud.nevatal.id/.well-known/agent-card.json",
+      "representativeQueries": [
+        "discover nevatal cloud capabilities",
+        "orchestrate multi-tenant cloud instances",
+        "manage game and android environments"
+      ]
+    },
+    {
+      "identifier": "urn:air:cloud.nevatal.id:api:v1",
+      "displayName": "Nevatal Cloud REST API v1",
+      "type": "application/json",
+      "url": "https://cloud.nevatal.id/api/v1/",
+      "representativeQueries": [
+        "authenticate via /api/v1/auth/login",
+        "query instances via /api/v1/instances",
+        "control vm power via /api/v1/instances/:id/power",
+        "manage game servers via /api/v1/game-servers",
+        "manage android via /api/v1/android"
+      ]
+    }
+  ]
+}

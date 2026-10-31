@@ -50,12 +50,54 @@ export const DocsPage: React.FC<DocsPageProps> = ({ onNavigate, initialArticleId
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (initialArticleId) {
+    if (initialArticleId && initialArticleId !== currentArticleId) {
       setCurrentArticleId(initialArticleId);
     }
   }, [initialArticleId]);
 
   const currentArticle = getArticleById(currentArticleId) || ALL_DOC_ARTICLES[0];
+
+  // Dynamic SEO metadata updates per article
+  useEffect(() => {
+    if (currentArticle) {
+      document.title = `${currentArticle.title} — Nevatal Cloud Documentation`;
+
+      // Update Meta Description
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (!metaDesc) {
+        metaDesc = document.createElement('meta');
+        metaDesc.setAttribute('name', 'description');
+        document.head.appendChild(metaDesc);
+      }
+      metaDesc.setAttribute('content', currentArticle.summary);
+
+      // Update Canonical Link
+      let canonical = document.querySelector('link[rel="canonical"]');
+      if (!canonical) {
+        canonical = document.createElement('link');
+        canonical.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonical);
+      }
+      canonical.setAttribute('href', `https://cloud.nevatal.id/docs/${currentArticle.id}`);
+
+      // Update Open Graph tags
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) ogTitle.setAttribute('content', `${currentArticle.title} — Nevatal Cloud Docs`);
+
+      const ogDesc = document.querySelector('meta[property="og:description"]');
+      if (ogDesc) ogDesc.setAttribute('content', currentArticle.summary);
+
+      const ogUrl = document.querySelector('meta[property="og:url"]');
+      if (ogUrl) ogUrl.setAttribute('content', `https://cloud.nevatal.id/docs/${currentArticle.id}`);
+    }
+  }, [currentArticle]);
+
+  const selectArticle = (articleId: string) => {
+    setCurrentArticleId(articleId);
+    setMobileMenuOpen(false);
+    onNavigate(`/docs/${articleId}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Category icons mapping
   const getCategoryIcon = (iconName: string) => {
@@ -80,7 +122,8 @@ export const DocsPage: React.FC<DocsPageProps> = ({ onNavigate, initialArticleId
   };
 
   const copyToClipboard = (text: string, index?: number) => {
-    navigator.clipboard.writeText(text);
+    const textToCopy = typeof index === 'number' ? text : `https://cloud.nevatal.id/docs/${currentArticle.id}`;
+    navigator.clipboard.writeText(textToCopy);
     if (typeof index === 'number') {
       setCopiedCodeIndex(index);
       setTimeout(() => setCopiedCodeIndex(null), 2000);
@@ -232,12 +275,12 @@ export const DocsPage: React.FC<DocsPageProps> = ({ onNavigate, initialArticleId
                       {cat.articles.map((art) => {
                         const active = art.id === currentArticle.id;
                         return (
-                          <button
+                          <a
                             key={art.id}
-                            onClick={() => {
-                              setCurrentArticleId(art.id);
-                              setMobileMenuOpen(false);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            href={`/docs/${art.id}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              selectArticle(art.id);
                             }}
                             className={`w-full text-left text-xs py-1.5 rounded transition-colors flex items-center justify-between ${
                               active
@@ -247,7 +290,7 @@ export const DocsPage: React.FC<DocsPageProps> = ({ onNavigate, initialArticleId
                           >
                             <span className="truncate">{art.title}</span>
                             {active && <ChevronRight className="w-3 h-3 text-white flex-shrink-0" />}
-                          </button>
+                          </a>
                         );
                       })}
                     </div>
@@ -426,10 +469,11 @@ export const DocsPage: React.FC<DocsPageProps> = ({ onNavigate, initialArticleId
             {/* Pagination: Previous & Next Articles */}
             <div className="mt-12 pt-6 border-t border-zinc-800 flex items-center justify-between gap-4">
               {prevArticle ? (
-                <button
-                  onClick={() => {
-                    setCurrentArticleId(prevArticle.id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                <a
+                  href={`/docs/${prevArticle.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    selectArticle(prevArticle.id);
                   }}
                   className="flex flex-col items-start p-3 rounded-lg border border-zinc-800 hover:border-zinc-700 bg-zinc-900/30 hover:bg-zinc-900/60 transition-colors text-left max-w-[48%]"
                 >
@@ -439,16 +483,17 @@ export const DocsPage: React.FC<DocsPageProps> = ({ onNavigate, initialArticleId
                   <span className="text-xs font-medium text-white truncate mt-1">
                     {prevArticle.title}
                   </span>
-                </button>
+                </a>
               ) : (
                 <div />
               )}
 
               {nextArticle ? (
-                <button
-                  onClick={() => {
-                    setCurrentArticleId(nextArticle.id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                <a
+                  href={`/docs/${nextArticle.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    selectArticle(nextArticle.id);
                   }}
                   className="flex flex-col items-end p-3 rounded-lg border border-zinc-800 hover:border-zinc-700 bg-zinc-900/30 hover:bg-zinc-900/60 transition-colors text-right max-w-[48%]"
                 >
@@ -458,7 +503,7 @@ export const DocsPage: React.FC<DocsPageProps> = ({ onNavigate, initialArticleId
                   <span className="text-xs font-medium text-white truncate mt-1">
                     {nextArticle.title}
                   </span>
-                </button>
+                </a>
               ) : (
                 <div />
               )}

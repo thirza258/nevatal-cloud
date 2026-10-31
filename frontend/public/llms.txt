@@ -1,0 +1,58 @@
+# Nevatal Cloud
+
+> Minimalist bare-metal cloud compute, managed game servers, Waydroid Android containers, and AI Cloud Agent powered by Proxmox VE 8 and Dell PowerEdge R640 bare-metal nodes.
+
+Nevatal Cloud abstracts enterprise virtualization into a developer-friendly web control plane and REST API (/api/v1). It automates cloud-init OS provisioning, multi-tenant network isolation, S3-compatible object storage, game servers (Minecraft Java & Bedrock, Terraria), and Waydroid Android containers with browser WebRTC streaming in under 30 seconds.
+
+## Core Pages
+
+- [Home](https://cloud.nevatal.id/): Cloud platform overview, architecture, and deployment options
+- [Documentation](https://cloud.nevatal.id/docs): Documentation index and guides
+- [Sitemap](https://cloud.nevatal.id/sitemap.xml): XML index of all public URLs
+- [Full Text Documentation Corpus](https://cloud.nevatal.id/llms-full.txt): Complete text documentation for LLMs and AI agents
+
+## Documentation Guides
+
+### Compute & Virtual Machines
+- [Platform Overview](https://cloud.nevatal.id/docs/overview): Architecture, hardware cluster, and core capabilities
+- [Quickstart Guide](https://cloud.nevatal.id/docs/quickstart): Deploy a virtual machine in under 30 seconds
+- [Hardware & Infrastructure](https://cloud.nevatal.id/docs/architecture): Dell PowerEdge R640 hypervisors and NVMe ZFS pools
+- [Virtual Instances](https://cloud.nevatal.id/docs/instances): KVM VM management, resizing, snapshots, and power states
+- [Cloud-Init & SSH Automation](https://cloud.nevatal.id/docs/cloud-init): Automated bootstrapping, user setup, and SSH key injection
+- [WordPress LEMP Stack](https://cloud.nevatal.id/docs/wordpress-lemp): Nginx, PHP 8.3-FPM, and MariaDB ready-to-run appliance
+- [Networking & Firewall](https://cloud.nevatal.id/docs/console-networking): Network bridges, dedicated IPs, and firewall security
+
+### Managed Game Servers
+- [Minecraft Java Edition](https://cloud.nevatal.id/docs/minecraft-java): Paper, Purpur, Fabric, and Forge server hosting
+- [Minecraft Bedrock Edition](https://cloud.nevatal.id/docs/minecraft-bedrock): High-performance mobile and cross-play server runtime
+- [Terraria Dedicated Servers](https://cloud.nevatal.id/docs/terraria): Re-Logic 2D action-adventure world server with tModLoader
+- [Game Backups & Snapshots](https://cloud.nevatal.id/docs/game-backups): Instant NVMe ZFS snapshots and S3 cloud archives
+
+### Android Cloud (Waydroid)
+- [Waydroid Android Overview](https://cloud.nevatal.id/docs/android-overview): Unmodified Android 11/13 in containerized Linux namespaces
+- [Browser Interactive Streaming](https://cloud.nevatal.id/docs/android-streaming): 60 FPS WebRTC streaming with touch, mouse, and audio
+- [Network ADB & APK Deployment](https://cloud.nevatal.id/docs/adb-apps): Port 5555 remote debugging, testing, and APK installation
+
+### App Hosting & Automation
+- [Git Continuous Deployment](https://cloud.nevatal.id/docs/git-deploy): Automated builds and deployments for Node.js, Python, and Go
+- [n8n Workflow Automation](https://cloud.nevatal.id/docs/n8n-automation): 400+ SaaS connectors, webhooks, and visual event automation
+- [OpenClaw Personal AI](https://cloud.nevatal.id/docs/openclaw-agents): Autonomous AI agent daemon deployed alongside workloads
+
+### Object Storage & APIs
+- [S3 Object Storage](https://cloud.nevatal.id/docs/s3-storage): MinIO S3-compatible buckets, file browser, and access keys
+- [REST API Reference](https://cloud.nevatal.id/docs/rest-api): Versioned v1 REST API, JWT authentication, and examples
+- [Model Context Protocol (MCP)](https://cloud.nevatal.id/docs/mcp-protocol): Connect Claude Desktop and Cursor directly to Nevatal Cloud
+
+### Hypervisor Administration
+- [Proxmox VE Setup](https://cloud.nevatal.id/docs/proxmox-setup): Proxmox VE 8 cluster configuration and API credentials
+- [Cloud-Init Template Library](https://cloud.nevatal.id/docs/cloudinit-templates): Standardizing Ubuntu, Debian, and Alpine templates
+- [ISO Media Catalog](https://cloud.nevatal.id/docs/iso-catalog): Managing custom operating system install ISOs
+
+## Agent Discovery & Machine-Readable Interfaces
+
+- [A2A Agent Card](https://cloud.nevatal.id/.well-known/agent-card.json): Agent-to-Agent discovery manifest
+- [AI Catalog](https://cloud.nevatal.id/.well-known/ai-catalog.json): Catalog of AI endpoints, MCP servers, and interfaces
+- [MCP Server Card](https://cloud.nevatal.id/.well-known/mcp/server-card.json): Model Context Protocol definition
+- [Agent Skills Index](https://cloud.nevatal.id/.well-known/agent-skills/index.json): Skills registry for autonomous coding agents
+- [Nevatal Cloud Skill](https://cloud.nevatal.id/.well-known/agent-skills/nevatal-cloud/SKILL.md): Comprehensive instructions for AI agent pairing
+- [API Catalog](https://cloud.nevatal.id/.well-known/api-catalog): Index of versioned REST API routes

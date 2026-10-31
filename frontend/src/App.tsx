@@ -112,7 +112,8 @@ export const App: React.FC = () => {
 
   // Public Documentation Portal
   if (currentPath.startsWith('/docs')) {
-    const slug = param || (currentPath !== '/docs' ? currentPath.replace('/docs/', '') : undefined);
+    const cleanPath = currentPath.replace(/\/+$/, '');
+    const slug = (cleanPath !== '/docs' ? cleanPath.replace(/^\/docs\//, '') : undefined) || param || 'overview';
     return <DocsPage onNavigate={handleNavigate} initialArticleId={slug} />;
   }
 

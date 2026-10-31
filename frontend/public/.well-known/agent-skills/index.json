@@ -1,0 +1,11 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "nevatal-cloud",
+      "type": "skill-md",
+      "description": "Discover and orchestrate Nevatal Cloud virtual compute, game servers, Android containers, and S3 storage",
+      "url": "https://cloud.nevatal.id/.well-known/agent-skills/nevatal-cloud/SKILL.md"
+    }
+  ]
+}

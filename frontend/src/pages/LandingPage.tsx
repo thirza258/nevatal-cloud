@@ -35,6 +35,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState<'compute' | 'game' | 'android' | 'ai'>('compute');
   const [copiedCurl, setCopiedCurl] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [wireframeInvert, setWireframeInvert] = useState(true);
 
   const copyCurl = () => {
     navigator.clipboard.writeText('curl -s https://cloud.nevatal.id/api/v1/health');
@@ -45,80 +46,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const toggleFaq = (idx: number) => {
     setOpenFaq(openFaq === idx ? null : idx);
   };
-
-  const plans = [
-    {
-      name: 'Starter',
-      price: '$5',
-      period: '/mo',
-      desc: 'Ideal for lightweight utilities, microservices, and small vanilla game servers.',
-      specs: [
-        '1 vCPU Core (Xeon Scalable)',
-        '2 GB DDR4 ECC RAM',
-        '20 GB NVMe ZFS Storage',
-        '1 Dedicated IPv4 + IPv6',
-        'Cloud-Init & HTML5 noVNC',
-        '1-Click Backup Snapshots',
-      ],
-      popular: false,
-      cta: 'Deploy Starter',
-      planId: 'starter',
-    },
-    {
-      name: 'Developer',
-      price: '$12',
-      period: '/mo',
-      desc: 'Perfect for production web apps, Paper Minecraft, and development environments.',
-      specs: [
-        '2 vCPU Cores (Xeon Scalable)',
-        '4 GB DDR4 ECC RAM',
-        '50 GB NVMe ZFS Storage',
-        '1 Dedicated IPv4 + IPv6',
-        'Minecraft / Terraria Hosting',
-        'Git Continuous Deployments',
-        'Automatic Daily Backups',
-      ],
-      popular: true,
-      cta: 'Deploy Developer',
-      planId: 'developer',
-    },
-    {
-      name: 'Production',
-      price: '$24',
-      period: '/mo',
-      desc: 'Optimized for high-traffic apps, Waydroid Android Cloud, and n8n workflows.',
-      specs: [
-        '4 vCPU Cores (Xeon Scalable)',
-        '8 GB DDR4 ECC RAM',
-        '100 GB NVMe ZFS Storage',
-        'Waydroid Android Streaming (FHD)',
-        'Managed n8n Automation Engine',
-        'OpenClaw AI Copilot Runtime',
-        'High-IOPS MinIO S3 Buckets',
-      ],
-      popular: false,
-      cta: 'Deploy Production',
-      planId: 'production',
-    },
-    {
-      name: 'Bare-Metal / Custom',
-      price: 'Custom',
-      period: '',
-      desc: 'Dedicated hypervisor allocations, custom ISO media, and enterprise SLA.',
-      specs: [
-        'Up to 32 vCPU Dedicated Cores',
-        'Up to 64 GB DDR4 ECC RAM',
-        'Up to 1 TB NVMe ZFS Storage',
-        'Custom OS ISO Direct Upload',
-        'Private VLANs & BGP Routing',
-        'Dedicated Proxmox Node Access',
-        'Priority 24/7 DevOps Support',
-      ],
-      popular: false,
-      cta: 'Contact Infrastructure Team',
-      planId: 'custom',
-    },
-  ];
 
   const faqs = [
     {
@@ -169,7 +96,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             <a href="#compute" className="hover:text-zinc-100 transition-colors">Compute</a>
             <a href="#games" className="hover:text-zinc-100 transition-colors">Game Servers</a>
             <a href="#android" className="hover:text-zinc-100 transition-colors">Android Cloud</a>
-            <a href="#pricing" className="hover:text-zinc-100 transition-colors">Pricing</a>
             <button
               onClick={() => onNavigate('/docs')}
               className="text-zinc-300 hover:text-white flex items-center gap-1 transition-colors"
@@ -215,8 +141,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-16 sm:pt-24 pb-16 px-4 sm:px-8 border-b border-zinc-850">
-        <div className="max-w-5xl mx-auto text-center space-y-6">
+      <section className="relative pt-16 sm:pt-24 pb-16 px-4 sm:px-8 border-b border-zinc-850 overflow-hidden">
+        {/* Subtle Ambient Blueprint Wireframe Watermark in Background */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.035] select-none overflow-hidden"
+        >
+          <img
+            src="/dell-r640-blueprint.png"
+            alt=""
+            className="w-[140%] max-w-none filter invert hue-rotate-180 brightness-150 transform -rotate-1 scale-110"
+          />
+        </div>
+
+        <div className="max-w-5xl mx-auto text-center space-y-6 relative z-10">
           {/* Hardware & Engine Eyebrow */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -273,15 +211,106 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* Interactive Feature Showcase Terminal */}
-        <div className="max-w-4xl mx-auto mt-12 rounded-lg border border-zinc-800 bg-zinc-950 overflow-hidden shadow-2xl">
-          {/* Window Title & Tabs */}
-          <div className="flex items-center justify-between px-4 py-2 bg-zinc-900 border-b border-zinc-800">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-              <span className="text-[11px] font-mono text-zinc-400 ml-2">nevatal-cloud-control-plane</span>
+        {/* Dell PowerEdge R640 Hardware Blueprint Showcase */}
+        <div className="max-w-5xl mx-auto mt-12 rounded-xl border border-zinc-800 bg-zinc-950/90 overflow-hidden shadow-2xl relative z-10">
+          {/* Blueprint Chassis Header Bar */}
+          <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-zinc-900 border-b border-zinc-800 gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-semibold text-white font-mono tracking-tight">
+                DELL POWEREDGE R640
+              </span>
+              <span className="text-zinc-600 font-mono">·</span>
+              <span className="text-[11px] font-mono text-zinc-400">
+                1U ULTRA-DENSE BARE-METAL HYPERVISOR WIREFRAME
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setWireframeInvert(!wireframeInvert)}
+                className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                title="Toggle schematic color mode"
+              >
+                {wireframeInvert ? 'Mode: Dark Wireframe' : 'Mode: Original CAD'}
+              </button>
+              <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-mono text-zinc-400 pl-2 border-l border-zinc-800">
+                <span className="px-1.5 py-0.5 rounded bg-zinc-950 border border-zinc-800 text-zinc-300">2x Xeon Gold</span>
+                <span className="px-1.5 py-0.5 rounded bg-zinc-950 border border-zinc-800 text-zinc-300">10x NVMe U.2</span>
+                <span className="px-1.5 py-0.5 rounded bg-zinc-950 border border-zinc-800 text-zinc-300">Proxmox VE 8</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Blueprint Image Visual Stage */}
+          <div className={`relative px-4 sm:px-8 py-6 sm:py-8 flex flex-col items-center justify-center transition-colors duration-300 ${
+            wireframeInvert
+              ? 'bg-zinc-950 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:20px_20px]'
+              : 'bg-zinc-900/60 bg-[radial-gradient(#3f3f46_1px,transparent_1px)] [background-size:20px_20px]'
+          }`}>
+            <div className="w-full relative group">
+              <img
+                src="/dell-r640-blueprint.png"
+                alt="Dell PowerEdge R640 Bare-Metal Server Blueprint Wireframe"
+                className={`w-full h-auto max-h-[320px] object-contain mx-auto select-none transition-all duration-300 ${
+                  wireframeInvert
+                    ? 'filter invert hue-rotate-180 brightness-110 contrast-125 drop-shadow-[0_0_20px_rgba(255,255,255,0.08)]'
+                    : 'filter drop-shadow-[0_0_20px_rgba(0,0,0,0.5)]'
+                }`}
+              />
+            </div>
+
+            {/* Chassis Technical Callout Grid */}
+            <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-2.5 mt-6 pt-5 border-t border-zinc-850/80 font-mono text-[11px]">
+              <div className="p-2.5 rounded-lg bg-zinc-900/50 border border-zinc-800/80">
+                <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] uppercase tracking-wider mb-0.5">
+                  <Server className="w-3 h-3 text-zinc-400" />
+                  <span>Chassis Form</span>
+                </div>
+                <div className="text-xs font-semibold text-white font-mono">1U Ultra-Dense Rack</div>
+                <div className="text-[10px] text-zinc-400 mt-0.5">Dual Hot-Swap PSUs</div>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-zinc-900/50 border border-zinc-800/80">
+                <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] uppercase tracking-wider mb-0.5">
+                  <Cpu className="w-3 h-3 text-zinc-400" />
+                  <span>Compute Core</span>
+                </div>
+                <div className="text-xs font-semibold text-white font-mono">Dual Intel Xeon Scalable</div>
+                <div className="text-[10px] text-zinc-400 mt-0.5">Up to 56 Cores / 112 Threads</div>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-zinc-900/50 border border-zinc-800/80">
+                <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] uppercase tracking-wider mb-0.5">
+                  <Layers className="w-3 h-3 text-zinc-400" />
+                  <span>Memory Subsystem</span>
+                </div>
+                <div className="text-xs font-semibold text-white font-mono">24x DDR4 ECC RDIMM</div>
+                <div className="text-[10px] text-zinc-400 mt-0.5">High-Speed Mirrored Channels</div>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-zinc-900/50 border border-zinc-800/80">
+                <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] uppercase tracking-wider mb-0.5">
+                  <HardDrive className="w-3 h-3 text-zinc-400" />
+                  <span>Storage Pool</span>
+                </div>
+                <div className="text-xs font-semibold text-white font-mono">10x 2.5" NVMe PCIe Gen3</div>
+                <div className="text-[10px] text-zinc-400 mt-0.5">High-IOPS Enterprise ZFS</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Connected Virtual Control Plane Window Bar */}
+          <div className="flex flex-wrap items-center justify-between px-4 py-2 bg-zinc-900 border-t border-b border-zinc-800 gap-2">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+              </div>
+              <span className="text-[11px] font-mono text-zinc-400 ml-1.5">
+                nevatal-cloud-control-plane · live workload telemetry
+              </span>
             </div>
 
             {/* Segmented Tab Controls */}
@@ -570,77 +599,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
         </div>
       </section>
 
-      {/* Transparent Pricing Matrix */}
-      <section id="pricing" className="py-16 sm:py-24 px-4 sm:px-8 border-b border-zinc-850 bg-zinc-900/10">
-        <div className="max-w-6xl mx-auto space-y-12">
-          <div className="text-center space-y-2 max-w-xl mx-auto">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-              Transparent, predictable resource tiers.
-            </h2>
-            <p className="text-xs sm:text-sm text-zinc-400">
-              No hidden egress charges. Dedicated vCPU, RAM, and enterprise NVMe storage.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {plans.map((p) => (
-              <div
-                key={p.name}
-                className={`p-5 rounded-lg border flex flex-col justify-between transition-colors ${
-                  p.popular
-                    ? 'border-zinc-700 bg-zinc-900/60 ring-1 ring-zinc-700'
-                    : 'border-zinc-800 bg-zinc-900/20 hover:border-zinc-750'
-                }`}
-              >
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-white uppercase tracking-wider font-mono">
-                      {p.name}
-                    </span>
-                    {p.popular && (
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
-                        Popular
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold text-white tracking-tight">{p.price}</span>
-                    <span className="text-xs text-zinc-400">{p.period}</span>
-                  </div>
-
-                  <p className="text-xs text-zinc-400 leading-relaxed min-h-[36px]">
-                    {p.desc}
-                  </p>
-
-                  <ul className="space-y-2 pt-2 border-t border-zinc-800 text-xs text-zinc-300">
-                    {p.specs.map((spec, sIdx) => (
-                      <li key={sIdx} className="flex items-start gap-2">
-                        <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
-                        <span className="leading-snug">{spec}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="pt-6 mt-4">
-                  <button
-                    onClick={() => onNavigate(user ? '/dashboard/instances/new' : '/register')}
-                    className={`w-full py-2 px-3 rounded-md text-xs font-medium transition-colors ${
-                      p.popular
-                        ? 'bg-white text-zinc-950 hover:bg-zinc-200'
-                        : 'bg-zinc-800 hover:bg-zinc-700 text-white'
-                    }`}
-                  >
-                    {p.cta}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Developer FAQ */}
       <section className="py-16 sm:py-24 px-4 sm:px-8 border-b border-zinc-850">
         <div className="max-w-3xl mx-auto space-y-8">
@@ -723,7 +681,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             <button onClick={() => onNavigate('/docs')} className="hover:text-white transition-colors">
               Documentation
             </button>
-            <button onClick={() => onNavigate('/docs', 'rest-api')} className="hover:text-white transition-colors">
+            <button onClick={() => onNavigate('/docs/rest-api')} className="hover:text-white transition-colors">
               API Reference
             </button>
             <button onClick={() => onNavigate('/dashboard')} className="hover:text-white transition-colors">

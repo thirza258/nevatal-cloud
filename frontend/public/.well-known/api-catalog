@@ -1,0 +1,36 @@
+# Nevatal Cloud API Catalog
+# Base URL: https://cloud.nevatal.id/api/v1
+
+GET  /health                      Platform health and hypervisor reachability
+POST /auth/register              Register a new developer account
+POST /auth/login                 Session authentication & JWT issuance
+GET  /auth/me                    Retrieve authenticated user profile
+
+GET  /instances                  List compute instances
+POST /instances                  Provision a new KVM virtual machine
+GET  /instances/:id              Instance details, IP, and hardware specs
+POST /instances/:id/power        Power operations (start, stop, reboot, reset)
+POST /instances/:id/resize       Dynamic CPU and RAM resource resizing
+GET  /instances/:id/snapshots    List snapshot recovery points
+POST /instances/:id/snapshots    Create instant NVMe snapshot
+POST /instances/:id/vnc          Generate secure HTML5 noVNC console ticket
+
+GET  /game-servers               List managed game servers
+POST /game-servers               Create Minecraft (Java/Bedrock) or Terraria server
+GET  /game-servers/:id           Game server live telemetry, players, and metrics
+POST /game-servers/:id/power     Control game server daemon execution
+POST /game-servers/:id/command   Dispatch in-game console commands
+
+GET  /android                    List Waydroid Android instances
+POST /android                    Provision containerized Android environment
+GET  /android/:id                Android status, ADB port, and display session
+POST /android/:id/session        Create WebRTC interactive touch session
+POST /android/:id/adb            Enable or toggle remote ADB network access
+
+GET  /storage/buckets            List S3 object storage buckets
+POST /storage/buckets            Create S3 storage bucket
+GET  /storage/access-keys        List MinIO access and secret key pairs
+
+GET  /quotas                     User quota limits and active allocations
+GET  /mcp/sse                    Model Context Protocol SSE stream endpoint
+POST /mcp/messages               Model Context Protocol message dispatch

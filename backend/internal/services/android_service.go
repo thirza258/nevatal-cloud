@@ -71,7 +71,7 @@ func (s *AndroidService) ListPlans() []AndroidPlan {
 			DefaultResolution: "1280x720",
 			DefaultDensity:    240,
 			SuggestedUse:      "General Android app usage, browsing, social media, light apps",
-			PriceMonthly:      12,
+			PriceMonthly:      0,
 		},
 		{
 			ID:                "developer",
@@ -82,7 +82,7 @@ func (s *AndroidService) ListPlans() []AndroidPlan {
 			DefaultResolution: "1920x1080",
 			DefaultDensity:    320,
 			SuggestedUse:      "Development, Android Studio debugging, APK testing with ADB enabled",
-			PriceMonthly:      24,
+			PriceMonthly:      0,
 		},
 		{
 			ID:                "testing",
@@ -93,7 +93,7 @@ func (s *AndroidService) ListPlans() []AndroidPlan {
 			DefaultResolution: "1280x720",
 			DefaultDensity:    240,
 			SuggestedUse:      "QA test automation, continuous testing, clean reboot environments",
-			PriceMonthly:      14,
+			PriceMonthly:      0,
 		},
 		{
 			ID:                "power",
@@ -104,7 +104,7 @@ func (s *AndroidService) ListPlans() []AndroidPlan {
 			DefaultResolution: "1920x1080",
 			DefaultDensity:    320,
 			SuggestedUse:      "Heavy multitasking, gaming emulation, multiple concurrent apps",
-			PriceMonthly:      45,
+			PriceMonthly:      0,
 		},
 	}
 }

@@ -314,10 +314,6 @@ export const CreateAndroidInstance: React.FC<CreateAndroidInstanceProps> = ({ on
                           <h4 className="text-sm font-semibold text-white">{p.name}</h4>
                           {isSelected && <Check className="w-4 h-4 text-emerald-400" />}
                         </div>
-                        <div className="mt-2 text-2xl font-bold text-white">
-                          ${p.monthly_price}
-                          <span className="text-xs font-normal text-slate-400"> / mo</span>
-                        </div>
                         <div className="mt-3 space-y-1.5 text-xs text-slate-300">
                           <div className="flex items-center gap-2">
                             <Cpu className="w-3.5 h-3.5 text-slate-500" />

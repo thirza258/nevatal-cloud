@@ -1,0 +1,66 @@
+{
+  "name": "Nevatal Cloud Agent",
+  "description": "Minimalist bare-metal cloud platform control plane for KVM virtual servers, managed game servers, Waydroid Android containers, and AI Cloud Agent powered by Proxmox VE 8.",
+  "url": "https://cloud.nevatal.id",
+  "provider": {
+    "name": "Nevatal Cloud",
+    "url": "https://cloud.nevatal.id"
+  },
+  "version": "1.2.0",
+  "protocolVersion": "0.3.0",
+  "preferredTransport": "REST",
+  "supportedInterfaces": [
+    {
+      "url": "https://cloud.nevatal.id/api/v1/",
+      "protocolBinding": "HTTP_REST",
+      "protocolVersion": "1.0.0"
+    },
+    {
+      "url": "https://cloud.nevatal.id/api/v1/mcp",
+      "protocolBinding": "MCP",
+      "protocolVersion": "2024-11-05"
+    }
+  ],
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false
+  },
+  "defaultInputModes": [
+    "application/json",
+    "text/plain"
+  ],
+  "defaultOutputModes": [
+    "application/json",
+    "text/plain"
+  ],
+  "skills": [
+    {
+      "id": "compute-provisioning",
+      "name": "KVM Compute Provisioning",
+      "description": "Provisions high-performance Linux virtual servers with cloud-init and dedicated networking.",
+      "tags": ["compute", "vps", "proxmox", "kvm", "cloud-init"]
+    },
+    {
+      "id": "game-servers",
+      "name": "Managed Game Servers",
+      "description": "Deploys and manages Minecraft Java, Bedrock, and Terraria dedicated game servers.",
+      "tags": ["gaming", "minecraft", "terraria"]
+    },
+    {
+      "id": "android-cloud",
+      "name": "Waydroid Android Cloud",
+      "description": "Runs containerized Android instances with WebRTC touch streaming and remote ADB.",
+      "tags": ["android", "waydroid", "lxc", "adb", "mobile"]
+    },
+    {
+      "id": "mcp-agent",
+      "name": "Model Context Protocol Copilot",
+      "description": "Allows Claude Desktop and Cursor to orchestrate Nevatal Cloud resources directly.",
+      "tags": ["ai", "mcp", "copilot", "automation"]
+    }
+  ],
+  "authentication": {
+    "type": "bearer",
+    "discovery_url": "https://cloud.nevatal.id/api/v1/auth/login"
+  }
+}

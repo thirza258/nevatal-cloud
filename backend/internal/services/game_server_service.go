@@ -72,7 +72,7 @@ var AvailableGameServerPlans = []GameServerPlan{
 		StorageGB:    10,
 		MaxPlayers:   5,
 		SuggestedUse: "Small vanilla server with a few friends",
-		PriceMonthly: 5,
+		PriceMonthly: 0,
 	},
 	{
 		ID:           "basic",
@@ -82,7 +82,7 @@ var AvailableGameServerPlans = []GameServerPlan{
 		StorageGB:    20,
 		MaxPlayers:   10,
 		SuggestedUse: "Small community vanilla or lightweight Paper/Terraria server",
-		PriceMonthly: 10,
+		PriceMonthly: 0,
 	},
 	{
 		ID:           "standard",
@@ -92,7 +92,7 @@ var AvailableGameServerPlans = []GameServerPlan{
 		StorageGB:    40,
 		MaxPlayers:   20,
 		SuggestedUse: "Modded Fabric, Forge, tModLoader or larger worlds",
-		PriceMonthly: 18,
+		PriceMonthly: 0,
 	},
 	{
 		ID:           "advanced",
@@ -102,7 +102,7 @@ var AvailableGameServerPlans = []GameServerPlan{
 		StorageGB:    80,
 		MaxPlayers:   50,
 		SuggestedUse: "Larger multiplayer communities, heavy modpacks, and high view distance",
-		PriceMonthly: 28,
+		PriceMonthly: 0,
 	},
 }
 
