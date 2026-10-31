@@ -32,6 +32,11 @@ import { OpenClawDetails } from './pages/ai-agents/OpenClawDetails';
 // AI Cloud Assistant (OpenRouter Copilot)
 import { AIAssistant } from './pages/AIAssistant';
 
+// Nevatal AI Cloud Agent (PRD Section 33-48)
+import { AICloudAgent } from './pages/ai/AICloudAgent';
+import { UnifiedResources } from './pages/resources/UnifiedResources';
+import { MCPRegistry } from './pages/integrations/MCPRegistry';
+
 // S3 Object Storage & File Manager
 import { StorageOverviewPage } from './pages/storage/StorageOverview';
 import { FileManager } from './pages/storage/FileManager';
@@ -124,6 +129,24 @@ export const App: React.FC = () => {
 
       {currentPath === '/dashboard/automation/new' && (
         <CreateAutomation onNavigate={handleNavigate} />
+      )}
+
+      {/* Nevatal AI Cloud Agent (PRD Section 33-48) */}
+      {(currentPath === '/dashboard/ai' || currentPath === '/dashboard/ai/new') && (
+        <AICloudAgent onNavigate={handleNavigate} />
+      )}
+      {currentPath === '/dashboard/ai/conversations' && (
+        <AICloudAgent conversationId={param} onNavigate={handleNavigate} />
+      )}
+
+      {/* Cloud Resources Inventory (PRD Section 34.1) */}
+      {currentPath === '/dashboard/resources' && (
+        <UnifiedResources onNavigate={handleNavigate} />
+      )}
+
+      {/* Model Context Protocol (MCP) Server Registry & Connections (PRD Section 37.4) */}
+      {currentPath === '/dashboard/integrations/mcp' && (
+        <MCPRegistry onNavigate={handleNavigate} />
       )}
 
       {/* AI Assistant (OpenRouter Copilot) */}

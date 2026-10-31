@@ -506,5 +506,244 @@ func Seed(db *gorm.DB) error {
 		}
 	}
 
+	// 8. Seed MCP Servers & Tools (PRD Section 37 & 38)
+	if err := seedMCPServers(db); err != nil {
+		log.Printf("Warning: failed to seed MCP servers: %v", err)
+	}
+
+	return nil
+}
+
+func seedMCPServers(db *gorm.DB) error {
+	var serverCount int64
+	db.Model(&models.MCPServer{}).Count(&serverCount)
+	if serverCount > 0 {
+		return nil
+	}
+
+	now := time.Now()
+
+	// 1. First-Party Nevatal Cloud MCP Server
+	coreServer := models.MCPServer{
+		Name:         "nevatal-cloud",
+		DisplayName:  "Nevatal Cloud Control Plane (First-Party)",
+		Description:  "First-party Model Context Protocol server exposing approved Nevatal Cloud infrastructure capabilities and hardware orchestration.",
+		Transport:    "in_process",
+		EndpointURL:  "/api/v1/mcp/rpc",
+		IsFirstParty: true,
+		Enabled:      true,
+		AuthType:     "bearer",
+		Icon:         "Zap",
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	if err := db.Create(&coreServer).Error; err != nil {
+		return err
+	}
+
+	coreTools := []models.MCPTool{
+		// Resource discovery
+		{ServerID: coreServer.ID, Name: "cloud.list_available_os_images", Description: "List available approved Linux OS templates and ISOs", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.list_instance_plans", Description: "List standardized compute sizing plans (Nano, Small, Medium, Large)", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_resource_quotas", Description: "Inspect user quota limits and remaining allocations", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_available_capacity", Description: "Check Dell PowerEdge R640 cluster capacity", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.list_regions", Description: "List available virtualization nodes and regions", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.list_network_profiles", Description: "List network bridges and public/private IP configurations", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+
+		// VPS management
+		{ServerID: coreServer.ID, Name: "cloud.list_vms", Description: "List all compute instances owned by the user", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_vm", Description: "Get details and status of a specific virtual machine", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.plan_vm_creation", Description: "Prepare and dry-run validate a virtual machine creation plan", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"name":{"type":"string"},"template_id":{"type":"string"},"vcpus":{"type":"integer"},"memory_mb":{"type":"integer"},"disk_gb":{"type":"integer"}},"required":["name","template_id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.create_vm", Description: "Provision a new virtual machine from an approved OS template", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"name":{"type":"string"},"template_id":{"type":"string"},"vcpus":{"type":"integer"},"memory_mb":{"type":"integer"},"disk_gb":{"type":"integer"},"ssh_key_id":{"type":"string"}},"required":["name","template_id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.start_vm", Description: "Power on a virtual machine", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.stop_vm", Description: "Gracefully shut down a virtual machine", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.restart_vm", Description: "Reboot an active virtual machine", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_vm_metrics", Description: "Fetch live CPU, RAM, disk, and network metrics", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.delete_vm", Description: "Permanently destroy a virtual machine and its attached disks", RiskLevel: "destructive", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"confirm_name":{"type":"string"}},"required":["id","confirm_name"]}`, Enabled: true, CreatedAt: now},
+
+		// Application deployment
+		{ServerID: coreServer.ID, Name: "cloud.list_applications", Description: "List deployed web applications and git repositories", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.create_application", Description: "Configure a new application repository and runtime", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"name":{"type":"string"},"framework":{"type":"string"},"git_repository":{"type":"string"},"branch":{"type":"string"},"domain":{"type":"string"}},"required":["name","git_repository"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.deploy_application", Description: "Trigger an automated build and deployment", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_deployment_status", Description: "Check application container health and uptime", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_deployment_logs", Description: "Retrieve build, runtime, and reverse-proxy logs", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"lines":{"type":"integer"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.rollback_deployment", Description: "Rollback application to a previous deployment release", RiskLevel: "destructive", InputSchema: `{"type":"object","properties":{"id":{"type":"string"},"deployment_id":{"type":"string"}},"required":["id","deployment_id"]}`, Enabled: true, CreatedAt: now},
+
+		// Automation & AI agents
+		{ServerID: coreServer.ID, Name: "cloud.list_n8n_instances", Description: "List running n8n workflow automation instances", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.create_n8n_instance", Description: "Provision a dedicated n8n workflow automation server", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"name":{"type":"string"},"domain":{"type":"string"}},"required":["name"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_n8n_status", Description: "Check n8n execution engine health", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.list_openclaw_instances", Description: "List OpenClaw autonomous AI agent instances", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.create_openclaw_instance", Description: "Deploy an OpenClaw AI agent container", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"name":{"type":"string"},"ai_provider":{"type":"string"},"model_name":{"type":"string"}},"required":["name"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_openclaw_status", Description: "Inspect OpenClaw agent runtime and channels", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.restart_openclaw_instance", Description: "Restart an OpenClaw agent instance", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, Enabled: true, CreatedAt: now},
+
+		// Object storage
+		{ServerID: coreServer.ID, Name: "cloud.list_buckets", Description: "List MinIO S3-compatible storage buckets", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.create_bucket", Description: "Create a new private or public S3 bucket", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"name":{"type":"string"},"is_public":{"type":"boolean"}},"required":["name"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_storage_usage", Description: "Inspect bucket disk usage and object count", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"bucket_id":{"type":"string"}},"required":["bucket_id"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.generate_presigned_upload", Description: "Generate temporary presigned upload URL", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"bucket_id":{"type":"string"},"filename":{"type":"string"}},"required":["bucket_id","filename"]}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.generate_presigned_download", Description: "Generate temporary presigned download link", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"object_id":{"type":"string"}},"required":["object_id"]}`, Enabled: true, CreatedAt: now},
+
+		// Monitoring
+		{ServerID: coreServer.ID, Name: "cloud.get_resource_usage", Description: "Get cluster-wide or tenant-wide resource utilization", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_service_health", Description: "Inspect service health and ping status", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_recent_events", Description: "Inspect audit and provisioning events", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"limit":{"type":"integer"}}}`, Enabled: true, CreatedAt: now},
+		{ServerID: coreServer.ID, Name: "cloud.get_provisioning_status", Description: "Track in-progress provisioning job status", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"job_id":{"type":"string"}},"required":["job_id"]}`, Enabled: true, CreatedAt: now},
+	}
+
+	for _, tool := range coreTools {
+		_ = db.Create(&tool)
+	}
+
+	// 2. Curated External MCP Servers
+	extServers := []struct {
+		Server models.MCPServer
+		Tools  []models.MCPTool
+	}{
+		{
+			Server: models.MCPServer{
+				Name:         "github",
+				DisplayName:  "GitHub Provider",
+				Description:  "Inspect repositories, branches, review commits, and trigger approved deployment workflows.",
+				Transport:    "http",
+				EndpointURL:  "https://api.github.com/mcp",
+				IsFirstParty: false,
+				Enabled:      true,
+				AuthType:     "api_key",
+				Icon:         "Github",
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+			Tools: []models.MCPTool{
+				{Name: "github.list_repos", Description: "List authorized repositories and organizations", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+				{Name: "github.get_branches", Description: "List branches and tags in a repository", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"repo":{"type":"string"}},"required":["repo"]}`, Enabled: true, CreatedAt: now},
+				{Name: "github.get_latest_commit", Description: "Inspect latest commit hash and author details", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"repo":{"type":"string"},"branch":{"type":"string"}},"required":["repo"]}`, Enabled: true, CreatedAt: now},
+				{Name: "github.trigger_workflow", Description: "Dispatch a GitHub Actions deployment workflow", RiskLevel: "write", InputSchema: `{"type":"object","properties":{"repo":{"type":"string"},"workflow_id":{"type":"string"}},"required":["repo","workflow_id"]}`, Enabled: true, CreatedAt: now},
+			},
+		},
+		{
+			Server: models.MCPServer{
+				Name:         "gitlab",
+				DisplayName:  "GitLab CI/CD Integration",
+				Description:  "Review GitLab projects, pipeline statuses, and triggers.",
+				Transport:    "http",
+				EndpointURL:  "https://gitlab.com/api/v4/mcp",
+				IsFirstParty: false,
+				Enabled:      true,
+				AuthType:     "api_key",
+				Icon:         "Gitlab",
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+			Tools: []models.MCPTool{
+				{Name: "gitlab.list_projects", Description: "List authorized GitLab repositories", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+				{Name: "gitlab.get_pipelines", Description: "Check CI/CD pipeline build status", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"project_id":{"type":"string"}},"required":["project_id"]}`, Enabled: true, CreatedAt: now},
+			},
+		},
+		{
+			Server: models.MCPServer{
+				Name:         "datadog-monitoring",
+				DisplayName:  "Datadog & Cloud Observability",
+				Description:  "Retrieve external cluster telemetry and active incident alerts.",
+				Transport:    "http",
+				EndpointURL:  "https://api.datadoghq.com/mcp",
+				IsFirstParty: false,
+				Enabled:      true,
+				AuthType:     "api_key",
+				Icon:         "Activity",
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+			Tools: []models.MCPTool{
+				{Name: "datadog.get_metrics", Description: "Retrieve host CPU, RAM, and network metrics", RiskLevel: "read", InputSchema: `{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}`, Enabled: true, CreatedAt: now},
+				{Name: "datadog.list_active_alerts", Description: "Check currently firing monitoring alerts", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+			},
+		},
+		{
+			Server: models.MCPServer{
+				Name:         "postgres-inspector",
+				DisplayName:  "PostgreSQL Schema Inspector",
+				Description:  "Inspect database schemas, query table structures, and verify connection health safely.",
+				Transport:    "in_process",
+				EndpointURL:  "/api/v1/mcp/postgres",
+				IsFirstParty: false,
+				Enabled:      true,
+				AuthType:     "none",
+				Icon:         "Database",
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+			Tools: []models.MCPTool{
+				{Name: "postgres.list_tables", Description: "List public tables and view schema details", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+				{Name: "postgres.check_health", Description: "Test database connectivity and connection pool status", RiskLevel: "read", InputSchema: `{"type":"object","properties":{}}`, Enabled: true, CreatedAt: now},
+			},
+		},
+	}
+
+	for _, ext := range extServers {
+		s := ext.Server
+		if err := db.Create(&s).Error; err == nil {
+			for _, t := range ext.Tools {
+				t.ServerID = s.ID
+				_ = db.Create(&t)
+			}
+		}
+	}
+
+	// 3. Auto-connect default customer user to core server and github
+	var demoUser models.User
+	if err := db.First(&demoUser, "email = ?", "customer@nevatal.local").Error; err == nil {
+		coreConn := models.MCPConnection{
+			UserID:          demoUser.ID,
+			ServerID:        coreServer.ID,
+			Status:          "connected",
+			ConfigJSON:      `{"token":"internal-tenant-session"}`,
+			LastHealthCheck: &now,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		}
+		if err := db.Create(&coreConn).Error; err == nil {
+			// Grant permissions for all core tools
+			var tools []models.MCPTool
+			db.Where("server_id = ?", coreServer.ID).Find(&tools)
+			for _, t := range tools {
+				_ = db.Create(&models.MCPPermission{
+					ConnectionID: coreConn.ID,
+					ToolID:       t.ID,
+					Granted:      true,
+					CreatedAt:    now,
+				})
+			}
+		}
+
+		// Connect GitHub
+		var ghServer models.MCPServer
+		if err := db.First(&ghServer, "name = ?", "github").Error; err == nil {
+			ghConn := models.MCPConnection{
+				UserID:          demoUser.ID,
+				ServerID:        ghServer.ID,
+				Status:          "connected",
+				ConfigJSON:      `{"connected_account":"customer-demo","scopes":["repo","read:user"]}`,
+				LastHealthCheck: &now,
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			}
+			if err := db.Create(&ghConn).Error; err == nil {
+				var ghTools []models.MCPTool
+				db.Where("server_id = ?", ghServer.ID).Find(&ghTools)
+				for _, t := range ghTools {
+					_ = db.Create(&models.MCPPermission{
+						ConnectionID: ghConn.ID,
+						ToolID:       t.ID,
+						Granted:      true,
+						CreatedAt:    now,
+					})
+				}
+			}
+		}
+	}
+
+	log.Println("Seeded first-party & external MCP servers, tool definitions, and default connections.")
 	return nil
 }

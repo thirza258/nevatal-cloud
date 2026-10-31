@@ -46,6 +46,8 @@ func main() {
 	isoService := services.NewISOService(db, auditService)
 	storageService := services.NewStorageService(db, "")
 	aiAssistantService := services.NewAIAssistantService(db, cfg, instanceService, quotaService, auditService)
+	mcpService := services.NewMCPService(db, instanceService, appService, automationService, openClawService, storageService, quotaService, pveClient)
+	aiAgentService := services.NewAIAgentService(db, cfg, instanceService, appService, automationService, openClawService, storageService, quotaService, mcpService, pveClient)
 
 	// 5. Initialize Router & Endpoints
 	router := api.SetupRouter(api.RouterParams{
@@ -64,6 +66,8 @@ func main() {
 		ISOService:         isoService,
 		StorageService:     storageService,
 		AIAssistantService: aiAssistantService,
+		MCPService:         mcpService,
+		AIAgentService:     aiAgentService,
 	})
 
 	// 6. Start HTTP Server

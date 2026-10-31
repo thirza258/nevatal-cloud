@@ -18,6 +18,12 @@ import {
   Play,
   Square,
   RotateCcw,
+  Sparkles,
+  Globe,
+  Workflow,
+  Bot,
+  Database,
+  Zap,
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -29,6 +35,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
 
   const fetchSummary = async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
@@ -97,6 +104,99 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           >
             <PlusCircle className="w-4 h-4" />
             <span>Deploy Instance</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 34.1 Prominent Action Hero: "What would you like to build?" */}
+      <div className="relative overflow-hidden p-6 rounded-2xl bg-gradient-to-br from-indigo-950/60 via-slate-900 to-blue-950/40 border border-blue-500/30 shadow-lg space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                <span>What would you like to build?</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  AI Cloud Agent
+                </span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Describe your desired cloud architecture in natural language. Your agent plans, validates quotas, and provisions Dell PowerEdge R640 resources.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigate('/dashboard/ai')}
+            className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-semibold px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 transition whitespace-nowrap self-start sm:self-auto"
+          >
+            <span>Open AI Console</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Natural Language Prompt Bar */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onNavigate('/dashboard/ai');
+          }}
+          className="flex items-center gap-2"
+        >
+          <input
+            type="text"
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            placeholder="e.g. 'I want to create a VPS for hosting my Go API' or 'Deploy a website from GitHub'..."
+            className="flex-1 bg-slate-950/80 border border-slate-700/80 rounded-xl px-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-inner"
+          />
+          <button
+            type="submit"
+            className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs sm:text-sm shadow-md shadow-blue-600/30 transition flex items-center gap-2 flex-shrink-0"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline">Ask AI Agent</span>
+          </button>
+        </form>
+
+        {/* Quick Builder Presets */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-[11px] font-semibold text-slate-400">Quick Start:</span>
+          <button
+            onClick={() => onNavigate('/dashboard/ai')}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs transition border border-slate-700/60"
+          >
+            <Server className="w-3 h-3 text-blue-400" />
+            <span>Create VPS</span>
+          </button>
+          <button
+            onClick={() => onNavigate('/dashboard/ai')}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs transition border border-slate-700/60"
+          >
+            <Globe className="w-3 h-3 text-emerald-400" />
+            <span>Deploy Website</span>
+          </button>
+          <button
+            onClick={() => onNavigate('/dashboard/ai')}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs transition border border-slate-700/60"
+          >
+            <Workflow className="w-3 h-3 text-amber-400" />
+            <span>n8n Setup</span>
+          </button>
+          <button
+            onClick={() => onNavigate('/dashboard/ai')}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs transition border border-slate-700/60"
+          >
+            <Bot className="w-3 h-3 text-purple-400" />
+            <span>OpenClaw Setup</span>
+          </button>
+          <button
+            onClick={() => onNavigate('/dashboard/ai')}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs transition border border-slate-700/60"
+          >
+            <Database className="w-3 h-3 text-cyan-400" />
+            <span>S3 Storage</span>
           </button>
         </div>
       </div>

@@ -22,6 +22,7 @@ import {
   Database,
   Disc,
   Sparkles,
+  Code,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { AIAssistantWidget } from '../ai/AIAssistantWidget';
@@ -45,7 +46,9 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
 
   const customerNav: NavItem[] = [
     { label: 'Overview', path: '/dashboard', icon: Layers },
-    { label: 'AI Assistant', path: '/dashboard/ai-assistant', icon: Sparkles, highlight: true },
+    { label: 'AI Cloud Agent', path: '/dashboard/ai', icon: Sparkles, highlight: true },
+    { label: 'Cloud Resources', path: '/dashboard/resources', icon: Zap },
+    { label: 'MCP Integrations', path: '/dashboard/integrations/mcp', icon: Code },
     { label: 'Compute (VMs)', path: '/dashboard/instances', icon: Server },
     { label: 'App Hosting', path: '/dashboard/apps', icon: Globe },
     { label: 'Automations (n8n)', path: '/dashboard/automation', icon: Workflow },

@@ -458,3 +458,191 @@ export interface AIPlatformContext {
   available_models: OpenRouterModelDefinition[];
 }
 
+// PRD Section 33-48: Nevatal AI Cloud Agent & MCP Integration Types
+
+export type WorkflowState =
+  | 'UnderstandingRequest'
+  | 'ClarifyingRequirements'
+  | 'Planning'
+  | 'AwaitingConfirmation'
+  | 'Provisioning'
+  | 'Validating'
+  | 'Recovery'
+  | 'Completed'
+  | 'Failed'
+  | 'Cancelled';
+
+export interface AIConversation {
+  id: string;
+  user_id: string;
+  title: string;
+  state: WorkflowState;
+  current_intent?: string;
+  summary?: string;
+  created_at: string;
+  updated_at: string;
+  messages?: AIMessage[];
+  plans?: AIResourcePlan[];
+}
+
+export interface AIMessage {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  ui_components?: string;
+  raw_input?: string;
+  created_at: string;
+}
+
+export interface StructuredQuestionOption {
+  id: string;
+  label: string;
+  description?: string;
+  value: string;
+  is_default?: boolean;
+}
+
+export interface StructuredQuestion {
+  id: string;
+  key: string;
+  title: string;
+  description?: string;
+  type: 'single_choice' | 'multi_choice' | 'text' | 'slider';
+  options?: StructuredQuestionOption[];
+  required: boolean;
+  default_value?: string;
+  answered?: boolean;
+  answer?: string;
+}
+
+export interface UIProgressStep {
+  step_id: string;
+  title: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  message?: string;
+  completed_at?: string;
+}
+
+export interface StructuredResourceView {
+  type: string;
+  name: string;
+  summary: string;
+  details: Record<string, any>;
+  order: number;
+  status: string;
+}
+
+export interface StructuredPlanView {
+  plan_id: string;
+  version: number;
+  title: string;
+  intent: string;
+  summary: string;
+  resources: StructuredResourceView[];
+  estimated_allocations: Record<string, any>;
+  estimated_pricing?: string;
+  reversible: boolean;
+  requires_confirmation: boolean;
+  status: string;
+}
+
+export interface UIComponentsPayload {
+  questions?: StructuredQuestion[];
+  plan_proposal?: StructuredPlanView;
+  progress_steps?: UIProgressStep[];
+  success_data?: Record<string, any>;
+  error_data?: Record<string, any>;
+}
+
+export interface AIResourcePlan {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  version: number;
+  intent: string;
+  status: string;
+  title: string;
+  description: string;
+  plan_json: string;
+  estimated_costs?: string;
+  validation_errors?: string;
+  requires_confirmation: boolean;
+  created_at: string;
+  updated_at: string;
+  resources?: any[];
+}
+
+export interface MCPServer {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string;
+  transport: string;
+  endpoint_url?: string;
+  is_first_party: boolean;
+  enabled: boolean;
+  auth_type: string;
+  icon?: string;
+  created_at: string;
+  tools?: MCPTool[];
+}
+
+export interface MCPTool {
+  id: string;
+  server_id: string;
+  name: string;
+  description: string;
+  risk_level: 'read' | 'write' | 'destructive';
+  input_schema: string;
+  enabled: boolean;
+}
+
+export interface MCPConnection {
+  id: string;
+  user_id: string;
+  server_id: string;
+  status: 'connected' | 'disconnected' | 'error';
+  config_json?: string;
+  last_health_check?: string;
+  created_at: string;
+  updated_at: string;
+  server?: MCPServer;
+  permissions?: MCPPermission[];
+}
+
+export interface MCPPermission {
+  id: string;
+  connection_id: string;
+  tool_id: string;
+  granted: boolean;
+  tool?: MCPTool;
+}
+
+export interface MCPAuditLog {
+  id: string;
+  user_id: string;
+  server_id: string;
+  tool_name: string;
+  risk_level: string;
+  confirmed: boolean;
+  input_summary: string;
+  result_status: string;
+  ip_address?: string;
+  created_at: string;
+  server?: MCPServer;
+}
+
+export interface UnifiedResourceItem {
+  id: string;
+  type: 'vps' | 'app' | 'automation' | 'ai_agent' | 'bucket';
+  name: string;
+  status: string;
+  endpoint?: string;
+  specs?: string;
+  created_at: string;
+  details?: Record<string, any>;
+}
+
+

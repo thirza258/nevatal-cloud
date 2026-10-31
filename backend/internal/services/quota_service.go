@@ -84,6 +84,23 @@ func (s *QuotaService) GetUsage(userID uuid.UUID) (*models.QuotaUsage, error) {
 	}, nil
 }
 
+func (s *QuotaService) CheckQuota(userID uuid.UUID, vcpus, memoryMB, diskGB int) error {
+	usage, err := s.GetUsage(userID)
+	if err != nil {
+		return err
+	}
+	if usage.UsedVCPUs+vcpus > usage.MaxVCPUs {
+		return fmt.Errorf("exceeds vCPU quota: %d requested, %d available", vcpus, usage.MaxVCPUs-usage.UsedVCPUs)
+	}
+	if usage.UsedMemoryMB+memoryMB > usage.MaxMemoryMB {
+		return fmt.Errorf("exceeds memory quota: %d MB requested, %d MB available", memoryMB, usage.MaxMemoryMB-usage.UsedMemoryMB)
+	}
+	if usage.UsedStorageGB+diskGB > usage.MaxStorageGB {
+		return fmt.Errorf("exceeds storage quota: %d GB requested, %d GB available", diskGB, usage.MaxStorageGB-usage.UsedStorageGB)
+	}
+	return nil
+}
+
 func (s *QuotaService) CheckAndReserve(tx *gorm.DB, userID uuid.UUID, jobID uuid.UUID, vcpus, memoryMB, diskGB int) (*models.ResourceReservation, error) {
 	usage, err := s.GetUsage(userID)
 	if err != nil {

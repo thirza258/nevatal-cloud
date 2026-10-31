@@ -28,6 +28,8 @@ type RouterParams struct {
 	ISOService        *services.ISOService
 	StorageService    *services.StorageService
 	AIAssistantService *services.AIAssistantService
+	MCPService        *services.MCPService
+	AIAgentService    *services.AIAgentService
 }
 
 func SetupRouter(p RouterParams) *gin.Engine {
@@ -74,6 +76,9 @@ func SetupRouter(p RouterParams) *gin.Engine {
 	isoHandler := handlers.NewISOHandler(p.ISOService)
 	storageHandler := handlers.NewStorageHandler(p.StorageService)
 	aiAssistantHandler := handlers.NewAIAssistantHandler(p.AIAssistantService)
+	mcpHandler := handlers.NewMCPHandler(p.MCPService)
+	aiAgentHandler := handlers.NewAIAgentHandler(p.AIAgentService)
+	resourceHandler := handlers.NewResourceHandler(p.InstanceService, p.AppService, p.AutomationService, p.OpenClawService, p.StorageService, p.QuotaService)
 
 	// API v1 group
 	v1 := router.Group("/api/v1")
@@ -206,6 +211,49 @@ func SetupRouter(p RouterParams) *gin.Engine {
 
 			// Jobs (Provisioning status polling)
 			protected.GET("/jobs/:id", jobHandler.Get)
+
+			// 43.1 Nevatal AI Cloud Agent (PRD Section 43.1, 43.2, 43.3)
+			ai := protected.Group("/ai")
+			{
+				ai.GET("/conversations", aiAgentHandler.ListConversations)
+				ai.POST("/conversations", aiAgentHandler.CreateConversation)
+				ai.GET("/conversations/:id", aiAgentHandler.GetConversation)
+				ai.DELETE("/conversations/:id", aiAgentHandler.DeleteConversation)
+
+				ai.POST("/conversations/:id/messages", aiAgentHandler.SendMessage)
+				ai.GET("/conversations/:id/messages", aiAgentHandler.ListMessages)
+				ai.GET("/conversations/:id/state", aiAgentHandler.GetState)
+
+				// Plans & Approvals
+				ai.GET("/conversations/:id/plans", aiAgentHandler.ListPlans)
+				ai.GET("/plans/:id", aiAgentHandler.GetPlan)
+				ai.POST("/plans/:id/validate", aiAgentHandler.ValidatePlan)
+				ai.POST("/plans/:id/approve", aiAgentHandler.ApprovePlan)
+				ai.POST("/plans/:id/cancel", aiAgentHandler.CancelPlan)
+
+				// Agent Runs
+				ai.GET("/runs/:id", aiAgentHandler.GetRun)
+				ai.GET("/runs/:id/events", aiAgentHandler.GetRunEvents)
+				ai.POST("/runs/:id/cancel", aiAgentHandler.CancelRun)
+			}
+
+			// 43.4 MCP Integrations (PRD Section 37 & 43.4)
+			mcp := protected.Group("/integrations/mcp")
+			{
+				mcp.GET("/servers", mcpHandler.ListServers)
+				mcp.GET("/connections", mcpHandler.ListConnections)
+				mcp.POST("/connections", mcpHandler.Connect)
+				mcp.DELETE("/connections/:id", mcpHandler.Disconnect)
+				mcp.GET("/connections/:id/tools", mcpHandler.GetConnectionTools)
+				mcp.PATCH("/connections/:id/permissions", mcpHandler.UpdatePermission)
+				mcp.GET("/audit-logs", mcpHandler.ListAuditLogs)
+			}
+
+			// First-party MCP JSON-RPC 2.0 Endpoint
+			protected.POST("/mcp/rpc", mcpHandler.HandleRPC)
+
+			// Unified Resources Endpoint (PRD Section 34.1: /dashboard/resources)
+			protected.GET("/resources", resourceHandler.ListAll)
 		}
 
 		// Authenticated administrator endpoints

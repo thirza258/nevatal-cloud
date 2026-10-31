@@ -225,6 +225,29 @@ All customer and administrative endpoints use the versioned prefix `/api/v1`.
 - `GET /api/v1/admin/nodes` — Dell PowerEdge R640 node telemetry & ZFS pool status
 - `GET /api/v1/admin/audit-logs` — Immutable audit log stream
 
+### Nevatal AI Cloud Agent & MCP (PRD Sections 33-48)
+- `GET /api/v1/ai/conversations` — List conversation threads
+- `POST /api/v1/ai/conversations` — Create new AI agent conversation
+- `GET /api/v1/ai/conversations/:id` — Conversation history & state
+- `DELETE /api/v1/ai/conversations/:id` — Delete conversation
+- `POST /api/v1/ai/conversations/:id/messages` — Send user message and execute dynamic requirement gathering
+- `GET /api/v1/ai/conversations/:id/messages` — Message history with interactive UI cards
+- `GET /api/v1/ai/conversations/:id/state` — Real-time workflow state machine status
+- `GET /api/v1/ai/conversations/:id/plans` — List structured multi-resource plans
+- `GET /api/v1/ai/plans/:id` — Plan details and resource allocations
+- `POST /api/v1/ai/plans/:id/validate` — Dry-run schema and quota validation
+- `POST /api/v1/ai/plans/:id/approve` — Approve plan and initiate automated provisioning
+- `POST /api/v1/ai/plans/:id/cancel` — Cancel pending plan
+- `GET /api/v1/resources` — Unified inventory across compute VMs, apps, n8n, OpenClaw, and S3
+- `GET /api/v1/integrations/mcp/servers` — List registered MCP servers
+- `GET /api/v1/integrations/mcp/connections` — List tenant MCP connections
+- `POST /api/v1/integrations/mcp/connections` — Authorize MCP server connection
+- `DELETE /api/v1/integrations/mcp/connections/:id` — Disconnect MCP server
+- `GET /api/v1/integrations/mcp/connections/:id/tools` — Connection tools and granted permissions
+- `PATCH /api/v1/integrations/mcp/connections/:id/permissions` — Toggle tool permission
+- `GET /api/v1/integrations/mcp/audit-logs` — Immutable MCP tool invocation audit trail
+- `POST /api/v1/mcp/rpc` — Model Context Protocol JSON-RPC 2.0 endpoint (`tools/list`, `tools/call`)
+
 ---
 
 ## 7. Verification & Testing
