@@ -188,8 +188,9 @@ export const LegalPage: React.FC<LegalPageProps> = ({ onNavigate, initialTab = '
         )}
       </main>
 
-      <footer className="border-t border-zinc-850 bg-zinc-950 py-6 text-center text-xs text-zinc-500">
+      <footer className="border-t border-zinc-850 bg-zinc-950 py-6 text-center text-xs text-zinc-500 space-y-1">
         <p>Nevatal Cloud · Self-Hosted Cloud Platform · Legal &amp; Policies</p>
+        <p>This project is under nevatal.id for educational purposes.</p>
       </footer>
     </div>
   );

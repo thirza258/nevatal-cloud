@@ -728,7 +728,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
         </div>
 
         <div className="max-w-6xl mx-auto mt-6 pt-6 border-t border-zinc-900 flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-400 gap-3">
-          <div>&copy; {new Date().getFullYear()} Nevatal Cloud. All rights reserved.</div>
+          <div>&copy; {new Date().getFullYear()} Nevatal Cloud. All rights reserved. · This project is under nevatal.id for educational purposes.</div>
           <div className="font-mono">Node: Dell PowerEdge R640 · Hypervisor: Proxmox VE 8</div>
         </div>
       </footer>
