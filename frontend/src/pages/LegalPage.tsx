@@ -127,6 +127,16 @@ export const LegalPage: React.FC<LegalPageProps> = ({ onNavigate, initialTab = '
                 These tokens never leave your configured domain.
               </p>
             </section>
+
+            <section className="bg-zinc-900/60 p-6 rounded-xl border border-zinc-850">
+              <h2 className="text-lg font-semibold text-white mb-3">4. Privacy Contact</h2>
+              <p>
+                For questions regarding data practices or privacy policies, please contact:{" "}
+                <a href="mailto:nevatalapp@gmail.com" className="text-indigo-400 hover:underline font-mono">
+                  nevatalapp@gmail.com
+                </a>
+              </p>
+            </section>
           </div>
         ) : (
           <div className="space-y-8 text-sm leading-relaxed text-zinc-300">
@@ -162,6 +172,16 @@ export const LegalPage: React.FC<LegalPageProps> = ({ onNavigate, initialTab = '
               <p>
                 The software is provided &ldquo;AS IS&rdquo;, without warranty of any kind, express or implied.
                 The authors or copyright holders shall not be liable for any claim, damages, or other liability arising from the software.
+              </p>
+            </section>
+
+            <section className="bg-zinc-900/60 p-6 rounded-xl border border-zinc-850">
+              <h2 className="text-lg font-semibold text-white mb-3">5. Terms Contact</h2>
+              <p>
+                For terms inquiries or administrative notices, contact:{" "}
+                <a href="mailto:nevatalapp@gmail.com" className="text-indigo-400 hover:underline font-mono">
+                  nevatalapp@gmail.com
+                </a>
               </p>
             </section>
           </div>
