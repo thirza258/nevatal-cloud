@@ -703,6 +703,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             <button onClick={() => onNavigate('/dashboard')} className="hover:text-white transition-colors">
               Console
             </button>
+            <button
+              onClick={() => onNavigate ? onNavigate('/privacy') : (window.location.href = '/privacy')}
+              className="hover:text-white transition-colors"
+            >
+              Privacy Policy
+            </button>
+            <button
+              onClick={() => onNavigate ? onNavigate('/terms') : (window.location.href = '/terms')}
+              className="hover:text-white transition-colors"
+            >
+              Terms of Service
+            </button>
             <a
               href="https://github.com/thirza258/nevatal-cloud"
               target="_blank"

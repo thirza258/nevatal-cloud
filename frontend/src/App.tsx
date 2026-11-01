@@ -5,6 +5,7 @@ import { AppShell } from './components/layout/AppShell';
 // Public Landing & Documentation
 import { LandingPage } from './pages/LandingPage';
 import { DocsPage } from './pages/docs/DocsPage';
+import { LegalPage } from './pages/LegalPage';
 
 // Customer Compute & Core Pages
 import { Login } from './pages/Login';
@@ -108,6 +109,11 @@ export const App: React.FC = () => {
   // Public Landing Page
   if (currentPath === '/' || currentPath === '/home' || currentPath === '/landing') {
     return <LandingPage onNavigate={handleNavigate} />;
+  }
+
+  // Legal & Compliance Pages
+  if (currentPath === '/privacy' || currentPath === '/terms') {
+    return <LegalPage onNavigate={handleNavigate} initialTab={currentPath === '/terms' ? 'terms' : 'privacy'} />;
   }
 
   // Public Documentation Portal
