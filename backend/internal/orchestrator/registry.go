@@ -19,7 +19,8 @@ type ToolDef struct {
 	TimeoutSeconds int            `json:"timeout_seconds"`
 	RequiresAdmin  bool           `json:"requires_admin"`
 	InputSchema    map[string]any `json:"input_schema"`
-	// MaxAttempts bounds automatic retries of a task using this tool.
+	// MaxAttempts bounds automatic retries of a task using this tool
+	// (always 1 for a tool that is not idempotent).
 	MaxAttempts int `json:"-"`
 }
 
@@ -60,8 +61,13 @@ func (r *Registry) ToolFor(resourceType, action string) (string, bool) {
 	return t, ok
 }
 
-// Register adds or replaces a tool definition.
+// Register adds or replaces a tool definition. A tool that is not
+// idempotent gets one attempt: the engine never runs it again on its own
+// (only a manual retry does).
 func (r *Registry) Register(def ToolDef) {
+	if !def.Idempotent {
+		def.MaxAttempts = 1
+	}
 	if def.MaxAttempts <= 0 {
 		def.MaxAttempts = 3
 	}

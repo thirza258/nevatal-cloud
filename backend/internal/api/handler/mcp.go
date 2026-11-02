@@ -99,7 +99,7 @@ func (h *MCPHandler) UpdatePermission(c *gin.Context) {
 	}
 
 	if err := h.service.UpdateToolPermission(c.Request.Context(), middleware.GetCurrentUserID(c), id, req.ToolID, req.Granted); err != nil {
-		response.ErrorMessage(c, http.StatusInternalServerError, err.Error())
+		writeMessageError(c, err, http.StatusInternalServerError)
 		return
 	}
 	response.OK(c, response.Status{Status: "updated"})

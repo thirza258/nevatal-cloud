@@ -205,12 +205,51 @@ migrations/000007_orchestrator     tables, approval binding columns, unique job 
   attempt (`InstanceUsecase.Create`/`QueueOperation` with the key; adoption of resources a crashed
   run created) and start a new attempt only after the previous attempt's job is terminal and its
   leftovers are discarded. Outputs are whitelisted fields, never secrets.
+* **Non-idempotent tools** (`ToolDef.Idempotent == false`, Phase 1: `vps.snapshot.restore`):
+  `Registry.Register` sets `MaxAttempts` to 1, `Engine.handleFailure` never schedules an automatic
+  retry for them, and `Engine.runTask` fails a re-claimed attempt (`claim_count > 1`) with
+  `INTERRUPTED_NOT_IDEMPOTENT` instead of running the tool again. Only a manual retry re-runs it.
+* **Recovery options:** `delete_created` is offered when `Hooks.CanDeleteCreated` finds `created`
+  relations (VPS, bucket) without a `deleted` one whose resource still exists — the same set
+  `deleteCreatedPlan` uses — computed at finalize and re-checked when an execution is read.
+* **Chat read requests** (`AIAgentUsecase.ProcessUserMessage`, `isReadRequest`): list/show/status
+  questions without a change verb are answered through `OrchestratorUsecase.CallTool` read tools
+  (`vps.list`, `vps.status`) and never reach the create workflows or change the conversation intent.
 * **Jobs:** provisioning jobs heartbeat (`JOB_HEARTBEAT_SECONDS`); the reaper in every replica fails
   jobs without one for `JOB_STALE_AFTER_SECONDS` as `JOB_STALE` and cleans up. Terminal job writes
   are conditional (`WorkerUsecase.finishJob`), so a reaped job is never resurrected.
 * **Events:** `ai_execution_events.seq` comes from a counter row-locked in the same transaction,
   so seq order is commit order and `?after=` pollers never skip an event. SSE streams end on
   `execution.finished` and when the server shuts down (`RouterParams.Streams`).
+* **Planner entry points:** the chat agent, MCP write tools (`MCPUsecase.callRegistryTool` →
+  `OrchestratorUsecase.CallTool`) and the OpenRouter assistant's action cards
+  (`AIAssistantUsecase.ExecuteAction` → `OrchestratorUsecase.ProposeFromAssistant`) only create
+  plans. MCP and the assistant share `planFromTool` (one plan per tool call, filed in the
+  "MCP requests" / "AI assistant requests" conversation, audited `ai.plan.create_from_mcp` /
+  `ai.plan.create_from_assistant`) and return the workspace deep link `PlanURL`
+  (`/dashboard/ai/conversations/<conversation>?plan=<plan>`). Nothing outside the engine calls
+  `InstanceUsecase.Create` for a planner.
+* **MCP tool permissions** (`MCPUsecase.authorizeToolCall`, run for every `tools/call` before a
+  tool runs or a plan is created):
+  * Caller = the Bearer-token user of `POST /api/v1/mcp/rpc`. Their connection = their
+    `mcp_connections` row for the server that owns the tool — `nevatal-cloud` for orchestrator
+    registry tools and legacy `cloud.*` names, the tool's `mcp_tools.server_id` otherwise. A user
+    has at most one connection per server (`ConnectServer` reuses it).
+  * The registry tools are `mcp_tools` rows of `nevatal-cloud` (seeded from
+    `orchestrator.DefaultRegistry()` on every start, risk mapped to read/write/destructive), so
+    `mcp_permissions` can grant or revoke them; `SetPermission` creates a missing row.
+  * Decision: no connection to `nevatal-cloud` → implicit first-party connection, every tool
+    granted; no connection to another server → refused (`MCP_SERVER_NOT_CONNECTED`);
+    connection status not `connected` → refused (`MCP_CONNECTION_INACTIVE`); a `granted=false`
+    row for the tool **or one of its aliases** (registry tool ↔ legacy name in `legacyToolMap`)
+    → refused (`TOOL_PERMISSION_DENIED`); a tool without a row → granted (connecting grants
+    every tool).
+  * A refusal is a JSON-RPC error `-32001` with `data.code`, audited in `mcp_audit_logs` as
+    `denied`; nothing runs and no plan is created. Write/high/destructive tools that pass still
+    only create plans.
+  * Limit: the MCP client authenticates with the user's own JWT, which can also call the REST
+    API (including the permissions endpoint). Permissions restrict well-behaved agents; scoped
+    per-connection MCP tokens are the follow-up that makes them a hard boundary.
 * **Tests:** `internal/orchestrator` (unit) and `internal/integration` (Postgres, uses
   `NEVATAL_TEST_DATABASE_URL`, default the QA container; skipped when unreachable);
   end to end: `scripts/qa/orchestrator_e2e.py`.

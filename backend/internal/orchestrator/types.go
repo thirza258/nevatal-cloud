@@ -227,8 +227,13 @@ const (
 	RecoveryDeleteCreated = "delete_created"
 )
 
+// ErrCodeInterruptedNotIdempotent fails a re-claimed task whose tool is not
+// idempotent: the interrupted run may already have applied its change.
+const ErrCodeInterruptedNotIdempotent = "INTERRUPTED_NOT_IDEMPOTENT"
+
 // TaskError is a tool failure with a stable code. Retryable failures are
-// retried with backoff while attempts remain.
+// retried with backoff while attempts remain (never for tools that are not
+// idempotent).
 type TaskError struct {
 	Code      string `json:"code"`
 	Message   string `json:"message"`

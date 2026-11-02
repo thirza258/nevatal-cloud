@@ -439,6 +439,23 @@ export interface AIAssistantMessage {
   updated_at?: string;
 }
 
+/**
+ * POST /ai-assistant/execute: the action card became an orchestrator plan. Nothing is created until
+ * the user approves the plan in the AI workspace (`url`).
+ */
+export interface AIAssistantExecuteResult {
+  conversation_id: string;
+  message: string;
+  name: string;
+  plan_id: string;
+  risk_level: string;
+  /** Plan status: `awaiting_approval`, or `draft` when the policy engine rejected the proposal. */
+  status: 'awaiting_approval' | 'draft' | string;
+  /** Workspace deep link: /dashboard/ai/conversations/<conversationId>?plan=<planId>. */
+  url: string;
+  version: number;
+}
+
 export interface AIAssistantChatResponse {
   message: AIAssistantMessage;
   action_proposal?: AIAssistantActionProposal;

@@ -1281,7 +1281,7 @@ func (s *OrchestratorUsecase) GetExecution(ctx context.Context, execID, userID u
 	for _, t := range tasks {
 		views = append(views, taskView(t))
 	}
-	return &ExecutionView{executionBase: baseView(e), Tasks: views, Report: rawJSON(e.Report), RecoveryOptions: recoveryView(e)}, nil
+	return &ExecutionView{executionBase: baseView(e), Tasks: views, Report: rawJSON(e.Report), RecoveryOptions: s.recoveryOptions(ctx, e)}, nil
 }
 
 // ExecutionListFilter filters ListExecutions.
@@ -1314,7 +1314,7 @@ func (s *OrchestratorUsecase) ListExecutions(ctx context.Context, userID uuid.UU
 		if c == nil {
 			c = map[string]int{}
 		}
-		out = append(out, ExecutionSummaryView{executionBase: baseView(e), Report: rawJSON(e.Report), RecoveryOptions: recoveryView(e), TaskCounts: c})
+		out = append(out, ExecutionSummaryView{executionBase: baseView(e), Report: rawJSON(e.Report), RecoveryOptions: s.recoveryOptions(ctx, e), TaskCounts: c})
 	}
 	return out, nil
 }
@@ -1470,12 +1470,14 @@ func (s *OrchestratorUsecase) Recover(ctx context.Context, execID, userID uuid.U
 	return nil, ValidationError("action", "action must be retry_failed, keep or delete_created")
 }
 
-// deleteCreatedPlan proposes a destructive plan removing what the execution
-// created and that still exists.
-func (s *OrchestratorUsecase) deleteCreatedPlan(ctx context.Context, exec *models.AIExecution, isAdmin bool) (uuid.UUID, error) {
+// deletableCreated lists the resources the execution created ("created"
+// relations without a "deleted" one) that still exist and that a plan can
+// delete (VPS, bucket). skipped names created resources without a delete
+// tool in Phase 1.
+func (s *OrchestratorUsecase) deletableCreated(ctx context.Context, exec *models.AIExecution) ([]orchestrator.ResourceSpec, []string, error) {
 	rels, err := s.repos.Orch.ListRelationships(ctx, exec.ID)
 	if err != nil {
-		return uuid.Nil, err
+		return nil, nil, err
 	}
 	deleted := map[uuid.UUID]bool{}
 	for _, r := range rels {
@@ -1510,6 +1512,39 @@ func (s *OrchestratorUsecase) deleteCreatedPlan(ctx context.Context, exec *model
 			skipped = append(skipped, fmt.Sprintf("%s %s", r.ResourceType, r.ResourceName))
 		}
 	}
+	return resources, skipped, nil
+}
+
+// CanDeleteCreated implements orchestrator.Hooks: delete_created is only
+// offered when it would produce a plan.
+func (s *OrchestratorUsecase) CanDeleteCreated(ctx context.Context, exec *models.AIExecution) bool {
+	resources, _, err := s.deletableCreated(ctx, exec)
+	return err == nil && len(resources) > 0
+}
+
+// recoveryOptions returns the stored recovery options of an execution,
+// without delete_created once nothing it created is left to delete (a
+// delete plan ran, or the resources were removed from their pages).
+func (s *OrchestratorUsecase) recoveryOptions(ctx context.Context, e *models.AIExecution) []orchestrator.RecoveryOption {
+	opts := recoveryView(e)
+	for _, o := range opts {
+		if o.Action == orchestrator.RecoveryDeleteCreated {
+			if !s.CanDeleteCreated(ctx, e) {
+				return orchestrator.WithoutDeleteCreated(opts)
+			}
+			break
+		}
+	}
+	return opts
+}
+
+// deleteCreatedPlan proposes a destructive plan removing what the execution
+// created and that still exists.
+func (s *OrchestratorUsecase) deleteCreatedPlan(ctx context.Context, exec *models.AIExecution, isAdmin bool) (uuid.UUID, error) {
+	resources, skipped, err := s.deletableCreated(ctx, exec)
+	if err != nil {
+		return uuid.Nil, err
+	}
 	if len(resources) == 0 {
 		return uuid.Nil, newError(KindConflict, "RECOVERY_NOT_AVAILABLE", "this execution created no resources that can be deleted by a plan")
 	}
@@ -1534,19 +1569,71 @@ func (s *OrchestratorUsecase) deleteCreatedPlan(ctx context.Context, exec *model
 	return plan.ID, nil
 }
 
-// MCP
+// MCP and other planners
 
 // MCPConversationTitle is the conversation MCP-created plans are filed in.
 const MCPConversationTitle = "MCP requests"
 
+// AssistantConversationTitle is the conversation plans proposed by the
+// OpenRouter AI assistant (POST /ai-assistant/execute) are filed in.
+const AssistantConversationTitle = "AI assistant requests"
+
+// PlanURL is the AI workspace deep link to a plan, relative to the
+// control-plane origin (APP_BASE_URL). It is the format of
+// frontend/src/lib/aiRoutes.ts: /dashboard/ai/conversations/<conversationId>?plan=<planId>,
+// or /dashboard/ai?plan=<planId> when the plan has no conversation (the
+// workspace then opens the plan's conversation itself).
+func PlanURL(conversationID, planID uuid.UUID) string {
+	if conversationID == uuid.Nil {
+		return "/dashboard/ai?plan=" + planID.String()
+	}
+	return "/dashboard/ai/conversations/" + conversationID.String() + "?plan=" + planID.String()
+}
+
 // ToolCallResult is the outcome of an MCP tools/call on a registry tool:
-// Data for read tools, the awaiting-approval plan for write tools.
+// Data for read tools, the plan (awaiting approval, or a draft the policy
+// engine rejected) for write tools.
 type ToolCallResult struct {
-	Risk       string
-	Data       any
-	PlanID     uuid.UUID
-	Version    int
-	PlanStatus string
+	Risk           string
+	Data           any
+	PlanID         uuid.UUID
+	Version        int
+	PlanStatus     string
+	ConversationID uuid.UUID
+	// URL is the workspace deep link to the plan (PlanURL).
+	URL string
+}
+
+// planSource describes who proposed a plan built from a single registry
+// tool call: where the plan is filed and how it is labelled and audited.
+type planSource struct {
+	conversationTitle string
+	titlePrefix       string
+	description       func(toolID string) string
+	message           func(def orchestrator.ToolDef, risk string, planID uuid.UUID, version int) string
+	auditAction       string
+}
+
+var mcpPlanSource = planSource{
+	conversationTitle: MCPConversationTitle,
+	titlePrefix:       "MCP: ",
+	description:       func(toolID string) string { return "Requested by an MCP client through " + toolID },
+	message: func(def orchestrator.ToolDef, risk string, planID uuid.UUID, version int) string {
+		return fmt.Sprintf("An MCP client requested **%s** (%s risk). I prepared plan `%s` (version %d). Nothing runs until you review and approve it here.",
+			def.Title, risk, planID, version)
+	},
+	auditAction: "ai.plan.create_from_mcp",
+}
+
+var assistantPlanSource = planSource{
+	conversationTitle: AssistantConversationTitle,
+	titlePrefix:       "AI assistant: ",
+	description:       func(toolID string) string { return "Proposed by the AI assistant through " + toolID },
+	message: func(def orchestrator.ToolDef, risk string, planID uuid.UUID, version int) string {
+		return fmt.Sprintf("The AI assistant proposed **%s** (%s risk). I prepared plan `%s` (version %d). Nothing is created until you review and approve it here.",
+			def.Title, risk, planID, version)
+	},
+	auditAction: "ai.plan.create_from_assistant",
 }
 
 // CallTool runs an MCP tools/call on a registry tool. Read tools run now;
@@ -1581,17 +1668,91 @@ func (s *OrchestratorUsecase) CallTool(ctx context.Context, userID uuid.UUID, is
 		}
 		return &ToolCallResult{Risk: def.Risk, Data: out}, nil
 	}
-	spec, ok := s.reg.SpecFromTool(toolID, generic)
-	if !ok {
+	return s.planFromTool(ctx, userID, isAdmin, def, generic, clientIP, mcpPlanSource, "")
+}
+
+// ProposeFromAssistant turns an AI assistant action card (a write registry
+// tool and its arguments, proposed by the model and sent by the client)
+// into a plan awaiting approval, through the same path as MCP write tools.
+// It never runs the tool: only POST /ai/plans/:id/approve authorizes
+// execution. messageID (optional) is the assistant message holding the
+// card; FindAssistantPlan finds the plan by it.
+func (s *OrchestratorUsecase) ProposeFromAssistant(ctx context.Context, userID uuid.UUID, isAdmin bool, toolID string, args map[string]any, messageID uuid.UUID, clientIP string) (*ToolCallResult, error) {
+	def, ok := s.reg.Def(toolID)
+	if !ok || !orchestrator.IsWrite(def.Risk) {
 		return nil, fmt.Errorf("tool %q cannot be planned", toolID)
 	}
-	convID, err := s.mcpConversation(ctx, userID)
+	if args == nil {
+		args = map[string]any{}
+	}
+	generic, err := genericMap(args)
 	if err != nil {
 		return nil, err
 	}
+	suffix := ""
+	if messageID != uuid.Nil {
+		suffix = assistantMessageMarker(messageID)
+	}
+	return s.planFromTool(ctx, userID, isAdmin, def, generic, clientIP, assistantPlanSource, suffix)
+}
+
+// FindAssistantPlan returns the plan the AI assistant created for one of
+// the user's assistant messages (its description names the message), so a
+// second click on the same action card opens that plan instead of creating
+// another one.
+func (s *OrchestratorUsecase) FindAssistantPlan(ctx context.Context, userID, messageID uuid.UUID) (*ToolCallResult, error) {
+	conv, err := s.repos.Agent.FindConversationByTitle(ctx, userID, AssistantConversationTitle)
+	if err != nil {
+		return nil, err
+	}
+	plans, err := s.repos.Agent.ListPlans(ctx, conv.ID, userID)
+	if err != nil {
+		return nil, err
+	}
+	marker := assistantMessageMarker(messageID)
+	for _, p := range plans {
+		if !strings.Contains(p.Description, marker) {
+			continue
+		}
+		detail, err := s.GetPlan(ctx, p.ID, userID)
+		if err != nil {
+			return nil, err
+		}
+		res := &ToolCallResult{PlanID: p.ID, Version: detail.CurrentVersion, PlanStatus: detail.Status,
+			ConversationID: conv.ID, URL: PlanURL(conv.ID, p.ID)}
+		if detail.Revision != nil {
+			res.Risk = detail.Revision.RiskLevel
+		}
+		return res, nil
+	}
+	return nil, repository.ErrNotFound
+}
+
+func assistantMessageMarker(messageID uuid.UUID) string {
+	return "(assistant message " + messageID.String() + ")"
+}
+
+// planFromTool stores a single write tool call as a plan (revision 1) in the
+// source's conversation. The plan awaits approval, or stays a draft listing
+// its validation errors when the policy engine rejects the request.
+// descriptionSuffix is appended to the plan description.
+func (s *OrchestratorUsecase) planFromTool(ctx context.Context, userID uuid.UUID, isAdmin bool, def orchestrator.ToolDef, generic map[string]any, clientIP string, src planSource, descriptionSuffix string) (*ToolCallResult, error) {
+	ctx = context.WithoutCancel(ctx)
+	spec, ok := s.reg.SpecFromTool(def.ID, generic)
+	if !ok {
+		return nil, fmt.Errorf("tool %q cannot be planned", def.ID)
+	}
+	convID, err := s.requestConversation(ctx, userID, src.conversationTitle)
+	if err != nil {
+		return nil, err
+	}
+	description := src.description(def.ID)
+	if descriptionSuffix != "" {
+		description += " " + descriptionSuffix
+	}
 	plan, rev, err := s.CreatePlan(ctx, PlanDraft{
 		ConversationID: convID, UserID: userID, IsAdmin: isAdmin,
-		Intent: spec.Intent, Title: "MCP: " + def.Title, Description: "Requested by an MCP client through " + toolID,
+		Intent: spec.Intent, Title: src.titlePrefix + def.Title, Description: description,
 		Spec: spec,
 	})
 	if err != nil {
@@ -1599,14 +1760,14 @@ func (s *OrchestratorUsecase) CallTool(ctx context.Context, userID uuid.UUID, is
 	}
 	_ = s.repos.Agent.CreateMessage(ctx, &models.AIMessage{
 		ConversationID: convID, UserID: userID, Role: "assistant",
-		Content: fmt.Sprintf("An MCP client requested **%s** (%s risk). I prepared plan `%s` (version %d). Nothing runs until you review and approve it here.",
-			def.Title, rev.RiskLevel, plan.ID, rev.Version),
+		Content:   src.message(def, rev.RiskLevel, plan.ID, rev.Version),
 		CreatedAt: time.Now(),
 	})
-	s.svc.Audit.Log(ctx, &userID, "ai.plan.create_from_mcp", "ai_plan", &plan.ID, "success", clientIP, map[string]any{"tool": toolID})
+	s.svc.Audit.Log(ctx, &userID, src.auditAction, "ai_plan", &plan.ID, "success", clientIP, map[string]any{"tool": def.ID})
 	// awaiting_approval, or draft when the policy engine rejected the request
 	// (the plan then lists its validation errors).
-	return &ToolCallResult{Risk: rev.RiskLevel, PlanID: plan.ID, Version: rev.Version, PlanStatus: plan.Status}, nil
+	return &ToolCallResult{Risk: rev.RiskLevel, PlanID: plan.ID, Version: rev.Version, PlanStatus: plan.Status,
+		ConversationID: convID, URL: PlanURL(convID, plan.ID)}, nil
 }
 
 func genericMap(m map[string]any) (map[string]any, error) {
@@ -1624,13 +1785,14 @@ func genericMap(m map[string]any) (map[string]any, error) {
 	return out, nil
 }
 
-// mcpConversation returns (creating it once) the conversation MCP-created
-// plans are filed in.
-func (s *OrchestratorUsecase) mcpConversation(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
-	if conv, err := s.repos.Agent.FindConversationByTitle(ctx, userID, MCPConversationTitle); err == nil {
+// requestConversation returns (creating it once) the user's conversation
+// with the given title, in which plans from one planner (MCP, the AI
+// assistant) are filed.
+func (s *OrchestratorUsecase) requestConversation(ctx context.Context, userID uuid.UUID, title string) (uuid.UUID, error) {
+	if conv, err := s.repos.Agent.FindConversationByTitle(ctx, userID, title); err == nil {
 		return conv.ID, nil
 	}
-	conv := models.AIConversation{UserID: userID, Title: MCPConversationTitle, State: models.StateAwaitingConfirmation, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	conv := models.AIConversation{UserID: userID, Title: title, State: models.StateAwaitingConfirmation, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	if err := s.repos.Agent.CreateConversation(ctx, &conv); err != nil {
 		return uuid.Nil, err
 	}

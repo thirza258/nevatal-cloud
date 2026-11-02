@@ -48,9 +48,11 @@ func (h *AIAssistantHandler) Execute(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.ExecuteAction(c.Request.Context(), middleware.GetCurrentUserID(c), req.ToUsecase(), c.ClientIP())
+	// The action card becomes an orchestrator plan awaiting approval;
+	// nothing is provisioned here.
+	result, err := h.service.ExecuteAction(c.Request.Context(), middleware.GetCurrentUserID(c), middleware.IsAdmin(c), req.ToUsecase(), c.ClientIP())
 	if err != nil {
-		response.Error(c, http.StatusUnprocessableEntity, "EXECUTE_ACTION_FAILED", err.Error())
+		writeError(c, err, http.StatusUnprocessableEntity, "EXECUTE_ACTION_FAILED")
 		return
 	}
 	response.OK(c, result)

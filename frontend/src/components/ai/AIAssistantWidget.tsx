@@ -7,16 +7,17 @@ import {
   Maximize2,
   RefreshCw,
   Server,
-  Play,
   Key,
   Cpu,
   ArrowRight,
   CheckCircle2,
   AlertCircle,
   Zap,
+  ClipboardCheck,
 } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
-import { AIAssistantMessage, AIAssistantChatResponse, AIAssistantActionProposal } from '../../types';
+import { planLinkPath } from '../../lib/aiRoutes';
+import { AIAssistantMessage, AIAssistantChatResponse, AIAssistantExecuteResult } from '../../types';
 
 interface AIAssistantWidgetProps {
   onNavigate: (path: string, param?: string) => void;
@@ -39,7 +40,7 @@ const AIAssistantWidgetPanel: React.FC<AIAssistantWidgetProps> = ({ onNavigate }
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [executingMsgId, setExecutingMsgId] = useState<string | null>(null);
-  const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  const [statusNotice, setStatusNotice] = useState<{ tone: 'info' | 'error'; text: string } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -68,7 +69,7 @@ const AIAssistantWidgetPanel: React.FC<AIAssistantWidgetProps> = ({ onNavigate }
             id: 'widget-welcome',
             user_id: '',
             role: 'assistant',
-            content: `👋 **Hi! Need help with Nevatal Cloud?**\n\nI can create containers, analyze quotas, or troubleshoot your instances directly from here!\n\nTry asking:\n- *"Create an Ubuntu 24.04 container"* \n- *"How do I connect via SSH?"*`,
+            content: `👋 **Hi! Need help with Nevatal Cloud?**\n\nI can plan containers, analyze quotas, or troubleshoot your instances directly from here!\n\nTry asking:\n- *"Create an Ubuntu 24.04 container"* \n- *"How do I connect via SSH?"*`,
             model: 'openai/gpt-4o-mini',
             action_executed: false,
             created_at: new Date().toISOString(),
@@ -136,35 +137,43 @@ const AIAssistantWidgetPanel: React.FC<AIAssistantWidgetProps> = ({ onNavigate }
     }
   };
 
-  const handleExecuteAction = async (msg: AIAssistantMessage) => {
+  /**
+   * "Review plan": the card becomes an orchestrator plan (or the card's existing plan is returned)
+   * and the AI workspace opens on it. Nothing is created until the user approves the plan there.
+   */
+  const handleReviewPlan = async (msg: AIAssistantMessage) => {
     if (!msg.action_payload || executingMsgId) return;
+    let params: unknown;
+    try {
+      params = JSON.parse(msg.action_payload);
+    } catch {
+      setStatusNotice({ tone: 'error', text: 'This proposal is not readable. Ask the assistant again.' });
+      return;
+    }
     setExecutingMsgId(msg.id);
     setStatusNotice(null);
 
     try {
-      const params = JSON.parse(msg.action_payload);
-      const res = await apiRequest<any>('/ai-assistant/execute', {
+      const res = await apiRequest<AIAssistantExecuteResult>('/ai-assistant/execute', {
         method: 'POST',
         body: JSON.stringify({
           message_id: msg.id,
           action: msg.action_type || 'create_instance',
-          params: params,
+          params,
         }),
       });
 
-      setStatusNotice(`Provisioning queued! Job ID: ${res.job_id || 'active'}`);
       setMessages((prev) =>
         prev.map((m) => (m.id === msg.id ? { ...m, action_executed: true } : m))
       );
-
-      if (res.job_id) {
-        setTimeout(() => {
-          setIsOpen(false);
-          onNavigate('/dashboard/jobs', res.job_id);
-        }, 1200);
-      }
+      setStatusNotice({
+        tone: 'info',
+        text: res.message || 'Plan created. Nothing is created until you approve it in the AI workspace.',
+      });
+      setIsOpen(false);
+      onNavigate(planLinkPath(res.url, res.plan_id));
     } catch (err: any) {
-      setStatusNotice(`Failed: ${err.message}`);
+      setStatusNotice({ tone: 'error', text: `Could not create the plan: ${err?.message || 'unknown error'}` });
     } finally {
       setExecutingMsgId(null);
     }
@@ -264,30 +273,28 @@ const AIAssistantWidgetPanel: React.FC<AIAssistantWidgetProps> = ({ onNavigate }
                           </span>
                         </div>
 
-                        {!m.action_executed ? (
-                          <button
-                            onClick={() => handleExecuteAction(m)}
-                            disabled={executingMsgId === m.id}
-                            className="w-full py-1 rounded bg-white hover:bg-zinc-200 text-zinc-950 font-medium text-[11px] transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
-                          >
-                            {executingMsgId === m.id ? (
-                              <>
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                                <span>Deploying...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-3 h-3 fill-current" />
-                                <span>Deploy Container</span>
-                              </>
-                            )}
-                          </button>
-                        ) : (
-                          <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Queued</span>
-                          </div>
-                        )}
+                        <p className="text-[10px] text-zinc-500 leading-snug">
+                          {m.action_executed
+                            ? 'Plan created. Nothing is created until you approve it in the AI workspace.'
+                            : 'Creates a plan to review and approve in the AI workspace. Nothing is created until you approve it.'}
+                        </p>
+                        <button
+                          onClick={() => handleReviewPlan(m)}
+                          disabled={executingMsgId === m.id}
+                          className="w-full py-1 rounded bg-white hover:bg-zinc-200 text-zinc-950 font-medium text-[11px] transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                        >
+                          {executingMsgId === m.id ? (
+                            <>
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              <span>Preparing plan...</span>
+                            </>
+                          ) : (
+                            <>
+                              <ClipboardCheck className="w-3 h-3" />
+                              <span>Review plan</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -303,9 +310,18 @@ const AIAssistantWidgetPanel: React.FC<AIAssistantWidgetProps> = ({ onNavigate }
             )}
 
             {statusNotice && (
-              <div className="p-2 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px] flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
-                <span>{statusNotice}</span>
+              <div
+                role={statusNotice.tone === 'error' ? 'alert' : 'status'}
+                className={`p-2 rounded bg-zinc-900 border text-[11px] flex items-center gap-1.5 ${
+                  statusNotice.tone === 'error' ? 'border-rose-500/30 text-rose-300' : 'border-zinc-800 text-zinc-300'
+                }`}
+              >
+                {statusNotice.tone === 'error' ? (
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+                )}
+                <span>{statusNotice.text}</span>
               </div>
             )}
 

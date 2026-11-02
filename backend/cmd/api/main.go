@@ -122,13 +122,6 @@ func main() {
 		Plans:     planRepo,
 		Users:     userRepo,
 	}, authUC, instanceUC, auditUC, pveClient)
-	aiAssistantUC := usecase.NewAIAssistantUsecase(usecase.AIAssistantRepos{
-		Messages:  aiAssistantRepo,
-		Users:     userRepo,
-		Templates: templateRepo,
-		Plans:     planRepo,
-		SSHKeys:   sshKeyRepo,
-	}, cfg, instanceUC, quotaUC, auditUC)
 	orchUC := usecase.NewOrchestratorUsecase(tx, usecase.OrchestratorRepos{
 		Orch:      orchRepo,
 		Agent:     aiAgentRepo,
@@ -153,6 +146,15 @@ func main() {
 		Quota:      quotaUC,
 		Audit:      auditUC,
 	}, cfg, pveClient)
+	// The assistant's action cards become orchestrator plans (never direct
+	// provisioning), so it is built after the orchestrator.
+	aiAssistantUC := usecase.NewAIAssistantUsecase(usecase.AIAssistantRepos{
+		Messages:  aiAssistantRepo,
+		Users:     userRepo,
+		Templates: templateRepo,
+		Plans:     planRepo,
+		SSHKeys:   sshKeyRepo,
+	}, cfg, instanceUC, quotaUC, auditUC, orchUC)
 	mcpUC := usecase.NewMCPUsecase(usecase.MCPRepos{
 		MCP:       mcpRepo,
 		Templates: templateRepo,

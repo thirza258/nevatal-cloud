@@ -256,6 +256,20 @@ func (s *AIAgentUsecase) ProcessUserMessage(
 	// 3. Determine Intent & Workflow Transition
 	msgLower := strings.ToLower(input.Message)
 
+	var assistantReply string
+	var uiPayload models.UIComponentsPayload
+	var planProposal *models.StructuredPlanView
+	var newPlanID string
+
+	// Questions about existing resources ("list my servers", "what is the
+	// status of web-01") are answered with read tools. They never start or
+	// change a plan, and the conversation's workflow is left as it was.
+	// Structured answers to the planner's questions are never read requests.
+	if input.AnswerKey == "" && len(input.Answers) == 0 && isReadRequest(msgLower) {
+		assistantReply = s.answerReadRequest(ctx, userID, msgLower, quotaUsage, clientIP)
+		return s.finishTurn(ctx, conv, convState, reqs, convID, userID, assistantReply, uiPayload, planProposal, newPlanID)
+	}
+
 	intent := convState.CurrentIntent
 	if intent == "" {
 		intent = detectIntent(msgLower)
@@ -273,11 +287,6 @@ func (s *AIAgentUsecase) ProcessUserMessage(
 	extractRequirementsFromText(msgLower, reqs, templates, sshKeys)
 
 	// 4. State Machine Branching
-	var assistantReply string
-	var uiPayload models.UIComponentsPayload
-	var planProposal *models.StructuredPlanView
-	var newPlanID string
-
 	switch intent {
 	case "create_vps":
 		assistantReply, uiPayload, planProposal, newPlanID = s.handleVPSWorkflow(
@@ -320,6 +329,22 @@ func (s *AIAgentUsecase) ProcessUserMessage(
 		convState.State = models.StateUnderstandingRequest
 	}
 
+	return s.finishTurn(ctx, conv, convState, reqs, convID, userID, assistantReply, uiPayload, planProposal, newPlanID)
+}
+
+// finishTurn saves the conversation state and the assistant message of one
+// chat turn.
+func (s *AIAgentUsecase) finishTurn(
+	ctx context.Context,
+	conv *models.AIConversation,
+	convState *models.AIConversationState,
+	reqs map[string]string,
+	convID, userID uuid.UUID,
+	assistantReply string,
+	uiPayload models.UIComponentsPayload,
+	planProposal *models.StructuredPlanView,
+	newPlanID string,
+) (*SendMessageResponse, error) {
 	// 5. Save State and Assistant Message
 	reqsBytes, _ := json.Marshal(reqs)
 	convState.GatheredRequirements = string(reqsBytes)
@@ -1564,6 +1589,112 @@ I am ready to help you manage and deploy services on our Dell PowerEdge R640 ent
 - *"Deploy my GitHub repository to a live web server"*
 - *"Launch a dedicated n8n automation instance"*
 - *"Set up an S3 storage bucket for backups"*`, usedVCPUs, maxVCPUs, len(templates))
+}
+
+// Read requests
+
+// readActionWords mark a message that asks for a change: it is never a
+// read request, whatever else it says.
+var readActionWords = []string{
+	"create", "deploy", "launch", "provision", "set up", "setup", "spin up", "build", "install",
+	"start", "stop", "reboot", "delete", "destroy", "remove", "terminate", "resize", "scale",
+	"upgrade", "rename", "snapshot", "restore", "new ", "i want", "i need", "i'd like", "make a", "make me", "host my",
+}
+
+// readQuestionWords mark a question about existing resources.
+var readQuestionWords = []string{
+	"list", "show", "status", "what is", "what's", "whats", "what are", "which", "how many",
+	"do i have", "display", "view ", "see my", "check my", "is my", "are my", "describe",
+	"details", "info about", "information about", "get my", "my servers", "my vps", "my instances",
+	"my vms", "my machines", "running?",
+}
+
+// readTroubleWords mark a troubleshooting question (handled by the
+// troubleshooting answer, not as a listing).
+var readTroubleWords = []string{"why", "error", "fail", "troubleshoot", "debug", "broken", "not working", "can't", "cannot"}
+
+// isReadRequest reports whether a message only asks to see existing
+// resources or their status (no create/change verb, no troubleshooting).
+func isReadRequest(msg string) bool {
+	if containsAny(msg, readActionWords...) || containsAny(msg, readTroubleWords...) {
+		return false
+	}
+	return containsAny(msg, readQuestionWords...)
+}
+
+// answerReadRequest answers a read request with the registry's read tools
+// (vps.list, vps.status) or, for other resource types, a read-only pointer
+// to their page. It never proposes or creates anything.
+func (s *AIAgentUsecase) answerReadRequest(ctx context.Context, userID uuid.UUID, msg string, quota *models.QuotaUsage, clientIP string) string {
+	const footer = "\n\n_This is a read-only answer: nothing was planned or changed. Ask me to create or change something to start a plan._"
+	switch {
+	case containsAny(msg, "quota", "capacity", "limit", "allocation"):
+		if quota == nil {
+			return "I could not read your quota right now. See [Usage & Quotas](/dashboard/usage)." + footer
+		}
+		return fmt.Sprintf("### Your quota\n\n- vCPU: %d / %d\n- Memory: %s / %s\n- Disk: %d / %d GB\n- Instances: %d / %d",
+			quota.UsedVCPUs, quota.MaxVCPUs, formatMB(quota.UsedMemoryMB), formatMB(quota.MaxMemoryMB),
+			quota.UsedStorageGB, quota.MaxStorageGB, quota.UsedInstances, quota.MaxInstances) + footer
+	case containsAny(msg, "bucket", "storage", "s3", "minio"):
+		return "Your buckets are listed under [Object Storage](/dashboard/storage)." + footer
+	case containsAny(msg, "game", "minecraft", "terraria"):
+		return "Your game servers are listed under [Game Servers](/dashboard/game-servers)." + footer
+	case containsAny(msg, "android", "waydroid"):
+		return "Your Android instances are listed under [Android Cloud](/dashboard/android)." + footer
+	case containsAny(msg, "n8n", "automation", "workflow"):
+		return "Your n8n instances are listed under [Automation](/dashboard/automation)." + footer
+	case containsAny(msg, "openclaw", "agent"):
+		return "Your OpenClaw agents are listed under [AI Agents](/dashboard/ai-agents)." + footer
+	case containsAny(msg, "website", "app ", "apps", "application"):
+		return "Your applications are listed under [Apps](/dashboard/apps)." + footer
+	}
+
+	if s.orch == nil {
+		return "I can't read your instances right now. See [Instances](/dashboard/instances)." + footer
+	}
+	res, err := s.orch.CallTool(ctx, userID, false, orchestrator.ToolVPSList, map[string]any{}, clientIP)
+	if err != nil {
+		return "I could not list your instances right now (" + err.Error() + "). See [Instances](/dashboard/instances)." + footer
+	}
+	data, _ := res.Data.(map[string]any)
+	items, _ := data["instances"].([]map[string]any)
+
+	// A named instance: report its status (vps.status).
+	for _, it := range items {
+		name, _ := it["name"].(string)
+		id, _ := it["instance_id"].(string)
+		if name == "" || !strings.Contains(msg, strings.ToLower(name)) {
+			continue
+		}
+		st, err := s.orch.CallTool(ctx, userID, false, orchestrator.ToolVPSStatus, map[string]any{"instance_id": id}, clientIP)
+		if err != nil {
+			return fmt.Sprintf("I could not read the status of **%s** (%s)."+footer, name, err.Error())
+		}
+		out, _ := st.Data.(map[string]any)
+		return fmt.Sprintf("### %s\n\n- Status: **%v** (hypervisor: %v)\n- Size: %v vCPU, %v MB RAM, %v GB disk\n- Private IP: %v",
+			name, out["status"], out["hypervisor_status"], out["vcpus"], out["memory_mb"], out["disk_gb"], valueOr(out["private_ip"], "none yet")) + footer
+	}
+
+	if len(items) == 0 {
+		return "You have no VPS instances yet." + footer
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "### Your VPS instances (%d)\n\n| Name | Status | Size | Private IP |\n|---|---|---|---|\n", len(items))
+	for _, it := range items {
+		fmt.Fprintf(&b, "| %v | %v | %v vCPU / %v MB / %v GB | %v |\n",
+			it["name"], it["status"], it["vcpus"], it["memory_mb"], it["disk_gb"], valueOr(it["private_ip"], "-"))
+	}
+	return strings.TrimRight(b.String(), "\n") + footer
+}
+
+func valueOr(v any, fallback string) any {
+	if v == nil {
+		return fallback
+	}
+	if s, ok := v.(string); ok && s == "" {
+		return fallback
+	}
+	return v
 }
 
 func containsAny(s string, subs ...string) bool {

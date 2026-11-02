@@ -147,13 +147,26 @@ func (s *MCPUsecase) GetConnectionTools(ctx context.Context, userID uuid.UUID, c
 	return s.repos.MCP.ListPermissions(ctx, connectionID)
 }
 
+// UpdateToolPermission grants or revokes one tool of a connection's server.
+// The row is created when the connection has none for the tool yet (a tool
+// added to the server after the connection was made).
 func (s *MCPUsecase) UpdateToolPermission(ctx context.Context, userID uuid.UUID, connectionID uuid.UUID, toolID uuid.UUID, granted bool) error {
 	ctx = context.WithoutCancel(ctx)
 
-	if _, err := s.repos.MCP.FindUserConnection(ctx, connectionID, userID); err != nil {
+	conn, err := s.repos.MCP.FindUserConnection(ctx, connectionID, userID)
+	if err != nil {
 		return errors.New("connection not found")
 	}
-	return s.repos.MCP.SetPermission(ctx, connectionID, toolID, granted)
+	tools, err := s.repos.MCP.ListServerTools(ctx, conn.ServerID)
+	if err != nil {
+		return err
+	}
+	for _, t := range tools {
+		if t.ID == toolID {
+			return s.repos.MCP.SetPermission(ctx, connectionID, toolID, granted)
+		}
+	}
+	return newError(KindNotFound, "TOOL_NOT_FOUND", "tool not found on this connection's server")
 }
 
 func (s *MCPUsecase) ListAuditLogs(ctx context.Context, userID uuid.UUID, limit int) ([]models.MCPAuditLog, error) {
@@ -1481,6 +1494,12 @@ func (s *MCPUsecase) HandleJSONRPC(ctx context.Context, userID uuid.UUID, isAdmi
 			}, nil
 		}
 
+		// Per-connection tool permissions: a disabled tool neither runs nor
+		// becomes a plan.
+		if rpcErr := s.authorizeToolCall(ctx, userID, callParams.Name, callParams.Arguments, clientIP); rpcErr != nil {
+			return &JSONRPCResponse{JSONRPC: "2.0", ID: req.ID, Error: rpcErr}, nil
+		}
+
 		if result, handled := s.callRegistryTool(ctx, userID, isAdmin, callParams.Name, callParams.Arguments, clientIP); handled {
 			return &JSONRPCResponse{JSONRPC: "2.0", ID: req.ID, Result: result}, nil
 		}
@@ -1635,7 +1654,7 @@ func (s *MCPUsecase) callRegistryTool(ctx context.Context, userID uuid.UUID, isA
 	}
 	def, _ := s.orch.Registry().Def(toolID)
 	serverID := uuid.Nil
-	if server, err := s.repos.MCP.FindServerByName(ctx, "nevatal-cloud"); err == nil {
+	if server, err := s.repos.MCP.FindServerByName(ctx, FirstPartyMCPServer); err == nil {
 		serverID = server.ID
 	}
 	start := time.Now()
@@ -1651,6 +1670,7 @@ func (s *MCPUsecase) callRegistryTool(ctx context.Context, userID uuid.UUID, isA
 		payload = map[string]interface{}{
 			"plan_id": res.PlanID.String(), "version": res.Version,
 			"status": res.PlanStatus, "risk_level": res.Risk,
+			"url": res.URL,
 		}
 	default:
 		payload = ToolExecutionResult{ToolName: toolID, RiskLevel: def.Risk, Status: "success", Data: res.Data}
@@ -1674,6 +1694,163 @@ func (s *MCPUsecase) callRegistryTool(ctx context.Context, userID uuid.UUID, isA
 		result["structuredContent"] = m
 	}
 	return result, true
+}
+
+// MCP tool permissions
+
+// FirstPartyMCPServer is the mcp_servers name of the server /api/v1/mcp/rpc
+// implements. The orchestrator registry tools and the legacy cloud.* tools
+// belong to it.
+const FirstPartyMCPServer = "nevatal-cloud"
+
+// JSON-RPC error code of a tools/call refused by the caller's MCP connection
+// (implementation-defined server error range -32000..-32099).
+const rpcCodeToolDenied = -32001
+
+// Reasons in the data.code of a refused tools/call.
+const (
+	MCPDeniedToolDisabled      = "TOOL_PERMISSION_DENIED"
+	MCPDeniedConnectionStopped = "MCP_CONNECTION_INACTIVE"
+	MCPDeniedNotConnected      = "MCP_SERVER_NOT_CONNECTED"
+)
+
+// toolTarget is what a tools/call names, resolved for the permission check.
+type toolTarget struct {
+	serverID   uuid.UUID
+	firstParty bool
+	risk       string
+	// names are the mcp_tools names whose permission governs the call: the
+	// registry tool and its legacy aliases (cloud.create_vm and vps.create
+	// are one capability, so disabling either refuses both).
+	names    []string
+	recorded map[string]interface{}
+}
+
+// legacyAliases returns the legacy tool names mapped to a registry tool.
+func legacyAliases(toolID string) []string {
+	var out []string
+	for name, legacy := range legacyToolMap {
+		if legacy.tool == toolID {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// resolveToolTarget finds the server and permission names of a tool. ok is
+// false for a tool nobody knows (the call then fails as it always did).
+func (s *MCPUsecase) resolveToolTarget(ctx context.Context, name string, args map[string]interface{}) (*toolTarget, bool, error) {
+	registryID := ""
+	if s.orch != nil {
+		if _, ok := s.orch.Registry().Def(name); ok {
+			registryID = name
+		} else if legacy, mapped := legacyToolMap[name]; mapped {
+			registryID = legacy.tool
+		}
+	}
+	if registryID != "" {
+		def, ok := s.orch.Registry().Def(registryID)
+		if ok {
+			server, err := s.repos.MCP.FindServerByName(ctx, FirstPartyMCPServer)
+			if errors.Is(err, repository.ErrNotFound) {
+				// Not seeded: no connection can restrict anything.
+				return nil, false, nil
+			}
+			if err != nil {
+				return nil, false, err
+			}
+			names := append([]string{registryID}, legacyAliases(registryID)...)
+			recorded := args
+			if name == registryID {
+				recorded = allowedArgs(def.InputSchema, args)
+			}
+			return &toolTarget{serverID: server.ID, firstParty: true, risk: def.Risk, names: names, recorded: recorded}, true, nil
+		}
+	}
+	tool, err := s.repos.MCP.FindEnabledToolByName(ctx, name)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	firstParty := tool.Server != nil && (tool.Server.IsFirstParty || tool.Server.Name == FirstPartyMCPServer)
+	return &toolTarget{serverID: tool.ServerID, firstParty: firstParty, risk: tool.RiskLevel, names: []string{name}, recorded: args}, true, nil
+}
+
+// authorizeToolCall enforces the caller's per-connection tool permissions
+// before a tools/call runs a tool or creates a plan (read tools too).
+//
+// The caller is the Bearer-token user. Their connection is their
+// mcp_connections row for the server that owns the tool (one per user and
+// server): nevatal-cloud for registry and cloud.* tools, the tool's own
+// server otherwise.
+//   - No connection to nevatal-cloud: the implicit first-party connection,
+//     every tool granted (the platform server is always authorized).
+//   - No connection to another server: refused (connect it first).
+//   - A connection whose status is not "connected": refused.
+//   - A permission row with granted=false for the tool or one of its
+//     aliases: refused. A tool without a row is granted, as connecting
+//     grants every tool.
+//
+// A refusal is audited (mcp_audit_logs, result "denied") and returned as a
+// JSON-RPC error; nothing runs and no plan is created.
+func (s *MCPUsecase) authorizeToolCall(ctx context.Context, userID uuid.UUID, name string, args map[string]interface{}, clientIP string) *JSONRPCError {
+	internal := &JSONRPCError{Code: -32603, Message: "Internal error: could not check the MCP tool permissions"}
+	t, ok, err := s.resolveToolTarget(ctx, name, args)
+	if err != nil {
+		return internal
+	}
+	if !ok {
+		return nil
+	}
+	conn, err := s.repos.MCP.FindConnectionToServer(ctx, userID, t.serverID)
+	if errors.Is(err, repository.ErrNotFound) {
+		if t.firstParty {
+			return nil
+		}
+		return s.denyTool(ctx, userID, t, name, nil, MCPDeniedNotConnected,
+			fmt.Sprintf("Tool '%s' belongs to an MCP server you have not connected. Connect it under Integrations → MCP first.", name), nil, clientIP)
+	}
+	if err != nil {
+		return internal
+	}
+	if conn.Status != "connected" {
+		return s.denyTool(ctx, userID, t, name, &conn.ID, MCPDeniedConnectionStopped,
+			fmt.Sprintf("Your MCP connection to this server is %s: tool '%s' cannot be called.", conn.Status, name), nil, clientIP)
+	}
+	perms, err := s.repos.MCP.ListPermissions(ctx, conn.ID)
+	if err != nil {
+		return internal
+	}
+	for _, p := range perms {
+		if p.Granted || p.Tool == nil {
+			continue
+		}
+		for _, n := range t.names {
+			if p.Tool.Name != n {
+				continue
+			}
+			msg := fmt.Sprintf("Tool '%s' is disabled for your MCP connection. Enable it under Integrations → MCP to use it.", name)
+			if n != name {
+				msg = fmt.Sprintf("Tool '%s' is disabled for your MCP connection ('%s' is disabled). Enable it under Integrations → MCP to use it.", name, n)
+			}
+			return s.denyTool(ctx, userID, t, name, &conn.ID, MCPDeniedToolDisabled, msg, &n, clientIP)
+		}
+	}
+	return nil
+}
+
+func (s *MCPUsecase) denyTool(ctx context.Context, userID uuid.UUID, t *toolTarget, name string, connID *uuid.UUID, code, msg string, disabled *string, clientIP string) *JSONRPCError {
+	s.auditMCP(ctx, userID, t.serverID, name, t.risk, t.recorded, "denied", clientIP)
+	data := map[string]interface{}{"code": code, "tool": name}
+	if connID != nil {
+		data["connection_id"] = connID.String()
+	}
+	if disabled != nil {
+		data["disabled_tool"] = *disabled
+	}
+	return &JSONRPCError{Code: rpcCodeToolDenied, Message: msg, Data: data}
 }
 
 // allowedArgs keeps only the arguments a tool declares (anything else, such

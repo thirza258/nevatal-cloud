@@ -16,7 +16,6 @@ import {
   Settings2,
   ArrowRight,
   RefreshCw,
-  Play,
   Check,
   Copy,
   X,
@@ -25,12 +24,15 @@ import {
   HelpCircle,
   Globe,
   Sliders,
+  ClipboardCheck,
 } from 'lucide-react';
 import { apiRequest } from '../lib/api';
+import { planLinkPath } from '../lib/aiRoutes';
 import {
   AIAssistantMessage,
   AIAssistantActionProposal,
   AIAssistantChatResponse,
+  AIAssistantExecuteResult,
   AIPlatformContext,
   OpenRouterModelDefinition,
 } from '../types';
@@ -169,23 +171,24 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onNavigate }) => {
     }
   };
 
-  // Execute Proposed Action (e.g. Deploy Container)
-  const handleExecuteAction = async (msg: AIAssistantMessage) => {
+  // "Review plan": the action card becomes an orchestrator plan (a second click returns the same
+  // plan) and the AI workspace opens on it. Nothing is created until the user approves the plan.
+  const handleReviewPlan = async (msg: AIAssistantMessage) => {
     if (!msg.action_payload || executingMessageId) return;
 
     let params: any;
     try {
       params = JSON.parse(msg.action_payload);
     } catch {
-      setActionError({ ...actionError, [msg.id]: 'Invalid action payload format' });
+      setActionError((prev) => ({ ...prev, [msg.id]: 'Invalid action payload format' }));
       return;
     }
 
     setExecutingMessageId(msg.id);
-    setActionError({ ...actionError, [msg.id]: '' });
+    setActionError((prev) => ({ ...prev, [msg.id]: '' }));
 
     try {
-      const res = await apiRequest<any>('/ai-assistant/execute', {
+      const res = await apiRequest<AIAssistantExecuteResult>('/ai-assistant/execute', {
         method: 'POST',
         body: JSON.stringify({
           message_id: msg.id,
@@ -194,28 +197,21 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onNavigate }) => {
         }),
       });
 
-      setActionSuccess({
-        ...actionSuccess,
-        [msg.id]: `Container "${params.name}" queued! Job ID: ${res.job_id || 'active'}`,
-      });
-
-      // Update message state locally
+      setActionSuccess((prev) => ({
+        ...prev,
+        [msg.id]:
+          res.message || 'Plan created. Nothing is created until you approve it in the AI workspace.',
+      }));
       setMessages((prev) =>
         prev.map((m) => (m.id === msg.id ? { ...m, action_executed: true } : m))
       );
-
-      // If job_id returned, prompt navigation or navigate to job progress
-      if (res.job_id) {
-        setTimeout(() => {
-          onNavigate('/dashboard/jobs', res.job_id);
-        }, 1200);
-      }
+      onNavigate(planLinkPath(res.url, res.plan_id));
     } catch (err: any) {
-      console.error('Execute action error:', err);
-      setActionError({
-        ...actionError,
-        [msg.id]: err.message || 'Failed to execute container creation',
-      });
+      console.error('Review plan error:', err);
+      setActionError((prev) => ({
+        ...prev,
+        [msg.id]: `Could not create the plan: ${err?.message || 'unknown error'}`,
+      }));
     } finally {
       setExecutingMessageId(null);
     }
@@ -425,8 +421,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onNavigate }) => {
             try {
               proposal = {
                 action: (msg.action_type as any) || 'create_instance',
-                title: msg.action_type === 'create_instance' ? 'Deploy Recommended Container' : 'Infrastructure Action',
-                description: 'Pre-validated configuration ready for one-click deployment.',
+                title: msg.action_type === 'create_instance' ? 'Recommended Container' : 'Infrastructure Action',
+                description:
+                  'Review plan creates a plan you review and approve in the AI workspace. Nothing is created until you approve it.',
                 params: JSON.parse(msg.action_payload),
                 executed: msg.action_executed,
               };
@@ -485,7 +482,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onNavigate }) => {
                         </div>
                         <div>
                           <div className="text-xs font-bold text-white tracking-tight">
-                            {proposal.title || 'Deploy Container'}
+                            {proposal.title || 'Container proposal'}
                           </div>
                           <div className="text-[11px] text-slate-400">
                             {proposal.params?.template_name || 'Linux Container Template'}
@@ -496,11 +493,11 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onNavigate }) => {
                       {msg.action_executed ? (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                           <Check className="w-3 h-3" />
-                          Deployed
+                          Plan created
                         </span>
                       ) : (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                          Ready to Provision
+                          Proposal
                         </span>
                       )}
                     </div>
@@ -532,6 +529,12 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onNavigate }) => {
                         </span>
                       </div>
                     </div>
+
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      {msg.action_executed
+                        ? 'A plan was created for this proposal. Nothing is created until you approve it in the AI workspace.'
+                        : proposal.description}
+                    </p>
 
                     {proposal.params?.ssh_key_name && (
                       <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
@@ -567,25 +570,23 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onNavigate }) => {
                         <ArrowRight className="w-3 h-3" />
                       </button>
 
-                      {!msg.action_executed && (
-                        <button
-                          onClick={() => handleExecuteAction(msg)}
-                          disabled={executingMessageId === msg.id}
-                          className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-semibold shadow-md shadow-purple-500/20 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                        >
-                          {executingMessageId === msg.id ? (
-                            <>
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              <span>Queueing on Proxmox...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                              <span>Deploy Container Now</span>
-                            </>
-                          )}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleReviewPlan(msg)}
+                        disabled={executingMessageId === msg.id}
+                        className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-semibold shadow-md shadow-purple-500/20 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        {executingMessageId === msg.id ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Preparing plan...</span>
+                          </>
+                        ) : (
+                          <>
+                            <ClipboardCheck className="w-3.5 h-3.5" />
+                            <span>Review plan</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 )}

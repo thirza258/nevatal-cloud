@@ -18,7 +18,18 @@ hypervisor (PROXMOX_MOCK=true, DEMO_MODE=false, ADMIN_* set) on ports
      a restart the task is re-claimed, the stale job is reaped and retried;
      the execution completes with one instance row per idempotency key and
      terminal jobs
-  M  MCP: initialize, tools/list from the registry, write tool -> plan only
+  M  MCP: initialize, tools/list from the registry, write tool -> plan only,
+     with a `url` deep link to the plan
+  P  MCP per-connection tool permissions: a disabled tool (write or read, by
+     registry name or legacy alias) -> JSON-RPC error, no plan, audited denied
+  AI OpenRouter assistant action card (POST /ai-assistant/execute) -> plan
+     awaiting approval + url; no instance, no execution; same card -> same plan
+  Q  chat read requests ("list my servers", "what is the status of web-a01")
+     are answered with read tools: no plan, conversation intent unchanged
+  N  non-idempotent vps.snapshot.restore (fault injected once) is not retried
+     automatically; partially_completed after a restart that only modified
+     the VPS offers retry_failed + keep but not delete_created; a manual
+     retry restores exactly once
   S  SIGTERM while a task runs: open SSE streams end within 3 s, the process
      exits cleanly, a restarted API finishes the execution
 
@@ -27,6 +38,7 @@ Usage: python3 scripts/qa/orchestrator_e2e.py
 import http.client
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -311,10 +323,192 @@ def scenario_mcp(api, token):
     s, b = rpc("tools/call", {"name": "vps.create", "arguments": {"name": "mcp-e2e", "template_id": tpl, "vcpus": 1, "memory_mb": 1024, "disk_gb": 20}, "confirmed": True})
     out = b["result"].get("structuredContent", {})
     check("MCP write tool -> plan awaiting approval (not executed)", out.get("status") == "awaiting_approval" and out.get("plan_id") and out.get("version") == 1 and out.get("risk_level") == "medium", b)
+    m = PLAN_URL.match(out.get("url") or "")
+    s, plan = api.call("GET", f"/ai/plans/{out.get('plan_id')}", token)
+    check("MCP write result has url = workspace deep link to the plan (and in the text content)",
+          m and m.group(2) == out.get("plan_id") and m.group(1) == plan["data"]["conversation_id"]
+          and json.loads(b["result"]["content"][0]["text"]).get("url") == out.get("url"), (out, plan.get("data", {}).get("conversation_id")))
     time.sleep(1)
     s, ex = api.call("GET", f"/ai/executions?plan_id={out.get('plan_id')}", token)
     s, inst = api.call("GET", "/instances", token)
     check("no execution and no instance from MCP", ex["data"] == [] and not any(i["name"] == "mcp-e2e" for i in inst["data"]))
+
+
+PLAN_URL = re.compile(r"^/dashboard/ai/conversations/([0-9a-f-]{36})\?plan=([0-9a-f-]{36})$")
+
+
+def user_plan_count(api, email):
+    return int(psql(api.db, f"SELECT count(*) FROM ai_resource_plans p JOIN users u ON u.id = p.user_id WHERE u.email = '{email}'"))
+
+
+def scenario_permissions(api, email):
+    print("== P. MCP per-connection tool permissions (enforced server-side, read tools too)")
+    token = api.register(email)
+
+    def rpc(name, args):
+        return api.call("POST", "/mcp/rpc", token, {"jsonrpc": "2.0", "id": 7, "method": "tools/call",
+                                                     "params": {"name": name, "arguments": args, "confirmed": True}})
+
+    def denied(b, tool):
+        err = (b or {}).get("error") or {}
+        data = err.get("data") or {}
+        return "result" not in b and err.get("code") == -32001 and data.get("code") == "TOOL_PERMISSION_DENIED" and data.get("tool") == tool
+
+    s, b = api.call("GET", "/integrations/mcp/servers", token)
+    core = next(x for x in b["data"] if x["name"] == "nevatal-cloud")
+    ids = {t["name"]: t["id"] for t in core.get("tools") or []}
+    s, reg = api.call("GET", "/ai/tools", token)
+    check("every registry tool is a toggleable tool of nevatal-cloud", all(t["id"] in ids for t in reg["data"]), sorted(set(t["id"] for t in reg["data"]) - set(ids)))
+    s, b = rpc("vps.list", {})
+    check("no connection yet: implicit first-party connection, tools granted", "result" in b and not b["result"].get("isError"), b)
+    s, b = api.call("POST", "/integrations/mcp/connections", token, {"server_id": core["id"], "config_json": "{}"})
+    conn = b["data"]["id"]
+
+    def grant(name, granted):
+        s, _ = api.call("PATCH", f"/integrations/mcp/connections/{conn}/permissions", token, {"tool_id": ids[name], "granted": granted})
+        return s == 200
+
+    s, b = api.call("GET", "/templates", token)
+    tpl = b["data"][0]["id"]
+    create = {"name": "perm-e2e", "template_id": tpl, "vcpus": 1, "memory_mb": 1024, "disk_gb": 20}
+    check("disable vps.create on the connection", grant("vps.create", False))
+    s, b = rpc("vps.create", create)
+    check("disabled write tool -> JSON-RPC error -32001 TOOL_PERMISSION_DENIED (with connection_id)",
+          denied(b, "vps.create") and b["error"]["data"].get("connection_id") == conn, b)
+    s, b = rpc("cloud.create_vm", create)
+    check("its legacy alias cloud.create_vm is refused too", denied(b, "cloud.create_vm"), b)
+    check("no plan was created for the refused calls", user_plan_count(api, email) == 0)
+    s, logs = api.call("GET", "/integrations/mcp/audit-logs", token)
+    rows = [(l["tool_name"], l["result_status"]) for l in logs["data"]]
+    check("refusals audited as denied", ("vps.create", "denied") in rows and ("cloud.create_vm", "denied") in rows, rows[:6])
+    check("disable read tool vps.list", grant("vps.list", False))
+    s, b = rpc("vps.list", {})
+    check("disabled read tool -> JSON-RPC error", denied(b, "vps.list"), b)
+    check("re-enable vps.list and vps.create", grant("vps.list", True) and grant("vps.create", True))
+    s, b = rpc("vps.list", {})
+    check("re-enabled read tool runs", "result" in b and not b["result"].get("isError"), b)
+    s, b = rpc("vps.create", create)
+    out = (b.get("result") or {}).get("structuredContent") or {}
+    m = PLAN_URL.match(out.get("url") or "")
+    check("re-enabled write tool -> plan awaiting approval with url",
+          out.get("status") == "awaiting_approval" and m and m.group(2) == out.get("plan_id"), b)
+    time.sleep(1)
+    s, inst = api.call("GET", "/instances", token)
+    check("no instance from MCP", not any(i["name"] == "perm-e2e" for i in inst["data"]))
+
+
+def scenario_assistant(api, email):
+    print("== AI. OpenRouter assistant action card -> orchestrator plan only")
+    token = api.register(email)
+    s, b = api.call("GET", "/templates", token)
+    tpl = b["data"][0]["id"]
+    params = {"name": "assist-e2e", "hostname": "assist-e2e", "template_id": tpl, "template_name": "shown only",
+              "vcpus": 1, "memory_mb": 1024, "disk_gb": 20, "ssh_key_id": ""}
+    s, b = api.call("POST", "/ai-assistant/execute", token, {"action": "create_instance", "params": params})
+    d = (b.get("data") or {}) if isinstance(b, dict) else {}
+    m = PLAN_URL.match(d.get("url") or "")
+    check("execute -> plan reference: awaiting_approval, medium, version 1, url",
+          s == 200 and d.get("status") == "awaiting_approval" and d.get("risk_level") == "medium" and d.get("version") == 1
+          and m and m.group(2) == d.get("plan_id") and m.group(1) == d.get("conversation_id"), (s, b))
+    check("response has no instance_id/job_id (nothing created)", "instance_id" not in d and "job_id" not in d, sorted(d))
+    pid = d.get("plan_id")
+    s, plan = api.call("GET", f"/ai/plans/{pid}", token)
+    check("plan awaits approval in the AI assistant conversation",
+          s == 200 and plan["data"]["status"] == "awaiting_approval" and plan["data"]["conversation_id"] == d.get("conversation_id"), plan)
+    time.sleep(1.5)
+    s, ex = api.call("GET", f"/ai/executions?plan_id={pid}", token)
+    s, inst = api.call("GET", "/instances", token)
+    check("no execution and no instance from the assistant", ex["data"] == [] and not any(i["name"] == "assist-e2e" for i in inst["data"]))
+
+    # The real card: a chat reply (local fallback without an OpenRouter key) carries a proposal.
+    s, b = api.call("POST", "/ai-assistant/chat", token, {"message": "Create an Ubuntu 24.04 container with 1 vCPU and 1GB RAM"})
+    msg = b["data"]["message"]
+    check("chat reply carries a create_instance card", msg.get("action_type") == "create_instance" and msg.get("action_payload"), msg)
+    body = {"message_id": msg["id"], "action": "create_instance", "params": json.loads(msg["action_payload"])}
+    s1, b1 = api.call("POST", "/ai-assistant/execute", token, body)
+    s2, b2 = api.call("POST", "/ai-assistant/execute", token, body)
+    p1, p2 = (b1.get("data") or {}), (b2.get("data") or {})
+    check("card -> plan (awaiting_approval or draft); the same card again -> the same plan",
+          s1 == 200 and s2 == 200 and p1.get("status") in ("awaiting_approval", "draft") and p1.get("plan_id") == p2.get("plan_id")
+          and p1.get("url") == p2.get("url"), (b1, b2))
+    s, hist = api.call("GET", "/ai-assistant/history", token)
+    marked = [x for x in hist["data"] if x["id"] == msg["id"]]
+    check("card marked as handled", marked and marked[0]["action_executed"] is True, marked)
+    check("two plans in total (one per card)", user_plan_count(api, email) == 2, user_plan_count(api, email))
+
+
+def scenario_read(api, token):
+    print("== Q. Chat read requests -> read tools, never a plan")
+    conv = new_conversation(api, token, "read questions")
+    before = int(psql(api.db, "SELECT count(*) FROM ai_resource_plans"))
+    for msg in ("list my servers", "show my VPS", "how many VMs do I have"):
+        reply = chat(api, token, conv, msg)
+        content = reply["message"]["content"]
+        check(f"'{msg}' -> read-only answer listing web-a01, no plan",
+              not reply.get("plan_id") and not reply.get("plan_proposal") and "web-a01" in content and "read-only" in content, content[:300])
+    reply = chat(api, token, conv, "what is the status of web-a01")
+    content = reply["message"]["content"]
+    check("'what is the status of web-a01' -> vps.status answer (running), no plan",
+          not reply.get("plan_id") and "web-a01" in content and "running" in content, content[:300])
+    check("no plan created by read requests", int(psql(api.db, "SELECT count(*) FROM ai_resource_plans")) == before)
+    s, b = api.call("GET", f"/ai/conversations/{conv}", token)
+    check("conversation intent unchanged (no create workflow started)", not b["data"].get("current_intent"), b["data"].get("current_intent"))
+
+
+def mcp_plan(api, token, tool, args):
+    s, b = api.call("POST", "/mcp/rpc", token, {"jsonrpc": "2.0", "id": 9, "method": "tools/call", "params": {"name": tool, "arguments": args}})
+    return (b.get("result") or {}).get("structuredContent") or {}
+
+
+def scenario_nonidempotent(api, token):
+    print("== N. Non-idempotent restore never auto-retried; delete_created only when something was created")
+    s, b = api.call("GET", "/instances", token)
+    inst = next(i for i in b["data"] if i["name"] == "scn-d-web")
+    ref = {"instance_id": inst["id"], "name": inst["name"]}
+    out = mcp_plan(api, token, "vps.snapshot.create", dict(ref, snapshot_name="e2esnap"))
+    s, b = api.call("GET", f"/ai/plans/{out['plan_id']}", token)
+    s, b = api.call("POST", f"/ai/plans/{out['plan_id']}/approve", token, approve_body(b["data"]["revision"]))
+    ex = api.wait_execution(token, b["data"]["execution"]["id"])
+    check("snapshot e2esnap created through a plan", ex["status"] == "completed", ex["status"])
+
+    out = mcp_plan(api, token, "vps.restart", ref)
+    pid = out["plan_id"]
+    spec = {"intent": "restart_and_restore", "resources": [
+        {"key": "rst-a", "type": "vps", "action": "restart", "config": ref},
+        {"key": "rst-b", "type": "vps", "action": "snapshot.restore", "config": dict(ref, snapshot_name="e2esnap")}]}
+    s, b = api.call("PATCH", f"/ai/plans/{pid}", token, {"base_version": out["version"], "specification": spec})
+    rev = b["data"]["revision"]
+    check("plan revised: restart + snapshot restore (destructive)", s == 200 and rev["risk_level"] == "destructive", b)
+    s, b = api.call("POST", f"/ai/plans/{pid}/approve", token, approve_body(
+        rev, acknowledge_risks=True, confirmation=",".join(rev["confirmation_required"]["expected"])))
+    check("approved and executing", s == 200 and b["data"]["execution"], b)
+    eid = b["data"]["execution"]["id"]
+    ex = api.wait_execution(token, eid)
+    time.sleep(1.5)  # a scheduled automatic retry (backoff 300 ms) would have run by now
+    s, b = api.call("GET", f"/ai/executions/{eid}", token)
+    ex = b["data"]
+    tasks = {t["key"]: t for t in ex["tasks"]}
+    rst = tasks["vps.snapshot.restore:rst-b"]
+    check("restart succeeded, restore failed on its only attempt (1 of 1, FAULT_INJECTED)",
+          tasks["vps.restart:rst-a"]["status"] == "succeeded" and rst["status"] == "failed" and rst["attempt"] == 1
+          and rst["max_attempts"] == 1 and rst["error"]["code"] == "FAULT_INJECTED", (rst["status"], rst["attempt"], rst["max_attempts"], rst["error"]))
+    evs = api.events(token, eid)
+    check("no task.retrying event for the non-idempotent restore",
+          not any(e["type"] == "task.retrying" and e.get("task_key") == rst["key"] for e in evs))
+    restores = lambda: int(psql(api.db, f"SELECT count(*) FROM audit_logs WHERE action = 'instance.snapshot.restore' AND resource_id = '{inst['id']}'"))
+    check("the VM was not rolled back", restores() == 0, restores())
+    actions = [o["action"] for o in ex["recovery_options"]]
+    check("partially_completed with only a modified VPS -> retry_failed, keep (no delete_created)",
+          ex["status"] == "partially_completed" and actions == ["retry_failed", "keep"], (ex["status"], actions))
+    s, b = api.call("GET", f"/ai/executions?plan_id={pid}", token)
+    check("summary agrees (no delete_created)", [o["action"] for o in b["data"][0]["recovery_options"]] == ["retry_failed", "keep"], b["data"][0]["recovery_options"])
+    s, b = api.call("POST", f"/ai/executions/{eid}/tasks/{rst['id']}/retry", token)
+    check("manual retry accepted", s == 202, b)
+    ex = api.wait_execution(token, eid)
+    rst = {t["key"]: t for t in ex["tasks"]}["vps.snapshot.restore:rst-b"]
+    check("manual retry: restore succeeded on attempt 2, execution completed",
+          ex["status"] == "completed" and rst["status"] == "succeeded" and rst["attempt"] == 2, (ex["status"], rst["status"], rst["attempt"]))
+    check("the VM was rolled back exactly once", restores() == 1, restores())
 
 
 def scenario_d(api, token):
@@ -457,15 +651,20 @@ def main():
         token = api.register("alice@e2e.example.com")
         admin = api.login(ADMIN_EMAIL, ADMIN_PASSWORD)
         scenario_a(api, token)
+        scenario_read(api, token)
         scenario_c(api, token, admin)
         scenario_mcp(api, token)
+        scenario_permissions(api, "perry@e2e.example.com")
+        scenario_assistant(api, "ava@e2e.example.com")
         api.stop()
 
         reset_db("nevatal_orch_e2e_d")
-        api = API(18292, "nevatal_orch_e2e_d", ORCH_FAULTS="vps.wait_ready@scn-d:3")
+        api = API(18292, "nevatal_orch_e2e_d", ORCH_FAULTS="vps.wait_ready@scn-d:3,vps.snapshot.restore@rst-b:1")
         apis.append(api)
         api.start()
-        scenario_d(api, api.register("dora@e2e.example.com"))
+        dora = api.register("dora@e2e.example.com")
+        scenario_d(api, dora)
+        scenario_nonidempotent(api, dora)
         api.stop()
 
         reset_db("nevatal_orch_e2e_r")

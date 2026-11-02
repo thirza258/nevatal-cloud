@@ -1,7 +1,7 @@
 # Nevatal Cloud — Working Context (handoff)
 
 Last updated: 2026-11-02. Purpose: let a new session continue without the old chat.
-**Nothing is committed.** All work below is uncommitted on `main` (`git status` shows it).
+**Committed + pushed:** `0c6be31` on `origin/main` (all work through orchestrator Phase 1). Later changes are uncommitted until the user asks (or §0 checkpoint).
 
 ---
 
@@ -50,7 +50,7 @@ Control plane URL: `cloud.nevatal.id`.
 | 6 | Backend split: repository / usecase; API split: request / response / handler | **Done** (merged, all gates green) |
 | 7 | Railway-style subdomains `<name>.nevatal.id` with Cloudflare Tunnel + Proxmox | **Done** (backend, frontend, infra verified — see §5) |
 | 8 | P2: platform-wide automated backup & recovery | **Designed, not started** (see §6) |
-| 9 | PRD "AI Infrastructure Orchestrator" (pasted by user, v1.0, 2026-11-02) | **Phase 1 in progress** — frozen contract `docs/ORCHESTRATOR_API.md`; backend + frontend agents running; see §6b |
+| 9 | PRD "AI Infrastructure Orchestrator" (pasted by user, v1.0, 2026-11-02) | **Phase 1 done** (committed 0c6be31; verified: Go tests incl. integration, 19 route additions/0 removals vs pre-refactor, smoke 45/45, shapes identical, orchestrator e2e 77/77, frontend build; independent QA suite `orchestrator_contract_test.py` 676 passed / 0 failed / 0 skipped on 0c6be31). Follow-ups in progress — see §6b |
 
 **Build order:** domains (finish + verify) → Orchestrator Phase 1 (P0) → backups (P2) →
 Orchestrator Phases 2–4. Reserve migrations: `000006` domains, `000007` orchestrator,
@@ -324,6 +324,22 @@ index on `provisioning_jobs(owner_id, idempotency_key)` (dedupe first), job hear
 reaper with cleanup, approvals bound to version + spec_hash (superseded on PATCH, consumed once,
 expiry), typed confirmation for destructive, policy re-run at execute, MCP write tools → plan only,
 `unverified` in mock mode, SSE heartbeat + shutdown-safe, backfill revision 1 for old plans.
+
+**Phase 1 follow-ups (agents launched after 0c6be31):**
+- `/ai-assistant/execute` still created VPSs directly (bypass) → must create an orchestrator plan + return `url`.
+- MCP per-connection permissions (`mcp_permissions`) were never enforced in `tools/call` → enforce server-side.
+- MCP write-tool results get a `url` deep link (`/dashboard/ai?plan=<id>`).
+- `docs/ORCHESTRATOR.md` TBD markers filled from the implementation — **done** (0 TBD left; docs follow the code).
+- Also sent to the hardening agent: chat "list my servers" wrongly proposes a VPS create; non-idempotent
+  tools (`vps.snapshot.restore`) must never auto-retry; offer `delete_created` only when created relations exist.
+- `docker-compose.yml` now passes `ORCH_*` / `JOB_*` env vars to the backend (uncommitted).
+- Doc section 2.9 needs an update once the MCP per-connection permission + `url` changes land.
+Deploy note: the new workspace UI needs the Phase 1 backend (plan revisions); ship both together.
+QA scripts now kill only their own API PID (`smoke.sh`, `capture_shapes.sh` no longer use `pkill -f`).
+Phase 1 engine facts: lease 30 s, heartbeat 10 s, poll 1 s, 4 tasks/replica, 3 attempts with exp. backoff
+(2 s base, cap 60 s), job heartbeat 10 s / stale 300 s → `JOB_STALE`; env `ORCH_*`, `JOB_HEARTBEAT_SECONDS`,
+`JOB_STALE_AFTER_SECONDS`. Phase 2 leftovers: intra-plan cross-resource deps (stop→resize, app on new VPS),
+compensation, delete tools for app/n8n/openclaw/game/android, runtime probes, LLM planner, metrics.
 
 **Phase 1 plan (P0), migration `000007_orchestrator`:**
 - Tables: `infra_plans` (or extend `ai_resource_plans`: `plan_version`, `specification` JSONB, `dependency_graph`, `estimated_resources`, `validation_result`), `infra_plan_revisions`, `infra_executions`, `infra_tasks` (deps, status queued/running/succeeded/retrying/failed/cancelled/skipped/compensating, retry_count, idempotency_key unique, input_snapshot, output_reference, error_details, lease_owner/lease_expires_at), `infra_approvals` (plan_id + plan_version + risk_level + expires_at + status), `infra_execution_events`, `resource_relationships`.

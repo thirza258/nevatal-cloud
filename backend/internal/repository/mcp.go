@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/nevatal/cloud/internal/models"
@@ -43,6 +44,8 @@ type MCPRepository interface {
 	CreatePermission(ctx context.Context, perm *models.MCPPermission) error
 	// ListPermissions returns a connection's permissions with their tools.
 	ListPermissions(ctx context.Context, connectionID uuid.UUID) ([]models.MCPPermission, error)
+	// SetPermission sets a connection's permission for a tool, creating the
+	// row when there is none.
 	SetPermission(ctx context.Context, connectionID, toolID uuid.UUID, granted bool) error
 
 	// ListAuditLogs returns the user's newest MCP audit entries with servers.
@@ -161,9 +164,18 @@ func (r *mcpRepository) ListPermissions(ctx context.Context, connectionID uuid.U
 }
 
 func (r *mcpRepository) SetPermission(ctx context.Context, connectionID, toolID uuid.UUID, granted bool) error {
-	return r.conn(ctx).Model(&models.MCPPermission{}).
+	res := r.conn(ctx).Model(&models.MCPPermission{}).
 		Where("connection_id = ? AND tool_id = ?", connectionID, toolID).
-		Update("granted", granted).Error
+		Update("granted", granted)
+	if res.Error != nil || res.RowsAffected > 0 {
+		return res.Error
+	}
+	return r.conn(ctx).Create(&models.MCPPermission{
+		ConnectionID: connectionID,
+		ToolID:       toolID,
+		Granted:      granted,
+		CreatedAt:    time.Now(),
+	}).Error
 }
 
 func (r *mcpRepository) ListAuditLogs(ctx context.Context, userID uuid.UUID, limit int) ([]models.MCPAuditLog, error) {

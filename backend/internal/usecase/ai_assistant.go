@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nevatal/cloud/internal/config"
 	"github.com/nevatal/cloud/internal/models"
+	"github.com/nevatal/cloud/internal/orchestrator"
 	"github.com/nevatal/cloud/internal/repository"
 )
 
@@ -28,12 +29,16 @@ type AIAssistantRepos struct {
 	SSHKeys   repository.SSHKeyRepository
 }
 
+// AIAssistantUsecase is the OpenRouter assistant (chat + action cards). It
+// never changes infrastructure itself: an action card becomes an
+// orchestrator plan that the user approves in the AI workspace.
 type AIAssistantUsecase struct {
 	repos           AIAssistantRepos
 	cfg             *config.Config
 	instanceService *InstanceUsecase
 	quotaService    *QuotaUsecase
 	auditService    *AuditUsecase
+	orch            *OrchestratorUsecase
 	httpClient      *http.Client
 }
 
@@ -43,6 +48,7 @@ func NewAIAssistantUsecase(
 	instanceService *InstanceUsecase,
 	quotaService *QuotaUsecase,
 	auditService *AuditUsecase,
+	orch *OrchestratorUsecase,
 ) *AIAssistantUsecase {
 	return &AIAssistantUsecase{
 		repos:           repos,
@@ -50,6 +56,7 @@ func NewAIAssistantUsecase(
 		instanceService: instanceService,
 		quotaService:    quotaService,
 		auditService:    auditService,
+		orch:            orch,
 		httpClient: &http.Client{
 			Timeout: 45 * time.Second,
 		},
@@ -141,13 +148,20 @@ type ExecuteActionInput struct {
 	Params    json.RawMessage `json:"params"`
 }
 
-// ExecuteActionResult is the outcome of an executed create_instance proposal.
+// ExecuteActionResult is the plan an action card became (POST
+// /ai-assistant/execute). Nothing has been created: the plan waits for
+// approval in the AI workspace (URL).
 type ExecuteActionResult struct {
-	InstanceID *uuid.UUID `json:"instance_id"`
-	JobID      uuid.UUID  `json:"job_id"`
-	Message    string     `json:"message"`
-	Name       string     `json:"name"`
-	Status     string     `json:"status"`
+	ConversationID uuid.UUID `json:"conversation_id"`
+	Message        string    `json:"message"`
+	Name           string    `json:"name"`
+	PlanID         uuid.UUID `json:"plan_id"`
+	RiskLevel      string    `json:"risk_level"`
+	// Status is the plan status: awaiting_approval, or draft when the policy
+	// engine rejected the proposal (the plan lists the errors).
+	Status  string `json:"status"`
+	URL     string `json:"url"`
+	Version int    `json:"version"`
 }
 
 func (s *AIAssistantUsecase) GetPlatformContext(ctx context.Context, userID uuid.UUID) (*AIPlatformContext, error) {
@@ -519,6 +533,7 @@ CORE INSTRUCTIONS:
    - 'memory_mb': integer >= 512.
    - 'disk_gb': integer >= 10.
    - 'ssh_key_id': UUID of the user's SSH key if one exists, or empty string.
+   The action card does not create anything by itself: the user's "Review plan" click turns it into a plan that they review and approve in the AI workspace. Never say the instance is being created or deployed.
 
 2. Cloud Support & Diagnostics ("or as support"):
    When the user asks questions or encounters problems:
@@ -795,7 +810,7 @@ I have analyzed your request and prepared a high-performance **%s** container co
 - **Compute Sizing**: %d vCPUs | %s RAM | %d GB NVMe SSD
 - **SSH Key**: %s
 
-You can deploy this container immediately using the 1-click **Deploy Container Now** action below, or customize it further in the deployment wizard!`,
+Use **Review plan** below to turn this into a plan you review and approve in the AI workspace (nothing is created until you approve it), or customize it further in the deployment wizard.`,
 			chosenTemplate.Name,
 			chosenTemplate.Name,
 			name,
@@ -823,13 +838,23 @@ I am your infrastructure copilot powered by OpenRouter. I can help you manage co
 *(Tip: You can use your own OpenRouter API key with models like Claude 3.5 Sonnet, GPT-4o, or DeepSeek V3 in the model selector above!)*`), nil
 }
 
+// ExecuteAction turns an action card into an orchestrator plan (the same
+// path MCP write tools use) and returns its reference. It never creates a
+// resource: the parameters were proposed by the model and sent by the
+// client, so the policy engine validates them and the user reviews and
+// approves the plan in the AI workspace. A second call for the same message
+// returns the plan already created for it.
 func (s *AIAssistantUsecase) ExecuteAction(
 	ctx context.Context,
 	userID uuid.UUID,
+	isAdmin bool,
 	input ExecuteActionInput,
 	clientIP string,
 ) (*ExecuteActionResult, error) {
 	ctx = context.WithoutCancel(ctx)
+	if s.orch == nil {
+		return nil, errors.New("the AI orchestrator is not available")
+	}
 
 	switch input.Action {
 	case "create_instance":
@@ -838,49 +863,81 @@ func (s *AIAssistantUsecase) ExecuteAction(
 			return nil, fmt.Errorf("invalid create_instance parameters: %w", err)
 		}
 
-		tplID, err := uuid.Parse(params.TemplateID)
-		if err != nil {
-			return nil, errors.New("invalid template ID in action parameters")
-		}
-
-		var sshKeyUUID *uuid.UUID
-		if params.SSHKeyID != "" {
-			if parsed, pErr := uuid.Parse(params.SSHKeyID); pErr == nil {
-				sshKeyUUID = &parsed
+		var res *ToolCallResult
+		if input.MessageID != uuid.Nil {
+			if existing, err := s.orch.FindAssistantPlan(ctx, userID, input.MessageID); err == nil {
+				res = existing
+			} else if !errors.Is(err, repository.ErrNotFound) {
+				return nil, err
 			}
 		}
-
-		createInput := CreateInstanceInput{
-			Name:       params.Name,
-			Hostname:   params.Hostname,
-			TemplateID: tplID,
-			VCPUs:      params.VCPUs,
-			MemoryMB:   params.MemoryMB,
-			DiskGB:     params.DiskGB,
-			SSHKeyID:   sshKeyUUID,
+		created := res == nil
+		if created {
+			var err error
+			res, err = s.orch.ProposeFromAssistant(ctx, userID, isAdmin, orchestrator.ToolVPSCreate,
+				createInstancePlanArgs(params), input.MessageID, clientIP)
+			if err != nil {
+				return nil, err
+			}
 		}
-
-		job, err := s.instanceService.Create(ctx, userID, createInput, clientIP)
-		if err != nil {
-			return nil, fmt.Errorf("failed to deploy container: %w", err)
-		}
-
-		// Mark action as executed in message if message ID is provided
+		// The card's action is done: it became a plan.
 		if input.MessageID != uuid.Nil {
 			_ = s.repos.Messages.MarkActionExecuted(ctx, input.MessageID, userID)
 		}
 
+		message := "Plan created. Nothing is created until you review and approve it in the AI workspace."
+		switch {
+		case !created:
+			message = "This proposal already has a plan. Nothing is created until you review and approve it in the AI workspace."
+		case res.PlanStatus == models.PlanStatusDraft:
+			message = "Plan created as a draft: the policy engine found problems. Review and fix it in the AI workspace; nothing is created until you approve it."
+		}
 		return &ExecuteActionResult{
-			InstanceID: job.InstanceID,
-			JobID:      job.ID,
-			Message:    "Container provisioning job queued successfully!",
-			Name:       params.Name,
-			Status:     job.Status,
+			ConversationID: res.ConversationID,
+			Message:        message,
+			Name:           params.Name,
+			PlanID:         res.PlanID,
+			RiskLevel:      res.Risk,
+			Status:         res.PlanStatus,
+			URL:            res.URL,
+			Version:        res.Version,
 		}, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported action type: %s", input.Action)
 	}
+}
+
+// createInstancePlanArgs maps a create_instance card to vps.create
+// arguments. Only fields the tool declares are passed (display-only fields
+// such as template_name are not); empty values are left out so the policy
+// engine reports what is missing.
+func createInstancePlanArgs(p models.CreateInstanceActionParams) map[string]any {
+	args := map[string]any{}
+	if p.Name != "" {
+		args["name"] = p.Name
+	}
+	if p.Hostname != "" {
+		args["hostname"] = p.Hostname
+	}
+	if p.TemplateID != "" {
+		args["template_id"] = p.TemplateID
+	}
+	if p.VCPUs > 0 {
+		args["vcpus"] = p.VCPUs
+	}
+	if p.MemoryMB > 0 {
+		args["memory_mb"] = p.MemoryMB
+	}
+	if p.DiskGB > 0 {
+		args["disk_gb"] = p.DiskGB
+	}
+	// As before plans existed, an SSH key id that is not a UUID (the
+	// prompt's "<EXACT_SSH_KEY_UUID_OR_EMPTY>" placeholder) means no key.
+	if id, err := uuid.Parse(p.SSHKeyID); err == nil {
+		args["ssh_key_ids"] = []any{id.String()}
+	}
+	return args
 }
 
 func formatMB(mb int) string {

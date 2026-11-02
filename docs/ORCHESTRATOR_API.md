@@ -1,6 +1,6 @@
 # AI Infrastructure Orchestrator — Phase 1 API Contract (frozen)
 
-Status: **frozen for Phase 1** (2026-11-02; clarified the same day: approved-not-executing plans are editable; MCP `initialize`/`ping`). Source PRD: "Nevatal Cloud AI Infrastructure
+Status: **frozen for Phase 1** (2026-11-02; clarified the same day: approved-not-executing plans are editable; MCP `initialize`/`ping`; additive: `url` deep link in MCP write-tool results, per-connection MCP tool permccissions, AI assistant action cards create plans). Source PRD: "Nevatal Cloud AI Infrastructure
 Orchestrator v1.0". Backend and frontend build against this file; change it only together.
 
 Principle: **the LLM/planner plans → the policy engine validates → the approval manager
@@ -156,6 +156,8 @@ resources this execution created and returns `{"plan_id"}`; never deletes direct
   Mock hypervisor / unreachable checks report `unverified`, never `verified`.
 - `report` (terminal): `{"summary", "resources": [{"type", "id", "name", "status", "access": {"ssh": "ssh ubuntu@10.0.0.5"}}], "warnings": [], "next_actions": []}`.
 - `recovery_options` (when `failed` / `partially_completed`): `[{"action": "retry_failed"|"keep"|"delete_created", "label", "requires_approval": bool}]`.
+  `delete_created` is listed only while the execution has `created` resources (VPS, bucket) that
+  are not deleted and still exist; `modified`-only executions never offer it.
 - ExecutionSummary = Execution without `tasks`, plus `{"task_counts": {"succeeded": 2, "failed": 0, …}}`.
 
 ---
@@ -195,7 +197,31 @@ MCP lifecycle: `POST /api/v1/mcp/rpc` (JSON-RPC 2.0 over HTTP, Bearer auth, `app
 
 MCP `tools/call`: read tools run immediately; write/high/destructive tools **never execute** —
 they create a plan and return `{"plan_id", "version", "status": "awaiting_approval",
-"risk_level"}` for the user to approve in the UI.
+"risk_level", "url"}` for the user to approve in the UI (`status` is `draft` when the policy
+engine rejected the request; the plan lists the errors). The result carries this object as
+`structuredContent` and as JSON text in `content[0].text`.
+- `url` (additive): AI workspace deep link to the plan, a path relative to the control-plane
+  origin (`APP_BASE_URL`): `/dashboard/ai/conversations/<conversationId>?plan=<planId>`
+  (format of `frontend/src/lib/aiRoutes.ts`; `/dashboard/ai?plan=<planId>` also resolves).
+  MCP plans are filed in the caller's "MCP requests" conversation.
+
+MCP tool permissions (additive, enforced server-side for **every** `tools/call`, read tools too,
+before anything runs or is planned): the caller's connection is their `mcp_connections` row for
+the server that owns the tool (`nevatal-cloud` for registry and legacy `cloud.*` tools). A tool
+disabled on that connection (`PATCH /integrations/mcp/connections/:id/permissions`; disabling a
+registry tool or its legacy alias disables both) is refused with a JSON-RPC error
+`{"code": -32001, "message", "data": {"code": "TOOL_PERMISSION_DENIED", "tool",
+"connection_id", "disabled_tool"}}` — no plan, no execution, audited in
+`/integrations/mcp/audit-logs` as `denied`. Other refusals: `MCP_CONNECTION_INACTIVE` (connection
+status not `connected`), `MCP_SERVER_NOT_CONNECTED` (external server without a connection).
+Without a connection to `nevatal-cloud` every tool is granted (implicit first-party connection).
+
+AI assistant (`POST /ai-assistant/execute`, OpenRouter action card): never provisions. A
+`create_instance` card becomes a `vps.create` plan through the same path as MCP write tools,
+filed in the "AI assistant requests" conversation; response `{"conversation_id", "message",
+"name", "plan_id", "risk_level", "status": "awaiting_approval"|"draft", "url", "version"}`
+(`instance_id`/`job_id` are gone: nothing is created). The same `message_id` again returns the
+plan already created for it.
 
 ---
 
@@ -224,6 +250,12 @@ they create a plan and return `{"plan_id", "version", "status": "awaiting_approv
 - One execution path: the old synchronous provisioning loop in `ApprovePlan` is removed.
 - Tasks are leased in Postgres (`FOR UPDATE SKIP LOCKED`, lease + heartbeat); expired leases are
   re-claimed after a crash/restart; SIGTERM stops claiming and releases unfinished leases.
+- Tools with `idempotent: false` (`vps.snapshot.restore`) have `max_attempts` 1 and are never
+  retried automatically (no retry on `TOOL_TIMEOUT`, `TOOL_ERROR` or any retryable code); a
+  re-claimed attempt of such a task is not re-run but fails with `INTERRUPTED_NOT_IDEMPOTENT`.
+  Only a manual retry (`/tasks/:taskId/retry`, `retry_failed`) runs it again, once.
+- Chat read requests (list/show/status questions) are answered with read tools and never create
+  or change a plan.
 - Idempotency key per task attempt: `orch:<execution_id>:<task_key>:<attempt>`. Re-claiming the
   same attempt re-drives the same job/resource; a new attempt is only made after the previous
   attempt reached a terminal, cleaned-up state. `provisioning_jobs(owner_id, idempotency_key)`

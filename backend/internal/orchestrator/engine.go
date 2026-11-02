@@ -55,6 +55,9 @@ type Hooks interface {
 	Verify(ctx context.Context, exec *models.AIExecution, task *models.AIExecutionTask, output map[string]any) *Verification
 	// Report builds the final report of a finished execution.
 	Report(ctx context.Context, exec *models.AIExecution, tasks []models.AIExecutionTask, status string) *Report
+	// CanDeleteCreated reports whether the execution created resources that
+	// still exist and that a delete_created plan can remove.
+	CanDeleteCreated(ctx context.Context, exec *models.AIExecution) bool
 	// StatusChanged runs inside the transaction that changed the execution
 	// status (plan status, conversation state and chat messages follow it).
 	StatusChanged(ctx context.Context, exec *models.AIExecution, tasks []models.AIExecutionTask, status string)
@@ -342,6 +345,14 @@ func (e *Engine) runTask(ctx context.Context, cancel context.CancelCauseFunc, ta
 		e.markRunning(exec.ID)
 	}
 	resumed := task.ClaimCount > 1
+	if def, ok := e.reg.Def(task.Tool); ok && !def.Idempotent && resumed {
+		// The interrupted run may already have applied the change (a
+		// snapshot restore rolled the VM back): running it again could apply
+		// it twice. Only the user may retry it.
+		e.failTask(task, token, Permanent(ErrCodeInterruptedNotIdempotent, fmt.Sprintf(
+			"%s was interrupted after it started and is not retried automatically because it is not idempotent (running it again could apply it twice). Check the resource, then retry the task manually if needed.", task.Title)))
+		return
+	}
 	msg := fmt.Sprintf("%s (attempt %d of %d)", task.Title, task.Attempt, task.MaxAttempts)
 	if resumed {
 		msg += " resumed after an interrupted run"
@@ -450,7 +461,13 @@ func (e *Engine) dependencyOutputs(task *models.AIExecutionTask) map[string]map[
 	return out
 }
 
+// handleFailure retries a retryable failure while attempts remain, except
+// for tools that are not idempotent: they are never retried automatically
+// (whatever the error, including TOOL_TIMEOUT), only by a manual retry.
 func (e *Engine) handleFailure(task *models.AIExecutionTask, token uuid.UUID, te *TaskError) {
+	if def, ok := e.reg.Def(task.Tool); ok && !def.Idempotent && te.Retryable {
+		te = &TaskError{Code: te.Code, Message: te.Message + " (not retried automatically: the tool is not idempotent; retry manually)"}
+	}
 	if te.Retryable && task.Attempt < task.MaxAttempts {
 		e.retryTask(task, token, te)
 		return
@@ -792,7 +809,11 @@ func (e *Engine) finalize(txCtx context.Context, exec *models.AIExecution, tasks
 	if report == nil {
 		report = &Report{Summary: "Execution " + status, Resources: []ReportResource{}, Warnings: []string{}, NextActions: []string{}}
 	}
-	recovery := RecoveryOptions(status, tasks, report)
+	canDelete := false
+	if e.hooks != nil && (status == models.ExecFailed || status == models.ExecPartiallyCompleted) {
+		canDelete = e.hooks.CanDeleteCreated(txCtx, exec)
+	}
+	recovery := RecoveryOptions(status, tasks, canDelete)
 	now := time.Now()
 	if err := e.repo.UpdateExecution(txCtx, exec.ID, map[string]any{
 		"status": status, "finished_at": now, "report": MustJSON(report),
@@ -820,9 +841,11 @@ func (e *Engine) finalize(txCtx context.Context, exec *models.AIExecution, tasks
 }
 
 // RecoveryOptions lists the actions offered on a failed or partial
-// execution. Deleting created resources always goes through a new
-// destructive plan that needs its own approval.
-func RecoveryOptions(status string, tasks []models.AIExecutionTask, report *Report) []RecoveryOption {
+// execution. delete_created is offered only when canDeleteCreated (the
+// execution has "created" resources that are not deleted and that a plan
+// can remove); it always goes through a new destructive plan that needs its
+// own approval.
+func RecoveryOptions(status string, tasks []models.AIExecutionTask, canDeleteCreated bool) []RecoveryOption {
 	out := []RecoveryOption{}
 	if status != models.ExecFailed && status != models.ExecPartiallyCompleted {
 		return out
@@ -836,16 +859,20 @@ func RecoveryOptions(status string, tasks []models.AIExecutionTask, report *Repo
 	if status == models.ExecPartiallyCompleted {
 		out = append(out, RecoveryOption{Action: RecoveryKeep, Label: "Keep what was created", RequiresApproval: false})
 	}
-	created := false
-	if report != nil {
-		for _, r := range report.Resources {
-			if r.Status != "deleted" {
-				created = true
-			}
-		}
-	}
-	if created {
+	if canDeleteCreated {
 		out = append(out, RecoveryOption{Action: RecoveryDeleteCreated, Label: "Delete the resources this execution created", RequiresApproval: true})
+	}
+	return out
+}
+
+// WithoutDeleteCreated drops the delete_created option (the created
+// resources are gone since the options were computed).
+func WithoutDeleteCreated(opts []RecoveryOption) []RecoveryOption {
+	out := make([]RecoveryOption, 0, len(opts))
+	for _, o := range opts {
+		if o.Action != RecoveryDeleteCreated {
+			out = append(out, o)
+		}
 	}
 	return out
 }

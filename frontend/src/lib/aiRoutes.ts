@@ -31,3 +31,23 @@ export function conversationIdFromPath(pathname: string): { id: string | null; i
   if (!raw) return { id: null, invalid: false };
   return isUuid(raw) ? { id: raw.toLowerCase(), invalid: false } : { id: null, invalid: true };
 }
+
+/**
+ * In-app path for a plan link returned by the API (`url` of POST /ai-assistant/execute and of MCP
+ * write tools: /dashboard/ai/conversations/<conversationId>?plan=<planId>). Only AI workspace links
+ * are followed; anything else falls back to `/dashboard/ai?plan=<planId>`, which the workspace
+ * resolves to the plan's conversation.
+ */
+export function planLinkPath(url: string | undefined, planId: string): string {
+  if (url) {
+    try {
+      const parsed = new URL(url, window.location.origin);
+      if (parsed.origin === window.location.origin && isAIWorkspacePath(parsed.pathname)) {
+        return parsed.pathname + parsed.search;
+      }
+    } catch {
+      // fall through
+    }
+  }
+  return `${AI_WORKSPACE_PATH}?plan=${encodeURIComponent(planId)}`;
+}

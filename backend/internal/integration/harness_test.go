@@ -143,6 +143,7 @@ type stack struct {
 	orch     *usecase.OrchestratorUsecase
 	mcp      *usecase.MCPUsecase
 	agentUC  *usecase.AIAgentUsecase
+	messages repository.AIAssistantRepository
 	server   *httptest.Server
 	engines  []*orchestrator.Engine
 }
@@ -242,18 +243,22 @@ func newStack(t *testing.T, opts stackOpts) *stack {
 		MCP: mcpRepo, Templates: templateRepo, Plans: planRepo, Nodes: nodeRepo, Instances: instanceRepo,
 		Audits: auditRepo, Jobs: jobRepo,
 	}, instanceUC, appUC, automationUC, openClawUC, storageUC, gameServerUC, androidUC, quotaUC, orchUC, pve)
+	assistantRepo := repository.NewAIAssistantRepository(db)
+	assistantUC := usecase.NewAIAssistantUsecase(usecase.AIAssistantRepos{
+		Messages: assistantRepo, Users: userRepo, Templates: templateRepo, Plans: planRepo, SSHKeys: sshKeyRepo,
+	}, cfg, instanceUC, quotaUC, auditUC, orchUC)
 	agentUC := usecase.NewAIAgentUsecase(usecase.AIAgentRepos{
 		Agent: aiAgentRepo, Templates: templateRepo, SSHKeys: sshKeyRepo, Android: androidRepo,
 	}, cfg, instanceUC, appUC, automationUC, openClawUC, storageUC, gameServerUC, androidUC, quotaUC, mcpUC, orchUC, pve)
 
 	router := api.SetupRouter(api.RouterParams{
 		Cfg: cfg, Auth: authUC, Quota: quotaUC, Audit: auditUC, Instance: instanceUC, Storage: storageUC,
-		MCP: mcpUC, AIAgent: agentUC, Orchestrator: orchUC, Streams: context.Background(),
+		MCP: mcpUC, AIAgent: agentUC, AIAssistant: assistantUC, Orchestrator: orchUC, Streams: context.Background(),
 	})
 	s := &stack{
 		t: t, cfg: cfg, tx: tx, pve: pve, reg: reg, orchRepo: orchRepo, jobRepo: jobRepo, instRepo: instanceRepo,
 		agent: aiAgentRepo, quota: quotaUC, auth: authUC, worker: workerUC, instance: instanceUC,
-		storage: storageUC, orch: orchUC, mcp: mcpUC, agentUC: agentUC,
+		storage: storageUC, orch: orchUC, mcp: mcpUC, agentUC: agentUC, messages: assistantRepo,
 		server: httptest.NewServer(router),
 	}
 	if !opts.noEngine {

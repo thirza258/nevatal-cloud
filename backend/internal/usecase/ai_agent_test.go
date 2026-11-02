@@ -150,3 +150,25 @@ func TestDetectDeleteIntent(t *testing.T) {
 		}
 	}
 }
+
+func TestReadRequestsNeverStartAPlan(t *testing.T) {
+	for msg, want := range map[string]bool{
+		"list my servers":                        true,
+		"show my VPS":                            true,
+		"what is the status of web-01":           true,
+		"What's running? how many VMs do I have": true,
+		"what are my current quotas":             true,
+		"list my buckets":                        true,
+		"Create an Ubuntu VPS, nano size":        false,
+		"show me how to create a VPS":            false,
+		"please delete the vps web-01":           false,
+		"stop web-01 and show its status":        false,
+		"Why is my instance failing to boot?":    false,
+		"I want to create a VPS for my Go API":   false,
+		"Deploy an Ubuntu 24.04 server":          false,
+	} {
+		if got := isReadRequest(strings.ToLower(msg)); got != want {
+			t.Errorf("isReadRequest(%q) = %v, want %v", msg, got, want)
+		}
+	}
+}

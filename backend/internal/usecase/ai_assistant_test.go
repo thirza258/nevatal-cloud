@@ -13,7 +13,7 @@ func TestExtractActionProposal(t *testing.T) {
 	cfg := &config.Config{
 		OpenRouterModel: "openai/gpt-4o-mini",
 	}
-	svc := NewAIAssistantUsecase(AIAssistantRepos{}, cfg, nil, nil, nil)
+	svc := NewAIAssistantUsecase(AIAssistantRepos{}, cfg, nil, nil, nil, nil)
 
 	mockTplID := uuid.New()
 	pCtx := &AIPlatformContext{
@@ -79,7 +79,7 @@ func TestExtractActionProposal(t *testing.T) {
 
 func TestGenerateLocalFallback(t *testing.T) {
 	cfg := &config.Config{}
-	svc := NewAIAssistantUsecase(AIAssistantRepos{}, cfg, nil, nil, nil)
+	svc := NewAIAssistantUsecase(AIAssistantRepos{}, cfg, nil, nil, nil, nil)
 
 	mockTplID := uuid.New()
 	pCtx := &AIPlatformContext{

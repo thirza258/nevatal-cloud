@@ -90,6 +90,15 @@ services:
       DATABASE_URL: *database-url
       DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS:-}
       DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS:-}
+      # AI orchestrator engine + provisioning-job durability (empty = code defaults,
+      # see docs/ORCHESTRATOR.md section 4).
+      ORCH_CONCURRENCY: ${ORCH_CONCURRENCY:-}
+      ORCH_LEASE_SECONDS: ${ORCH_LEASE_SECONDS:-}
+      ORCH_HEARTBEAT_SECONDS: ${ORCH_HEARTBEAT_SECONDS:-}
+      ORCH_POLL_MS: ${ORCH_POLL_MS:-}
+      ORCH_RETRY_BASE_MS: ${ORCH_RETRY_BASE_MS:-}
+      JOB_HEARTBEAT_SECONDS: ${JOB_HEARTBEAT_SECONDS:-}
+      JOB_STALE_AFTER_SECONDS: ${JOB_STALE_AFTER_SECONDS:-}
       JWT_SECRET: ${JWT_SECRET:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}

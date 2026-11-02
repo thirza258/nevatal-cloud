@@ -334,8 +334,7 @@ func TestVerificationSummarize(t *testing.T) {
 
 func TestRecoveryOptions(t *testing.T) {
 	tasks := []models.AIExecutionTask{{Status: models.TaskSucceeded, Risk: RiskMedium}, {Status: models.TaskFailed, Risk: RiskMedium}}
-	report := &Report{Resources: []ReportResource{{Type: TypeVPS, Status: "running"}}}
-	opts := RecoveryOptions(models.ExecPartiallyCompleted, tasks, report)
+	opts := RecoveryOptions(models.ExecPartiallyCompleted, tasks, true)
 	actions := []string{}
 	for _, o := range opts {
 		actions = append(actions, o.Action)
@@ -346,8 +345,17 @@ func TestRecoveryOptions(t *testing.T) {
 	if strings.Join(actions, ",") != "retry_failed,keep,delete_created" {
 		t.Fatalf("options = %v", actions)
 	}
-	if len(RecoveryOptions(models.ExecCompleted, tasks, report)) != 0 {
+	if len(RecoveryOptions(models.ExecCompleted, tasks, true)) != 0 {
 		t.Error("a completed execution has no recovery options")
+	}
+	// Nothing created (or all of it deleted): no delete_created.
+	for _, o := range RecoveryOptions(models.ExecPartiallyCompleted, tasks, false) {
+		if o.Action == RecoveryDeleteCreated {
+			t.Error("delete_created offered without created resources")
+		}
+	}
+	if got := WithoutDeleteCreated(opts); len(got) != 2 || got[0].Action != RecoveryRetryFailed || got[1].Action != RecoveryKeep {
+		t.Errorf("WithoutDeleteCreated = %v", got)
 	}
 	if failureStatus(tasks) != models.ExecPartiallyCompleted {
 		t.Error("a succeeded write task makes the execution partially completed")

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nevatal/cloud/internal/config"
 	"github.com/nevatal/cloud/internal/models"
+	"github.com/nevatal/cloud/internal/orchestrator"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -665,6 +667,32 @@ func seedMCPServers(db *gorm.DB, demo bool) error {
 		var existing models.MCPTool
 		if err := db.Where("server_id = ? AND name = ?", coreServer.ID, tool.Name).First(&existing).Error; err != nil {
 			_ = db.Create(&tool)
+		}
+	}
+
+	// The orchestrator registry tools (what tools/list serves) are tools of
+	// the first-party server too, so a connection can grant or revoke them
+	// (mcp_permissions). Kept in sync with the registry on every start.
+	for _, def := range orchestrator.DefaultRegistry().List() {
+		schema, _ := json.Marshal(def.InputSchema)
+		tool := models.MCPTool{
+			ServerID:    coreServer.ID,
+			Name:        def.ID,
+			Description: def.Description,
+			RiskLevel:   mcpRiskLevel(def.Risk),
+			InputSchema: string(schema),
+			Enabled:     true,
+			CreatedAt:   now,
+		}
+		var existing models.MCPTool
+		if err := db.Where("server_id = ? AND name = ?", coreServer.ID, def.ID).First(&existing).Error; err != nil {
+			_ = db.Create(&tool)
+			continue
+		}
+		if existing.Description != tool.Description || existing.RiskLevel != tool.RiskLevel || existing.InputSchema != tool.InputSchema {
+			_ = db.Model(&existing).Updates(map[string]any{
+				"description": tool.Description, "risk_level": tool.RiskLevel, "input_schema": tool.InputSchema,
+			}).Error
 		}
 	}
 
@@ -1435,4 +1463,17 @@ func seedAndroidCloud(db *gorm.DB, demo bool) error {
 
 	log.Println("Seeded Android Waydroid images, worker nodes, and demo instance.")
 	return nil
+}
+
+// mcpRiskLevel maps an orchestrator risk to the mcp_tools vocabulary
+// (read, write, destructive).
+func mcpRiskLevel(risk string) string {
+	switch risk {
+	case orchestrator.RiskRead, orchestrator.RiskLow:
+		return "read"
+	case orchestrator.RiskDestructive:
+		return "destructive"
+	default:
+		return "write"
+	}
 }
