@@ -167,8 +167,24 @@ func TestReadRequestsNeverStartAPlan(t *testing.T) {
 		"I want to create a VPS for my Go API":   false,
 		"Deploy an Ubuntu 24.04 server":          false,
 	} {
-		if got := isReadRequest(strings.ToLower(msg)); got != want {
+		if got := isReadRequest(strings.ToLower(msg), nil); got != want {
 			t.Errorf("isReadRequest(%q) = %v, want %v", msg, got, want)
+		}
+	}
+	// No keyword, but it names one of the caller's instances: a status question.
+	owned := func() []string { return []string{"web-01"} }
+	for msg, want := range map[string]bool{
+		"is web-01 running":                     true,
+		"is web-01 up":                          true,
+		"web-01?":                               true,
+		"is web-011 up":                         false,
+		"a vps running nginx":                   false,
+		"stop web-01":                           false,
+		"why is web-01 down":                    false,
+		"create a vps like web-01 named web-02": false,
+	} {
+		if got := isReadRequest(strings.ToLower(msg), owned); got != want {
+			t.Errorf("isReadRequest(%q, owned) = %v, want %v", msg, got, want)
 		}
 	}
 }

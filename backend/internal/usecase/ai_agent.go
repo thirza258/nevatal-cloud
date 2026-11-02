@@ -265,7 +265,7 @@ func (s *AIAgentUsecase) ProcessUserMessage(
 	// status of web-01") are answered with read tools. They never start or
 	// change a plan, and the conversation's workflow is left as it was.
 	// Structured answers to the planner's questions are never read requests.
-	if input.AnswerKey == "" && len(input.Answers) == 0 && isReadRequest(msgLower) {
+	if input.AnswerKey == "" && len(input.Answers) == 0 && isReadRequest(msgLower, func() []string { return s.instanceNames(ctx, userID) }) {
 		assistantReply = s.answerReadRequest(ctx, userID, msgLower, quotaUsage, clientIP)
 		return s.finishTurn(ctx, conv, convState, reqs, convID, userID, assistantReply, uiPayload, planProposal, newPlanID)
 	}
@@ -1614,12 +1614,66 @@ var readQuestionWords = []string{
 var readTroubleWords = []string{"why", "error", "fail", "troubleshoot", "debug", "broken", "not working", "can't", "cannot"}
 
 // isReadRequest reports whether a message only asks to see existing
-// resources or their status (no create/change verb, no troubleshooting).
-func isReadRequest(msg string) bool {
+// resources or their status: it has no create/change verb and no
+// troubleshooting word, and it either asks a list/show/status question or
+// names one of the caller's instances ("is web-01 up"). ownedNames is only
+// called in that last case.
+func isReadRequest(msg string, ownedNames func() []string) bool {
 	if containsAny(msg, readActionWords...) || containsAny(msg, readTroubleWords...) {
 		return false
 	}
-	return containsAny(msg, readQuestionWords...)
+	if containsAny(msg, readQuestionWords...) {
+		return true
+	}
+	if ownedNames != nil {
+		for _, name := range ownedNames() {
+			if mentionsName(msg, name) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// instanceNames returns the names of the caller's instances.
+func (s *AIAgentUsecase) instanceNames(ctx context.Context, userID uuid.UUID) []string {
+	if s.instanceService == nil {
+		return nil
+	}
+	list, err := s.instanceService.List(ctx, userID, false, "")
+	if err != nil {
+		return nil
+	}
+	names := make([]string, 0, len(list))
+	for _, inst := range list {
+		names = append(names, inst.Name)
+	}
+	return names
+}
+
+// mentionsName reports whether msg (lower case) contains name as a whole
+// word: "web-01" matches "is web-01 up?" but not "web-011".
+func mentionsName(msg, name string) bool {
+	name = strings.ToLower(name)
+	if name == "" {
+		return false
+	}
+	isNameChar := func(c byte) bool {
+		return c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '_'
+	}
+	for i := 0; i < len(msg); {
+		j := strings.Index(msg[i:], name)
+		if j < 0 {
+			return false
+		}
+		j += i
+		end := j + len(name)
+		if (j == 0 || !isNameChar(msg[j-1])) && (end == len(msg) || !isNameChar(msg[end])) {
+			return true
+		}
+		i = j + 1
+	}
+	return false
 }
 
 // answerReadRequest answers a read request with the registry's read tools
@@ -1663,7 +1717,7 @@ func (s *AIAgentUsecase) answerReadRequest(ctx context.Context, userID uuid.UUID
 	for _, it := range items {
 		name, _ := it["name"].(string)
 		id, _ := it["instance_id"].(string)
-		if name == "" || !strings.Contains(msg, strings.ToLower(name)) {
+		if !mentionsName(msg, name) {
 			continue
 		}
 		st, err := s.orch.CallTool(ctx, userID, false, orchestrator.ToolVPSStatus, map[string]any{"instance_id": id}, clientIP)

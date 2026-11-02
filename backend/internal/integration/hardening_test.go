@@ -212,9 +212,11 @@ func TestChatReadRequestsNeverPlan(t *testing.T) {
 			t.Fatalf("%q: %v", msg, d)
 		}
 	}
-	d := send("what is the status of read-01")
-	if c := content(d); !strings.Contains(c, "read-01") || !strings.Contains(c, "running") {
-		t.Fatalf("status answer: %q", c)
+	for _, msg := range []string{"what is the status of read-01", "is read-01 running", "is read-01 up"} {
+		d := send(msg)
+		if c := content(d); d["plan_id"] != nil || !strings.Contains(c, "read-01") || !strings.Contains(c, "running") {
+			t.Fatalf("%q: %v", msg, d)
+		}
 	}
 	if n := countPlans(t, u.id); n != 0 {
 		t.Fatalf("read requests created %d plan(s)", n)

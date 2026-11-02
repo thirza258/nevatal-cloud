@@ -61,6 +61,11 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onNavigate }) => {
   const [actionSuccess, setActionSuccess] = useState<{ [key: string]: string }>({});
   const [actionError, setActionError] = useState<{ [key: string]: string }>({});
 
+  // Clear history: inline two-step confirmation and error (no browser dialogs).
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
+
   // Mode Filter
   const [activeTab, setActiveTab] = useState<'all' | 'containers' | 'support'>('all');
 
@@ -219,13 +224,17 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onNavigate }) => {
 
   // Clear Chat History
   const handleClearHistory = async () => {
-    if (!window.confirm('Are you sure you want to clear your AI Assistant chat history?')) return;
+    setClearing(true);
+    setClearError(null);
     try {
       await apiRequest('/ai-assistant/history', { method: 'DELETE' });
       setMessages([]);
+      setConfirmClear(false);
       loadData();
     } catch (err: any) {
-      alert(`Failed to clear history: ${err.message}`);
+      setClearError(`Failed to clear history: ${err?.message || 'unknown error'}`);
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -378,16 +387,52 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onNavigate }) => {
               </span>
             </button>
 
-            {/* Clear History */}
-            <button
-              onClick={handleClearHistory}
-              title="Clear Conversation"
-              className="p-2 rounded-xl bg-slate-800/80 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 border border-slate-700/80 transition cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            {/* Clear History (two-step: the first click asks inline) */}
+            {confirmClear ? (
+              <div className="flex items-center gap-1.5 text-[11px]" role="group" aria-label="Confirm clearing the chat history">
+                <span className="text-slate-300">Clear chat history?</span>
+                <button
+                  onClick={handleClearHistory}
+                  disabled={clearing}
+                  className="px-2 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 font-semibold transition cursor-pointer disabled:opacity-50"
+                >
+                  {clearing ? 'Clearing...' : 'Clear'}
+                </button>
+                <button
+                  onClick={() => {
+                    setConfirmClear(false);
+                    setClearError(null);
+                  }}
+                  disabled={clearing}
+                  className="px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/80 transition cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setClearError(null);
+                  setConfirmClear(true);
+                }}
+                title="Clear Conversation"
+                className="p-2 rounded-xl bg-slate-800/80 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 border border-slate-700/80 transition cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
+
+        {clearError && (
+          <div
+            role="alert"
+            className="mt-3 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2"
+          >
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{clearError}</span>
+          </div>
+        )}
 
         {/* Quota Glance Bar */}
         {contextData?.quota_usage && (
