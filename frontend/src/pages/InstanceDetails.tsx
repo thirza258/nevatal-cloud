@@ -3,6 +3,8 @@ import { Instance, InstanceMetrics, AuditLog, InstanceSnapshot, ConsoleTicket, Q
 import { apiRequest } from '../lib/api';
 import { StatusBadge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
+import { DockerViewer } from '../components/docker/DockerViewer';
+import { InstanceDomainsCard } from '../components/domains/InstanceDomainsCard';
 import {
   Server,
   ArrowLeft,
@@ -26,6 +28,7 @@ import {
   CheckCircle2,
   AlertCircle,
   HelpCircle,
+  Container,
 } from 'lucide-react';
 
 interface InstanceDetailsProps {
@@ -42,7 +45,7 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
   const [actionLoading, setActionLoading] = useState(false);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'overview' | 'console' | 'snapshots' | 'resize'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'console' | 'snapshots' | 'resize' | 'docker'>('overview');
 
   // Deletion modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -392,7 +395,7 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-zinc-800 gap-6 text-xs font-medium">
+      <div className="flex border-b border-zinc-800 gap-6 text-xs font-medium overflow-x-auto whitespace-nowrap">
         <button
           onClick={() => setActiveTab('overview')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition ${
@@ -439,6 +442,18 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
         >
           <Sliders className="w-3.5 h-3.5" />
           <span>Hardware Resize</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('docker')}
+          className={`pb-3 flex items-center gap-2 border-b-2 transition ${
+            activeTab === 'docker'
+              ? 'border-white text-white font-semibold'
+              : 'border-transparent text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          <Container className="w-3.5 h-3.5" />
+          <span>Docker</span>
         </button>
       </div>
 
@@ -718,6 +733,14 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
                 <p>Port: <code className="text-blue-400">22</code></p>
               </div>
             </div>
+
+            {/* Public domains (renders nothing unless Domains is enabled) */}
+            <InstanceDomainsCard
+              instanceId={instance.id}
+              instanceStatus={instance.status}
+              instanceIp={instance.private_ip}
+              onNavigate={onNavigate}
+            />
 
             {/* Events Card */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
@@ -1150,6 +1173,9 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
           </div>
         </div>
       )}
+
+      {/* TAB 5: DOCKER (mounted only while active, so nothing is fetched otherwise) */}
+      {activeTab === 'docker' && <DockerViewer scope="customer" instanceId={instanceId} />}
 
       {/* Delete Confirmation Modal */}
       <Modal

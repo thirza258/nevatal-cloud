@@ -1,0 +1,23 @@
+# Traefik v3 middlewares (CRDs shipped with k3s' bundled Traefik), referenced
+# by the Ingress annotation as <namespace>-<name>@kubernetescrd.
+# Using another ingress controller? Delete this file from the base resources
+# and the router.middlewares annotation from ingress.yaml.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-https
+spec:
+  # No-op for requests that already arrive over HTTPS.
+  redirectScheme:
+    scheme: https
+    permanent: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: hsts
+spec:
+  # HSTS belongs at the TLS terminator (here: Traefik).
+  headers:
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true

@@ -1,0 +1,2413 @@
+{
+ "admin GET /admin/android/images": {
+  "shape": {
+   "data": [
+    {
+     "android_version": "string",
+     "architecture": "string",
+     "checksum_sha256": "string",
+     "created_at": "string",
+     "description": "string",
+     "id": "string",
+     "image_source": "string",
+     "image_type": "string",
+     "is_published": "bool",
+     "is_verified": "bool",
+     "min_cpu": "number",
+     "min_ram_mb": "number",
+     "min_storage_gb": "number",
+     "name": "string",
+     "slug": "string",
+     "system_image_url": "string",
+     "updated_at": "string",
+     "vendor_image_url": "string",
+     "versions": [
+      {
+       "channel": "string",
+       "created_at": "string",
+       "id": "string",
+       "image_id": "string",
+       "is_active": "bool",
+       "release_notes": "string",
+       "system_checksum": "string",
+       "vendor_checksum": "string",
+       "version_tag": "string"
+      }
+     ]
+    }
+   ]
+  },
+  "status": 200
+ },
+ "admin GET /admin/audit-logs": {
+  "shape": {
+   "data": [
+    {
+     "action": "string",
+     "actor": {
+      "auth_provider": "string",
+      "created_at": "string",
+      "display_name": "string",
+      "email": "string",
+      "email_verified_at": "string",
+      "id": "string",
+      "last_login_at": "string",
+      "role": "string",
+      "status": "string",
+      "updated_at": "string"
+     },
+     "actor_user_id": "string",
+     "created_at": "string",
+     "id": "string",
+     "ip_address": "string",
+     "metadata": "string",
+     "resource_id": "string",
+     "resource_type": "string",
+     "result": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "admin GET /admin/instances": {
+  "shape": {
+   "data": [
+    {
+     "created_at": "string",
+     "deleted_at": "null",
+     "disk_gb": "number",
+     "hostname": "string",
+     "id": "string",
+     "memory_mb": "number",
+     "name": "string",
+     "node": {
+      "created_at": "string",
+      "id": "string",
+      "last_health_check_at": "string",
+      "name": "string",
+      "proxmox_node_name": "string",
+      "status": "string",
+      "total_cpu_threads": "number",
+      "total_disk_gb": "number",
+      "total_memory_mb": "number",
+      "updated_at": "string"
+     },
+     "node_id": "string",
+     "os_template": {
+      "architecture": "string",
+      "cloud_init_supported": "bool",
+      "created_at": "string",
+      "default_username": "string",
+      "description": "string",
+      "distribution": "string",
+      "enabled": "bool",
+      "id": "string",
+      "name": "string",
+      "proxmox_template_vmid": "number",
+      "updated_at": "string",
+      "version": "string"
+     },
+     "os_template_id": "string",
+     "owner": {
+      "auth_provider": "string",
+      "created_at": "string",
+      "display_name": "string",
+      "email": "string",
+      "email_verified_at": "string",
+      "id": "string",
+      "last_login_at": "string",
+      "role": "string",
+      "status": "string",
+      "updated_at": "string"
+     },
+     "owner_id": "string",
+     "private_ip": "string",
+     "proxmox_vmid": "number",
+     "public_ip": "null",
+     "ssh_username": "string",
+     "status": "string",
+     "updated_at": "string",
+     "vcpus": "number"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "admin GET /admin/instances/{inst}/docker": {
+  "shape": {
+   "data": {
+    "available": "bool",
+    "containers": [
+     {
+      "command": "string",
+      "created_at": "string",
+      "id": "string",
+      "image": "string",
+      "name": "string",
+      "ports": "string",
+      "state": "string",
+      "status": "string"
+     }
+    ],
+    "docker_version": "string",
+    "fetched_at": "string",
+    "hostname": "string",
+    "instance_id": "string",
+    "node": "string",
+    "reason": "string",
+    "reason_code": "string",
+    "vmid": "number"
+   }
+  },
+  "status": 200
+ },
+ "admin GET /admin/isos": {
+  "shape": {
+   "data": [
+    {
+     "architecture": "string",
+     "category": "string",
+     "created_at": "string",
+     "description": "string",
+     "file_size_bytes": "number",
+     "filename": "string",
+     "id": "string",
+     "name": "string",
+     "proxmox_storage": "string",
+     "proxmox_volume": "string",
+     "sha256": "string",
+     "status": "string",
+     "updated_at": "string",
+     "version": "string",
+     "visibility": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "admin GET /admin/jobs": {
+  "shape": {
+   "data": []
+  },
+  "status": 200
+ },
+ "admin GET /admin/nodes": {
+  "shape": {
+   "data": [
+    {
+     "created_at": "string",
+     "id": "string",
+     "last_health_check_at": "string",
+     "live_status": {
+      "cpu": "number",
+      "kversion": "string",
+      "memory": {
+       "free": "number",
+       "total": "number",
+       "used": "number"
+      },
+      "pveversion": "string",
+      "rootfs": {
+       "free": "number",
+       "total": "number",
+       "used": "number"
+      },
+      "uptime": "number",
+      "wait": "number"
+     },
+     "name": "string",
+     "proxmox_node_name": "string",
+     "status": "string",
+     "storage": [
+      {
+       "active": "number",
+       "avail": "number",
+       "content": "string",
+       "storage": "string",
+       "total": "number",
+       "type": "string",
+       "used": "number"
+      }
+     ],
+     "total_cpu_threads": "number",
+     "total_disk_gb": "number",
+     "total_memory_mb": "number",
+     "updated_at": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "admin GET /admin/overview": {
+  "shape": {
+   "data": {
+    "active_jobs": "number",
+    "failed_jobs": "number",
+    "node": {
+     "created_at": "string",
+     "id": "string",
+     "last_health_check_at": "string",
+     "name": "string",
+     "proxmox_node_name": "string",
+     "status": "string",
+     "total_cpu_threads": "number",
+     "total_disk_gb": "number",
+     "total_memory_mb": "number",
+     "updated_at": "string"
+    },
+    "node_status": {
+     "cpu": "number",
+     "kversion": "string",
+     "memory": {
+      "free": "number",
+      "total": "number",
+      "used": "number"
+     },
+     "pveversion": "string",
+     "rootfs": {
+      "free": "number",
+      "total": "number",
+      "used": "number"
+     },
+     "uptime": "number",
+     "wait": "number"
+    },
+    "running_instances": "number",
+    "stopped_instances": "number",
+    "storage": [
+     {
+      "active": "number",
+      "avail": "number",
+      "content": "string",
+      "storage": "string",
+      "total": "number",
+      "type": "string",
+      "used": "number"
+     }
+    ],
+    "total_instances": "number",
+    "total_users": "number"
+   }
+  },
+  "status": 200
+ },
+ "admin GET /admin/plans": {
+  "shape": {
+   "data": [
+    {
+     "created_at": "string",
+     "description": "string",
+     "disk_gb": "number",
+     "enabled": "bool",
+     "id": "string",
+     "memory_mb": "number",
+     "name": "string",
+     "sort_order": "number",
+     "updated_at": "string",
+     "vcpus": "number"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "admin GET /admin/templates": {
+  "shape": {
+   "data": [
+    {
+     "architecture": "string",
+     "cloud_init_supported": "bool",
+     "created_at": "string",
+     "default_username": "string",
+     "description": "string",
+     "distribution": "string",
+     "enabled": "bool",
+     "id": "string",
+     "name": "string",
+     "proxmox_template_vmid": "number",
+     "updated_at": "string",
+     "version": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "admin GET /admin/users": {
+  "shape": {
+   "data": [
+    {
+     "auth_provider": "string",
+     "created_at": "string",
+     "display_name": "string",
+     "email": "string",
+     "email_verified_at": "string",
+     "id": "string",
+     "last_login_at": "string",
+     "quota": {
+      "created_at": "string",
+      "id": "string",
+      "max_instances": "number",
+      "max_memory_mb": "number",
+      "max_storage_gb": "number",
+      "max_vcpus": "number",
+      "updated_at": "string",
+      "user_id": "string"
+     },
+     "role": "string",
+     "status": "string",
+     "updated_at": "string",
+     "usage": {
+      "max_instances": "number",
+      "max_memory_mb": "number",
+      "max_storage_gb": "number",
+      "max_vcpus": "number",
+      "used_instances": "number",
+      "used_memory_mb": "number",
+      "used_storage_gb": "number",
+      "used_vcpus": "number"
+     }
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /activity": {
+  "shape": {
+   "data": [
+    {
+     "action": "string",
+     "actor": {
+      "auth_provider": "string",
+      "created_at": "string",
+      "display_name": "string",
+      "email": "string",
+      "email_verified_at": "string",
+      "id": "string",
+      "last_login_at": "string",
+      "role": "string",
+      "status": "string",
+      "updated_at": "string"
+     },
+     "actor_user_id": "string",
+     "created_at": "string",
+     "id": "string",
+     "ip_address": "string",
+     "metadata": "string",
+     "resource_id": "string",
+     "resource_type": "string",
+     "result": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /ai-agents/openclaw/instances": {
+  "shape": {
+   "data": [
+    {
+     "active_skills_count": "number",
+     "ai_provider": "string",
+     "cpu_limit": "number",
+     "created_at": "string",
+     "default_model": "string",
+     "gateway_endpoint": "string",
+     "hostname": "string",
+     "id": "string",
+     "integrations": [
+      {
+       "channel": "string",
+       "created_at": "string",
+       "id": "string",
+       "identifier": "string",
+       "openclaw_instance_id": "string",
+       "status": "string",
+       "updated_at": "string"
+      }
+     ],
+     "last_health_check_at": "string",
+     "masked_api_key": "string",
+     "memory_limit_mb": "number",
+     "name": "string",
+     "owner_id": "string",
+     "status": "string",
+     "storage_limit_gb": "number",
+     "storage_used_gb": "number",
+     "total_interactions": "number",
+     "updated_at": "string",
+     "version": "string",
+     "workspace_path": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /ai-agents/openclaw/instances/{oc}": {
+  "shape": {
+   "data": {
+    "active_skills_count": "number",
+    "ai_provider": "string",
+    "cpu_limit": "number",
+    "created_at": "string",
+    "default_model": "string",
+    "gateway_endpoint": "string",
+    "hostname": "string",
+    "id": "string",
+    "integrations": [
+     {
+      "channel": "string",
+      "created_at": "string",
+      "id": "string",
+      "identifier": "string",
+      "openclaw_instance_id": "string",
+      "status": "string",
+      "updated_at": "string"
+     }
+    ],
+    "last_health_check_at": "string",
+    "masked_api_key": "string",
+    "memory_limit_mb": "number",
+    "name": "string",
+    "owner_id": "string",
+    "status": "string",
+    "storage_limit_gb": "number",
+    "storage_used_gb": "number",
+    "total_interactions": "number",
+    "updated_at": "string",
+    "version": "string",
+    "workspace_path": "string"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /ai-agents/openclaw/instances/{oc}/logs": {
+  "shape": {
+   "data": [
+    "string"
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /ai-assistant/context": {
+  "shape": {
+   "data": {
+    "available_models": [
+     {
+      "context_len": "number",
+      "description": "string",
+      "id": "string",
+      "name": "string",
+      "provider": "string"
+     }
+    ],
+    "default_model": "string",
+    "has_server_api_key": "bool",
+    "instances": [
+     {
+      "created_at": "string",
+      "deleted_at": "null",
+      "disk_gb": "number",
+      "hostname": "string",
+      "id": "string",
+      "memory_mb": "number",
+      "name": "string",
+      "node": {
+       "created_at": "string",
+       "id": "string",
+       "last_health_check_at": "string",
+       "name": "string",
+       "proxmox_node_name": "string",
+       "status": "string",
+       "total_cpu_threads": "number",
+       "total_disk_gb": "number",
+       "total_memory_mb": "number",
+       "updated_at": "string"
+      },
+      "node_id": "string",
+      "os_template": {
+       "architecture": "string",
+       "cloud_init_supported": "bool",
+       "created_at": "string",
+       "default_username": "string",
+       "description": "string",
+       "distribution": "string",
+       "enabled": "bool",
+       "id": "string",
+       "name": "string",
+       "proxmox_template_vmid": "number",
+       "updated_at": "string",
+       "version": "string"
+      },
+      "os_template_id": "string",
+      "owner_id": "string",
+      "private_ip": "string",
+      "proxmox_vmid": "number",
+      "public_ip": "null",
+      "ssh_username": "string",
+      "status": "string",
+      "updated_at": "string",
+      "vcpus": "number"
+     }
+    ],
+    "plans": [
+     {
+      "created_at": "string",
+      "description": "string",
+      "disk_gb": "number",
+      "enabled": "bool",
+      "id": "string",
+      "memory_mb": "number",
+      "name": "string",
+      "sort_order": "number",
+      "updated_at": "string",
+      "vcpus": "number"
+     }
+    ],
+    "quota_usage": {
+     "max_instances": "number",
+     "max_memory_mb": "number",
+     "max_storage_gb": "number",
+     "max_vcpus": "number",
+     "used_instances": "number",
+     "used_memory_mb": "number",
+     "used_storage_gb": "number",
+     "used_vcpus": "number"
+    },
+    "ssh_keys": [
+     {
+      "created_at": "string",
+      "fingerprint": "string",
+      "id": "string",
+      "name": "string",
+      "owner_id": "string",
+      "public_key": "string",
+      "updated_at": "string"
+     }
+    ],
+    "templates": [
+     {
+      "architecture": "string",
+      "cloud_init_supported": "bool",
+      "created_at": "string",
+      "default_username": "string",
+      "description": "string",
+      "distribution": "string",
+      "enabled": "bool",
+      "id": "string",
+      "name": "string",
+      "proxmox_template_vmid": "number",
+      "updated_at": "string",
+      "version": "string"
+     }
+    ],
+    "user": {
+     "auth_provider": "string",
+     "created_at": "string",
+     "display_name": "string",
+     "email": "string",
+     "email_verified_at": "string",
+     "id": "string",
+     "last_login_at": "string",
+     "role": "string",
+     "status": "string",
+     "updated_at": "string"
+    }
+   }
+  },
+  "status": 200
+ },
+ "customer GET /ai-assistant/history": {
+  "shape": {
+   "data": []
+  },
+  "status": 200
+ },
+ "customer GET /ai-assistant/models": {
+  "shape": {
+   "data": {
+    "models": [
+     {
+      "context_len": "number",
+      "description": "string",
+      "id": "string",
+      "name": "string",
+      "provider": "string"
+     }
+    ]
+   }
+  },
+  "status": 200
+ },
+ "customer GET /ai/conversations": {
+  "shape": {
+   "data": []
+  },
+  "status": 200
+ },
+ "customer GET /android/images": {
+  "shape": {
+   "data": [
+    {
+     "android_version": "string",
+     "architecture": "string",
+     "checksum_sha256": "string",
+     "created_at": "string",
+     "description": "string",
+     "id": "string",
+     "image_source": "string",
+     "image_type": "string",
+     "is_published": "bool",
+     "is_verified": "bool",
+     "min_cpu": "number",
+     "min_ram_mb": "number",
+     "min_storage_gb": "number",
+     "name": "string",
+     "slug": "string",
+     "system_image_url": "string",
+     "updated_at": "string",
+     "vendor_image_url": "string",
+     "versions": [
+      {
+       "channel": "string",
+       "created_at": "string",
+       "id": "string",
+       "image_id": "string",
+       "is_active": "bool",
+       "release_notes": "string",
+       "system_checksum": "string",
+       "vendor_checksum": "string",
+       "version_tag": "string"
+      }
+     ]
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /android/images/{aimg}": {
+  "shape": {
+   "data": {
+    "android_version": "string",
+    "architecture": "string",
+    "checksum_sha256": "string",
+    "created_at": "string",
+    "description": "string",
+    "id": "string",
+    "image_source": "string",
+    "image_type": "string",
+    "is_published": "bool",
+    "is_verified": "bool",
+    "min_cpu": "number",
+    "min_ram_mb": "number",
+    "min_storage_gb": "number",
+    "name": "string",
+    "slug": "string",
+    "system_image_url": "string",
+    "updated_at": "string",
+    "vendor_image_url": "string",
+    "versions": [
+     {
+      "channel": "string",
+      "created_at": "string",
+      "id": "string",
+      "image_id": "string",
+      "is_active": "bool",
+      "release_notes": "string",
+      "system_checksum": "string",
+      "vendor_checksum": "string",
+      "version_tag": "string"
+     }
+    ]
+   }
+  },
+  "status": 200
+ },
+ "customer GET /android/instances": {
+  "shape": {
+   "data": [
+    {
+     "access_url": "string",
+     "adb_enabled": "bool",
+     "adb_port": "number",
+     "applications": [
+      {
+       "app_name": "string",
+       "file_size_bytes": "number",
+       "id": "string",
+       "installed_at": "string",
+       "instance_id": "string",
+       "is_running": "bool",
+       "is_system_app": "bool",
+       "package_name": "string",
+       "version_code": "number",
+       "version_name": "string"
+      }
+     ],
+     "auto_backup_enabled": "bool",
+     "backup_schedule": "string",
+     "backups": [
+      {
+       "backup_name": "string",
+       "backup_type": "string",
+       "checksum_sha256": "string",
+       "created_at": "string",
+       "file_size_bytes": "number",
+       "id": "string",
+       "instance_id": "string",
+       "is_automated": "bool",
+       "retention_days": "number",
+       "status": "string",
+       "storage_path": "string",
+       "user_id": "string"
+      }
+     ],
+     "cpu_percent": "number",
+     "created_at": "string",
+     "display_density": "number",
+     "display_resolution": "string",
+     "gateway_port": "number",
+     "id": "string",
+     "image": {
+      "android_version": "string",
+      "architecture": "string",
+      "checksum_sha256": "string",
+      "created_at": "string",
+      "description": "string",
+      "id": "string",
+      "image_source": "string",
+      "image_type": "string",
+      "is_published": "bool",
+      "is_verified": "bool",
+      "min_cpu": "number",
+      "min_ram_mb": "number",
+      "min_storage_gb": "number",
+      "name": "string",
+      "slug": "string",
+      "system_image_url": "string",
+      "updated_at": "string",
+      "vendor_image_url": "string"
+     },
+     "image_id": "string",
+     "ip_address": "string",
+     "memory_mb": "number",
+     "memory_usage_mb": "number",
+     "name": "string",
+     "orientation": "string",
+     "owner_id": "string",
+     "persistence_enabled": "bool",
+     "plan_name": "string",
+     "remote_access_type": "string",
+     "session_token": "string",
+     "slug": "string",
+     "status": "string",
+     "storage_gb": "number",
+     "storage_usage_gb": "number",
+     "updated_at": "string",
+     "uptime_seconds": "number",
+     "vcpus": "number",
+     "worker_node": {
+      "active_instances_count": "number",
+      "binder_status": "string",
+      "created_at": "string",
+      "id": "string",
+      "ip_address": "string",
+      "kernel_version": "string",
+      "last_health_check_at": "string",
+      "name": "string",
+      "proxmox_node_name": "string",
+      "status": "string",
+      "total_cpu_cores": "number",
+      "total_memory_mb": "number",
+      "total_storage_gb": "number",
+      "updated_at": "string"
+     },
+     "worker_node_id": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /android/instances/{andr}": {
+  "shape": {
+   "data": {
+    "access_url": "string",
+    "adb_enabled": "bool",
+    "adb_port": "number",
+    "applications": [
+     {
+      "app_name": "string",
+      "file_size_bytes": "number",
+      "id": "string",
+      "installed_at": "string",
+      "instance_id": "string",
+      "is_running": "bool",
+      "is_system_app": "bool",
+      "package_name": "string",
+      "version_code": "number",
+      "version_name": "string"
+     }
+    ],
+    "auto_backup_enabled": "bool",
+    "backup_schedule": "string",
+    "backups": [
+     {
+      "backup_name": "string",
+      "backup_type": "string",
+      "checksum_sha256": "string",
+      "created_at": "string",
+      "file_size_bytes": "number",
+      "id": "string",
+      "instance_id": "string",
+      "is_automated": "bool",
+      "retention_days": "number",
+      "status": "string",
+      "storage_path": "string",
+      "user_id": "string"
+     }
+    ],
+    "cpu_percent": "number",
+    "created_at": "string",
+    "display_density": "number",
+    "display_resolution": "string",
+    "gateway_port": "number",
+    "id": "string",
+    "image": {
+     "android_version": "string",
+     "architecture": "string",
+     "checksum_sha256": "string",
+     "created_at": "string",
+     "description": "string",
+     "id": "string",
+     "image_source": "string",
+     "image_type": "string",
+     "is_published": "bool",
+     "is_verified": "bool",
+     "min_cpu": "number",
+     "min_ram_mb": "number",
+     "min_storage_gb": "number",
+     "name": "string",
+     "slug": "string",
+     "system_image_url": "string",
+     "updated_at": "string",
+     "vendor_image_url": "string"
+    },
+    "image_id": "string",
+    "ip_address": "string",
+    "memory_mb": "number",
+    "memory_usage_mb": "number",
+    "name": "string",
+    "orientation": "string",
+    "owner_id": "string",
+    "persistence_enabled": "bool",
+    "plan_name": "string",
+    "remote_access_type": "string",
+    "session_token": "string",
+    "sessions": [
+     {
+      "access_type": "string",
+      "client_ip": "string",
+      "expires_at": "string",
+      "id": "string",
+      "instance_id": "string",
+      "is_active": "bool",
+      "session_token": "string",
+      "started_at": "string",
+      "user_id": "string"
+     }
+    ],
+    "slug": "string",
+    "status": "string",
+    "storage_gb": "number",
+    "storage_usage_gb": "number",
+    "updated_at": "string",
+    "uptime_seconds": "number",
+    "vcpus": "number",
+    "worker_node": {
+     "active_instances_count": "number",
+     "binder_status": "string",
+     "created_at": "string",
+     "id": "string",
+     "ip_address": "string",
+     "kernel_version": "string",
+     "last_health_check_at": "string",
+     "name": "string",
+     "proxmox_node_name": "string",
+     "status": "string",
+     "total_cpu_cores": "number",
+     "total_memory_mb": "number",
+     "total_storage_gb": "number",
+     "updated_at": "string"
+    },
+    "worker_node_id": "string"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /android/instances/{andr}/applications": {
+  "shape": {
+   "data": [
+    {
+     "app_name": "string",
+     "file_size_bytes": "number",
+     "id": "string",
+     "installed_at": "string",
+     "instance_id": "string",
+     "is_running": "bool",
+     "is_system_app": "bool",
+     "package_name": "string",
+     "version_code": "number",
+     "version_name": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /android/instances/{andr}/backups": {
+  "shape": {
+   "data": [
+    {
+     "backup_name": "string",
+     "backup_type": "string",
+     "checksum_sha256": "string",
+     "created_at": "string",
+     "file_size_bytes": "number",
+     "id": "string",
+     "instance_id": "string",
+     "is_automated": "bool",
+     "retention_days": "number",
+     "status": "string",
+     "storage_path": "string",
+     "user_id": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /android/instances/{andr}/logs": {
+  "shape": {
+   "data": {
+    "logs": [
+     "string"
+    ]
+   }
+  },
+  "status": 200
+ },
+ "customer GET /android/instances/{andr}/metrics": {
+  "shape": {
+   "data": {
+    "active_sessions": "number",
+    "cpu_usage_percent": "number",
+    "disk_total_gb": "number",
+    "disk_used_gb": "number",
+    "display_health": "string",
+    "memory_total_mb": "number",
+    "memory_usage_percent": "number",
+    "memory_used_mb": "number",
+    "timestamp": "string",
+    "uptime_seconds": "number",
+    "worker_health": "string"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /android/instances/{andr}/sessions": {
+  "shape": {
+   "data": [
+    {
+     "access_type": "string",
+     "client_ip": "string",
+     "expires_at": "string",
+     "id": "string",
+     "instance_id": "string",
+     "is_active": "bool",
+     "session_token": "string",
+     "started_at": "string",
+     "user_id": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /android/plans": {
+  "shape": {
+   "data": [
+    {
+     "default_density": "number",
+     "default_resolution": "string",
+     "id": "string",
+     "memory_mb": "number",
+     "name": "string",
+     "price_monthly": "number",
+     "storage_gb": "number",
+     "suggested_use": "string",
+     "vcpus": "number"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /apps": {
+  "shape": {
+   "data": [
+    {
+     "application_port": "number",
+     "application_type": "string",
+     "assigned_subdomain": "string",
+     "build_command": "string",
+     "created_at": "string",
+     "deployment_source_type": "string",
+     "deployments": [
+      {
+       "application_id": "string",
+       "artifact_reference": "string",
+       "build_logs": "string",
+       "commit_message": "string",
+       "completed_at": "string",
+       "created_at": "string",
+       "id": "string",
+       "runtime_image_digest": "string",
+       "source_branch": "string",
+       "source_commit": "string",
+       "started_at": "string",
+       "status": "string"
+      }
+     ],
+     "disk_gb": "number",
+     "health_check_path": "string",
+     "id": "string",
+     "memory_mb": "number",
+     "name": "string",
+     "output_directory": "string",
+     "owner_id": "string",
+     "production_branch": "string",
+     "repository_url": "string",
+     "root_directory": "string",
+     "slug": "string",
+     "start_command": "string",
+     "status": "string",
+     "updated_at": "string",
+     "vcpus": "number"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /apps/{app}": {
+  "shape": {
+   "data": {
+    "application_port": "number",
+    "application_type": "string",
+    "assigned_subdomain": "string",
+    "build_command": "string",
+    "created_at": "string",
+    "deployment_source_type": "string",
+    "deployments": [
+     {
+      "application_id": "string",
+      "artifact_reference": "string",
+      "build_logs": "string",
+      "commit_message": "string",
+      "completed_at": "string",
+      "created_at": "string",
+      "id": "string",
+      "runtime_image_digest": "string",
+      "source_branch": "string",
+      "source_commit": "string",
+      "started_at": "string",
+      "status": "string"
+     }
+    ],
+    "disk_gb": "number",
+    "env_vars": [
+     {
+      "application_id": "string",
+      "created_at": "string",
+      "id": "string",
+      "is_secret": "bool",
+      "key": "string",
+      "updated_at": "string",
+      "value": "string"
+     }
+    ],
+    "health_check_path": "string",
+    "id": "string",
+    "memory_mb": "number",
+    "name": "string",
+    "output_directory": "string",
+    "owner_id": "string",
+    "production_branch": "string",
+    "repository_url": "string",
+    "root_directory": "string",
+    "slug": "string",
+    "start_command": "string",
+    "status": "string",
+    "updated_at": "string",
+    "vcpus": "number"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /apps/{app}/env": {
+  "shape": {
+   "data": [
+    {
+     "application_id": "string",
+     "created_at": "string",
+     "id": "string",
+     "is_secret": "bool",
+     "key": "string",
+     "updated_at": "string",
+     "value": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /auth/me": {
+  "shape": {
+   "data": {
+    "auth_provider": "string",
+    "created_at": "string",
+    "display_name": "string",
+    "email": "string",
+    "email_verified_at": "string",
+    "id": "string",
+    "last_login_at": "string",
+    "quota": {
+     "created_at": "string",
+     "id": "string",
+     "max_instances": "number",
+     "max_memory_mb": "number",
+     "max_storage_gb": "number",
+     "max_vcpus": "number",
+     "updated_at": "string",
+     "user_id": "string"
+    },
+    "role": "string",
+    "status": "string",
+    "updated_at": "string"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /auth/oauth/urls": {
+  "shape": {
+   "data": {
+    "demo_mode": "bool",
+    "github": {
+     "client_id": "string",
+     "configured": "bool"
+    },
+    "google": {
+     "client_id": "string",
+     "configured": "bool"
+    }
+   }
+  },
+  "status": 200
+ },
+ "customer GET /automation/instances": {
+  "shape": {
+   "data": [
+    {
+     "active_workflows_count": "number",
+     "backups": [
+      {
+       "automation_instance_id": "string",
+       "backup_reference": "string",
+       "created_at": "string",
+       "id": "string",
+       "name": "string",
+       "size_bytes": "number",
+       "status": "string"
+      }
+     ],
+     "cpu_limit": "number",
+     "created_at": "string",
+     "dashboard_url": "string",
+     "database_name": "string",
+     "hostname": "string",
+     "id": "string",
+     "last_health_check_at": "string",
+     "memory_limit_mb": "number",
+     "n8n_version": "string",
+     "name": "string",
+     "owner_id": "string",
+     "status": "string",
+     "storage_limit_gb": "number",
+     "storage_used_gb": "number",
+     "total_executions": "number",
+     "updated_at": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /automation/instances/{n8n}": {
+  "shape": {
+   "data": {
+    "active_workflows_count": "number",
+    "backups": [
+     {
+      "automation_instance_id": "string",
+      "backup_reference": "string",
+      "created_at": "string",
+      "id": "string",
+      "name": "string",
+      "size_bytes": "number",
+      "status": "string"
+     }
+    ],
+    "cpu_limit": "number",
+    "created_at": "string",
+    "dashboard_url": "string",
+    "database_name": "string",
+    "hostname": "string",
+    "id": "string",
+    "last_health_check_at": "string",
+    "memory_limit_mb": "number",
+    "n8n_version": "string",
+    "name": "string",
+    "owner_id": "string",
+    "status": "string",
+    "storage_limit_gb": "number",
+    "storage_used_gb": "number",
+    "total_executions": "number",
+    "updated_at": "string"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /automation/instances/{n8n}/logs": {
+  "shape": {
+   "data": [
+    "string"
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /dashboard": {
+  "shape": {
+   "data": {
+    "instances": {
+     "provisioning": "number",
+     "running": "number",
+     "stopped": "number",
+     "total": "number"
+    },
+    "recent_activity": [
+     {
+      "action": "string",
+      "actor": {
+       "auth_provider": "string",
+       "created_at": "string",
+       "display_name": "string",
+       "email": "string",
+       "email_verified_at": "string",
+       "id": "string",
+       "last_login_at": "string",
+       "role": "string",
+       "status": "string",
+       "updated_at": "string"
+      },
+      "actor_user_id": "string",
+      "created_at": "string",
+      "id": "string",
+      "ip_address": "string",
+      "metadata": "string",
+      "resource_id": "string",
+      "resource_type": "string",
+      "result": "string"
+     }
+    ],
+    "recent_instances": [
+     {
+      "created_at": "string",
+      "deleted_at": "null",
+      "disk_gb": "number",
+      "hostname": "string",
+      "id": "string",
+      "memory_mb": "number",
+      "name": "string",
+      "node_id": "string",
+      "os_template": {
+       "architecture": "string",
+       "cloud_init_supported": "bool",
+       "created_at": "string",
+       "default_username": "string",
+       "description": "string",
+       "distribution": "string",
+       "enabled": "bool",
+       "id": "string",
+       "name": "string",
+       "proxmox_template_vmid": "number",
+       "updated_at": "string",
+       "version": "string"
+      },
+      "os_template_id": "string",
+      "owner_id": "string",
+      "private_ip": "string",
+      "proxmox_vmid": "number",
+      "public_ip": "null",
+      "ssh_username": "string",
+      "status": "string",
+      "updated_at": "string",
+      "vcpus": "number"
+     }
+    ],
+    "usage": {
+     "max_instances": "number",
+     "max_memory_mb": "number",
+     "max_storage_gb": "number",
+     "max_vcpus": "number",
+     "used_instances": "number",
+     "used_memory_mb": "number",
+     "used_storage_gb": "number",
+     "used_vcpus": "number"
+    }
+   }
+  },
+  "status": 200
+ },
+ "customer GET /game-servers": {
+  "shape": {
+   "data": [
+    {
+     "assigned_port": "number",
+     "auto_backup_enabled": "bool",
+     "cpu_cores": "number",
+     "created_at": "string",
+     "game_type": "string",
+     "game_version": "string",
+     "id": "string",
+     "last_health_check_at": "string",
+     "memory_mb": "number",
+     "motd": "string",
+     "mspt": "number",
+     "name": "string",
+     "node_name": "string",
+     "online_player_count": "number",
+     "owner_id": "string",
+     "plan_name": "string",
+     "player_slots": "number",
+     "players": [
+      {
+       "first_joined_at": "string",
+       "id": "string",
+       "is_banned": "bool",
+       "is_online": "bool",
+       "is_operator": "bool",
+       "is_whitelisted": "bool",
+       "last_seen_at": "string",
+       "player_name": "string",
+       "server_id": "string"
+      }
+     ],
+     "ports": [
+      {
+       "allocated_at": "string",
+       "id": "string",
+       "is_allocated": "bool",
+       "node_name": "string",
+       "port_number": "number",
+       "protocol": "string",
+       "server_id": "string",
+       "service_type": "string"
+      }
+     ],
+     "proxmox_vmid": "number",
+     "public_address": "string",
+     "query_port": "number",
+     "server_software": "string",
+     "slug": "string",
+     "status": "string",
+     "storage_gb": "number",
+     "tps": "number",
+     "updated_at": "string",
+     "uptime_seconds": "number",
+     "worlds": [
+      {
+       "created_at": "string",
+       "difficulty": "string",
+       "id": "string",
+       "is_active": "bool",
+       "server_id": "string",
+       "size_bytes": "number",
+       "updated_at": "string",
+       "world_name": "string",
+       "world_size": "string"
+      }
+     ]
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/plans": {
+  "shape": {
+   "data": [
+    {
+     "id": "string",
+     "max_players": "number",
+     "memory_mb": "number",
+     "name": "string",
+     "price_monthly": "number",
+     "storage_gb": "number",
+     "suggested_use": "string",
+     "vcpus": "number"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/templates": {
+  "shape": {
+   "data": [
+    {
+     "created_at": "string",
+     "default_config": "string",
+     "description": "string",
+     "enabled": "bool",
+     "game_type": "string",
+     "id": "string",
+     "is_modded": "bool",
+     "min_cpu": "number",
+     "min_ram_mb": "number",
+     "min_storage_gb": "number",
+     "name": "string",
+     "server_software": "string",
+     "slug": "string",
+     "supported_versions": "string",
+     "updated_at": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/versions": {
+  "shape": {
+   "data": [
+    {
+     "enabled": "bool",
+     "game_type": "string",
+     "id": "string",
+     "is_latest_stable": "bool",
+     "java_version": "string",
+     "release_date": "string",
+     "server_software": "string",
+     "version_string": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/{gs}": {
+  "shape": {
+   "data": {
+    "assigned_port": "number",
+    "auto_backup_enabled": "bool",
+    "cpu_cores": "number",
+    "created_at": "string",
+    "game_type": "string",
+    "game_version": "string",
+    "id": "string",
+    "last_health_check_at": "string",
+    "memory_mb": "number",
+    "motd": "string",
+    "mspt": "number",
+    "name": "string",
+    "node_name": "string",
+    "online_player_count": "number",
+    "owner_id": "string",
+    "plan_name": "string",
+    "player_slots": "number",
+    "players": [
+     {
+      "first_joined_at": "string",
+      "id": "string",
+      "is_banned": "bool",
+      "is_online": "bool",
+      "is_operator": "bool",
+      "is_whitelisted": "bool",
+      "last_seen_at": "string",
+      "player_name": "string",
+      "server_id": "string"
+     }
+    ],
+    "ports": [
+     {
+      "allocated_at": "string",
+      "id": "string",
+      "is_allocated": "bool",
+      "node_name": "string",
+      "port_number": "number",
+      "protocol": "string",
+      "server_id": "string",
+      "service_type": "string"
+     }
+    ],
+    "proxmox_vmid": "number",
+    "public_address": "string",
+    "query_port": "number",
+    "server_software": "string",
+    "slug": "string",
+    "status": "string",
+    "storage_gb": "number",
+    "tps": "number",
+    "updated_at": "string",
+    "uptime_seconds": "number",
+    "worlds": [
+     {
+      "created_at": "string",
+      "difficulty": "string",
+      "id": "string",
+      "is_active": "bool",
+      "server_id": "string",
+      "size_bytes": "number",
+      "updated_at": "string",
+      "world_name": "string",
+      "world_size": "string"
+     }
+    ]
+   }
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/{gs}/backups": {
+  "shape": {
+   "data": []
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/{gs}/configuration": {
+  "shape": {
+   "data": {}
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/{gs}/logs": {
+  "shape": {
+   "data": [
+    "string"
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/{gs}/metrics": {
+  "shape": {
+   "data": {
+    "cpu_usage_percent": "number",
+    "disk_total_gb": "number",
+    "disk_used_gb": "number",
+    "memory_total_mb": "number",
+    "memory_usage_percent": "number",
+    "memory_used_mb": "number",
+    "mspt": "number",
+    "online_player_count": "number",
+    "timestamp": "string",
+    "tps": "number",
+    "uptime_seconds": "number"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/{gs}/mods": {
+  "shape": {
+   "data": []
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/{gs}/players": {
+  "shape": {
+   "data": [
+    {
+     "first_joined_at": "string",
+     "id": "string",
+     "is_banned": "bool",
+     "is_online": "bool",
+     "is_operator": "bool",
+     "is_whitelisted": "bool",
+     "last_seen_at": "string",
+     "player_name": "string",
+     "server_id": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/{gs}/plugins": {
+  "shape": {
+   "data": []
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/{gs}/status": {
+  "shape": {
+   "data": {
+    "assigned_port": "number",
+    "auto_backup_enabled": "bool",
+    "cpu_cores": "number",
+    "created_at": "string",
+    "game_type": "string",
+    "game_version": "string",
+    "id": "string",
+    "last_health_check_at": "string",
+    "memory_mb": "number",
+    "motd": "string",
+    "mspt": "number",
+    "name": "string",
+    "node_name": "string",
+    "online_player_count": "number",
+    "owner_id": "string",
+    "plan_name": "string",
+    "player_slots": "number",
+    "players": [
+     {
+      "first_joined_at": "string",
+      "id": "string",
+      "is_banned": "bool",
+      "is_online": "bool",
+      "is_operator": "bool",
+      "is_whitelisted": "bool",
+      "last_seen_at": "string",
+      "player_name": "string",
+      "server_id": "string"
+     }
+    ],
+    "ports": [
+     {
+      "allocated_at": "string",
+      "id": "string",
+      "is_allocated": "bool",
+      "node_name": "string",
+      "port_number": "number",
+      "protocol": "string",
+      "server_id": "string",
+      "service_type": "string"
+     }
+    ],
+    "proxmox_vmid": "number",
+    "public_address": "string",
+    "query_port": "number",
+    "server_software": "string",
+    "slug": "string",
+    "status": "string",
+    "storage_gb": "number",
+    "tps": "number",
+    "updated_at": "string",
+    "uptime_seconds": "number",
+    "worlds": [
+     {
+      "created_at": "string",
+      "difficulty": "string",
+      "id": "string",
+      "is_active": "bool",
+      "server_id": "string",
+      "size_bytes": "number",
+      "updated_at": "string",
+      "world_name": "string",
+      "world_size": "string"
+     }
+    ]
+   }
+  },
+  "status": 200
+ },
+ "customer GET /game-servers/{gs}/worlds": {
+  "shape": {
+   "data": [
+    {
+     "created_at": "string",
+     "difficulty": "string",
+     "id": "string",
+     "is_active": "bool",
+     "server_id": "string",
+     "size_bytes": "number",
+     "updated_at": "string",
+     "world_name": "string",
+     "world_size": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /instances": {
+  "shape": {
+   "data": [
+    {
+     "created_at": "string",
+     "deleted_at": "null",
+     "disk_gb": "number",
+     "hostname": "string",
+     "id": "string",
+     "memory_mb": "number",
+     "name": "string",
+     "node": {
+      "created_at": "string",
+      "id": "string",
+      "last_health_check_at": "string",
+      "name": "string",
+      "proxmox_node_name": "string",
+      "status": "string",
+      "total_cpu_threads": "number",
+      "total_disk_gb": "number",
+      "total_memory_mb": "number",
+      "updated_at": "string"
+     },
+     "node_id": "string",
+     "os_template": {
+      "architecture": "string",
+      "cloud_init_supported": "bool",
+      "created_at": "string",
+      "default_username": "string",
+      "description": "string",
+      "distribution": "string",
+      "enabled": "bool",
+      "id": "string",
+      "name": "string",
+      "proxmox_template_vmid": "number",
+      "updated_at": "string",
+      "version": "string"
+     },
+     "os_template_id": "string",
+     "owner_id": "string",
+     "private_ip": "string",
+     "proxmox_vmid": "number",
+     "public_ip": "null",
+     "ssh_username": "string",
+     "status": "string",
+     "updated_at": "string",
+     "vcpus": "number"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /instances/{inst}": {
+  "shape": {
+   "data": {
+    "created_at": "string",
+    "deleted_at": "null",
+    "disk_gb": "number",
+    "hostname": "string",
+    "id": "string",
+    "memory_mb": "number",
+    "name": "string",
+    "node": {
+     "created_at": "string",
+     "id": "string",
+     "last_health_check_at": "string",
+     "name": "string",
+     "proxmox_node_name": "string",
+     "status": "string",
+     "total_cpu_threads": "number",
+     "total_disk_gb": "number",
+     "total_memory_mb": "number",
+     "updated_at": "string"
+    },
+    "node_id": "string",
+    "os_template": {
+     "architecture": "string",
+     "cloud_init_supported": "bool",
+     "created_at": "string",
+     "default_username": "string",
+     "description": "string",
+     "distribution": "string",
+     "enabled": "bool",
+     "id": "string",
+     "name": "string",
+     "proxmox_template_vmid": "number",
+     "updated_at": "string",
+     "version": "string"
+    },
+    "os_template_id": "string",
+    "owner_id": "string",
+    "private_ip": "string",
+    "proxmox_vmid": "number",
+    "public_ip": "null",
+    "ssh_username": "string",
+    "status": "string",
+    "updated_at": "string",
+    "vcpus": "number"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /instances/{inst}/activity": {
+  "shape": {
+   "data": []
+  },
+  "status": 200
+ },
+ "customer GET /instances/{inst}/console": {
+  "shape": {
+   "data": {
+    "cert": "string",
+    "port": "number",
+    "ticket": "string",
+    "upid": "string",
+    "user": "string"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /instances/{inst}/docker": {
+  "shape": {
+   "data": {
+    "available": "bool",
+    "containers": [
+     {
+      "command": "string",
+      "created_at": "string",
+      "id": "string",
+      "image": "string",
+      "name": "string",
+      "ports": "string",
+      "state": "string",
+      "status": "string"
+     }
+    ],
+    "docker_version": "string",
+    "fetched_at": "string",
+    "hostname": "string",
+    "instance_id": "string",
+    "node": "string",
+    "reason": "string",
+    "reason_code": "string",
+    "vmid": "number"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /instances/{inst}/docker?stats=true": {
+  "shape": {
+   "data": {
+    "available": "bool",
+    "containers": [
+     {
+      "command": "string",
+      "cpu_percent": "string",
+      "created_at": "string",
+      "id": "string",
+      "image": "string",
+      "mem_percent": "string",
+      "mem_usage": "string",
+      "name": "string",
+      "ports": "string",
+      "state": "string",
+      "status": "string"
+     }
+    ],
+    "docker_version": "string",
+    "fetched_at": "string",
+    "hostname": "string",
+    "instance_id": "string",
+    "node": "string",
+    "reason": "string",
+    "reason_code": "string",
+    "vmid": "number"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /instances/{inst}/metrics": {
+  "shape": {
+   "data": {
+    "available": "bool",
+    "cpu_usage": "number",
+    "disk_max": "number",
+    "disk_used": "number",
+    "memory_max": "number",
+    "memory_used": "number",
+    "net_in": "number",
+    "net_out": "number",
+    "uptime": "number"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /instances/{inst}/snapshots": {
+  "shape": {
+   "data": []
+  },
+  "status": 200
+ },
+ "customer GET /instances?status=running": {
+  "shape": {
+   "data": [
+    {
+     "created_at": "string",
+     "deleted_at": "null",
+     "disk_gb": "number",
+     "hostname": "string",
+     "id": "string",
+     "memory_mb": "number",
+     "name": "string",
+     "node": {
+      "created_at": "string",
+      "id": "string",
+      "last_health_check_at": "string",
+      "name": "string",
+      "proxmox_node_name": "string",
+      "status": "string",
+      "total_cpu_threads": "number",
+      "total_disk_gb": "number",
+      "total_memory_mb": "number",
+      "updated_at": "string"
+     },
+     "node_id": "string",
+     "os_template": {
+      "architecture": "string",
+      "cloud_init_supported": "bool",
+      "created_at": "string",
+      "default_username": "string",
+      "description": "string",
+      "distribution": "string",
+      "enabled": "bool",
+      "id": "string",
+      "name": "string",
+      "proxmox_template_vmid": "number",
+      "updated_at": "string",
+      "version": "string"
+     },
+     "os_template_id": "string",
+     "owner_id": "string",
+     "private_ip": "string",
+     "proxmox_vmid": "number",
+     "public_ip": "null",
+     "ssh_username": "string",
+     "status": "string",
+     "updated_at": "string",
+     "vcpus": "number"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /integrations/mcp/audit-logs": {
+  "shape": {
+   "data": []
+  },
+  "status": 200
+ },
+ "customer GET /integrations/mcp/connections": {
+  "shape": {
+   "data": [
+    {
+     "config_json": "string",
+     "created_at": "string",
+     "id": "string",
+     "last_health_check": "string",
+     "permissions": [
+      {
+       "connection_id": "string",
+       "created_at": "string",
+       "granted": "bool",
+       "id": "string",
+       "tool": {
+        "created_at": "string",
+        "description": "string",
+        "enabled": "bool",
+        "id": "string",
+        "input_schema": "string",
+        "name": "string",
+        "risk_level": "string",
+        "server_id": "string"
+       },
+       "tool_id": "string"
+      }
+     ],
+     "server": {
+      "auth_type": "string",
+      "created_at": "string",
+      "description": "string",
+      "display_name": "string",
+      "enabled": "bool",
+      "endpoint_url": "string",
+      "icon": "string",
+      "id": "string",
+      "is_first_party": "bool",
+      "name": "string",
+      "transport": "string",
+      "updated_at": "string"
+     },
+     "server_id": "string",
+     "status": "string",
+     "updated_at": "string",
+     "user_id": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /integrations/mcp/servers": {
+  "shape": {
+   "data": [
+    {
+     "auth_type": "string",
+     "created_at": "string",
+     "description": "string",
+     "display_name": "string",
+     "enabled": "bool",
+     "endpoint_url": "string",
+     "icon": "string",
+     "id": "string",
+     "is_first_party": "bool",
+     "name": "string",
+     "tools": [
+      {
+       "created_at": "string",
+       "description": "string",
+       "enabled": "bool",
+       "id": "string",
+       "input_schema": "string",
+       "name": "string",
+       "risk_level": "string",
+       "server_id": "string"
+      }
+     ],
+     "transport": "string",
+     "updated_at": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /operating-systems": {
+  "shape": {
+   "data": [
+    {
+     "architecture": "string",
+     "category": "string",
+     "created_at": "string",
+     "description": "string",
+     "file_size_bytes": "number",
+     "filename": "string",
+     "id": "string",
+     "name": "string",
+     "proxmox_storage": "string",
+     "proxmox_volume": "string",
+     "sha256": "string",
+     "status": "string",
+     "updated_at": "string",
+     "version": "string",
+     "visibility": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /plans": {
+  "shape": {
+   "data": [
+    {
+     "created_at": "string",
+     "description": "string",
+     "disk_gb": "number",
+     "enabled": "bool",
+     "id": "string",
+     "memory_mb": "number",
+     "name": "string",
+     "sort_order": "number",
+     "updated_at": "string",
+     "vcpus": "number"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /quotas": {
+  "shape": {
+   "data": {
+    "max_instances": "number",
+    "max_memory_mb": "number",
+    "max_storage_gb": "number",
+    "max_vcpus": "number",
+    "used_instances": "number",
+    "used_memory_mb": "number",
+    "used_storage_gb": "number",
+    "used_vcpus": "number"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /resources": {
+  "shape": {
+   "data": {
+    "counts": {
+     "ai_agents": "number",
+     "android_instances": "number",
+     "apps": "number",
+     "automations": "number",
+     "buckets": "number",
+     "game_servers": "number",
+     "total": "number",
+     "vps": "number"
+    },
+    "resources": [
+     {
+      "created_at": "string",
+      "details": {
+       "disk_gb": "number",
+       "memory_mb": "number",
+       "vcpus": "number",
+       "vmid": "number"
+      },
+      "endpoint": "string",
+      "id": "string",
+      "name": "string",
+      "specs": "string",
+      "status": "string",
+      "type": "string"
+     }
+    ],
+    "usage": {
+     "max_instances": "number",
+     "max_memory_mb": "number",
+     "max_storage_gb": "number",
+     "max_vcpus": "number",
+     "used_instances": "number",
+     "used_memory_mb": "number",
+     "used_storage_gb": "number",
+     "used_vcpus": "number"
+    }
+   }
+  },
+  "status": 200
+ },
+ "customer GET /ssh-keys": {
+  "shape": {
+   "data": [
+    {
+     "created_at": "string",
+     "fingerprint": "string",
+     "id": "string",
+     "name": "string",
+     "owner_id": "string",
+     "public_key": "string",
+     "updated_at": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /storage/access-keys": {
+  "shape": {
+   "data": [
+    {
+     "access_key_id": "string",
+     "bucket_scope": "string",
+     "created_at": "string",
+     "description": "string",
+     "id": "string",
+     "last_used_at": "string",
+     "owner_id": "string",
+     "permissions": "string",
+     "secret_access_key": "string",
+     "status": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /storage/buckets": {
+  "shape": {
+   "data": [
+    {
+     "created_at": "string",
+     "description": "string",
+     "id": "string",
+     "name": "string",
+     "owner_id": "string",
+     "region": "string",
+     "total_objects": "number",
+     "total_size_bytes": "number",
+     "updated_at": "string",
+     "versioning_enabled": "bool",
+     "visibility": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /storage/buckets/{bucket}": {
+  "shape": {
+   "data": {
+    "created_at": "string",
+    "description": "string",
+    "id": "string",
+    "name": "string",
+    "owner_id": "string",
+    "region": "string",
+    "total_objects": "number",
+    "total_size_bytes": "number",
+    "updated_at": "string",
+    "versioning_enabled": "bool",
+    "visibility": "string"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /storage/buckets/{bucket}/objects": {
+  "shape": {
+   "data": [
+    {
+     "bucket_id": "string",
+     "content_type": "string",
+     "created_at": "string",
+     "etag": "string",
+     "filename": "string",
+     "folder_prefix": "string",
+     "id": "string",
+     "is_folder": "bool",
+     "key": "string",
+     "public_url": "string",
+     "size_bytes": "number",
+     "updated_at": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /storage/overview": {
+  "shape": {
+   "data": {
+    "total_access_keys": "number",
+    "total_buckets": "number",
+    "total_objects": "number",
+    "total_size_bytes": "number"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /storage/shared-links": {
+  "shape": {
+   "data": []
+  },
+  "status": 200
+ },
+ "customer GET /system/config": {
+  "shape": {
+   "data": {
+    "auth": {
+     "password_login": "bool",
+     "registration": "bool",
+     "social_login": "bool"
+    },
+    "demo_mode": "bool",
+    "domains": {
+     "enabled": "bool",
+     "max_per_user": "number",
+     "root": "string"
+    },
+    "environment": "string",
+    "features": {
+     "docker_viewer": "bool",
+     "domains": "bool"
+    },
+    "proxmox_mock": "bool",
+    "version": "string"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /templates": {
+  "shape": {
+   "data": [
+    {
+     "architecture": "string",
+     "cloud_init_supported": "bool",
+     "created_at": "string",
+     "default_username": "string",
+     "description": "string",
+     "distribution": "string",
+     "enabled": "bool",
+     "id": "string",
+     "name": "string",
+     "proxmox_template_vmid": "number",
+     "updated_at": "string",
+     "version": "string"
+    }
+   ]
+  },
+  "status": 200
+ },
+ "customer GET /usage": {
+  "shape": {
+   "data": {
+    "max_instances": "number",
+    "max_memory_mb": "number",
+    "max_storage_gb": "number",
+    "max_vcpus": "number",
+    "used_instances": "number",
+    "used_memory_mb": "number",
+    "used_storage_gb": "number",
+    "used_vcpus": "number"
+   }
+  },
+  "status": 200
+ },
+ "customer GET /wordpress/status": {
+  "shape": {
+   "active_instances": "number",
+   "hypervisor_node": "string",
+   "node_health": {
+    "cpu": "number",
+    "kversion": "string",
+    "memory": {
+     "free": "number",
+     "total": "number",
+     "used": "number"
+    },
+    "pveversion": "string",
+    "rootfs": {
+     "free": "number",
+     "total": "number",
+     "used": "number"
+    },
+    "uptime": "number",
+    "wait": "number"
+   },
+   "service": "string",
+   "status": "string",
+   "timestamp": "string",
+   "version": "string"
+  },
+  "status": 200
+ },
+ "error admin-forbidden": {
+  "shape": {
+   "error": {
+    "code": "string",
+    "message": "string"
+   }
+  },
+  "status": 403
+ },
+ "error bad-id": {
+  "shape": {
+   "error": {
+    "code": "string",
+    "message": "string"
+   }
+  },
+  "status": 400
+ },
+ "error login-fail": {
+  "shape": {
+   "error": {
+    "code": "string",
+    "message": "string"
+   }
+  },
+  "status": 401
+ },
+ "error unauth": {
+  "shape": {
+   "error": {
+    "code": "string",
+    "message": "string"
+   }
+  },
+  "status": 401
+ }
+}

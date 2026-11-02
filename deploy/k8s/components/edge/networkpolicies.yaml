@@ -1,0 +1,92 @@
+# Network policies for the edge (additive to base/networkpolicies.yaml).
+#
+#   cloudflared pods -> edge:8088 -> customer VMs (EDGE_TARGET_CIDRS), postgres:5432, DNS
+#
+# The egress policy is the cluster-level twin of EDGE_TARGET_CIDRS /
+# EDGE_DENY_IPS: even a bug in the edge cannot reach the Proxmox API, the
+# nodes or other cluster services. The customer CIDR below is a PLACEHOLDER
+# that overlays/production replaces (keep it equal to EDGE_TARGET_CIDRS).
+
+# Edge: only the Cloudflare Tunnel connectors (addons/cloudflared).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-from-cloudflared
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nevatal-cloud
+      app.kubernetes.io/component: edge
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cloudflared
+      ports:
+        - protocol: TCP
+          port: 8088
+---
+# Edge egress: DNS, PostgreSQL and the customer VM network only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nevatal-cloud
+      app.kubernetes.io/component: edge
+  policyTypes: ["Egress"]
+  egress:
+    # 0: cluster DNS (CoreDNS in kube-system, label k8s-app=kube-dns on k3s).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # 1: PostgreSQL (routes).
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: nevatal-cloud
+              app.kubernetes.io/component: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    # 2: customer VMs, any port (PLACEHOLDER, replaced by the overlay).
+    #    "except" = addresses inside the subnet that must stay unreachable
+    #    (gateway, the nodes' own addresses on that network).
+    - to:
+        - ipBlock:
+            cidr: 10.20.0.0/24
+            except:
+              - 10.20.0.1/32
+---
+# PostgreSQL: also from the edge (base allows only the API).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-from-edge
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nevatal-cloud
+      app.kubernetes.io/component: postgres
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: nevatal-cloud
+              app.kubernetes.io/component: edge
+      ports:
+        - protocol: TCP
+          port: 5432

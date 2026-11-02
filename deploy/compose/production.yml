@@ -1,0 +1,110 @@
+# Nevatal Cloud - PRODUCTION mode override.
+#
+# Real Proxmox VE hypervisor, no demo accounts: the first administrator is
+# created from ADMIN_EMAIL / ADMIN_PASSWORD. The API refuses to start with an
+# unsafe configuration (weak JWT_SECRET, missing admin or Proxmox settings).
+#
+# Used via COMPOSE_FILE=docker-compose.yml:deploy/compose/production.yml
+# (set by deploy/env/production.env.example) and ./deploy.sh --mode production.
+#
+# Load balancing: nginx in the frontend container balances (least_conn) across
+# all backend replicas (BACKEND_REPLICAS, default 2). All replicas on this
+# host share the storagedata volume. Provisioning jobs run inside the replica
+# that accepted the request: compose has no rolling update, so a deploy
+# restarts every replica - check the admin job queue first.
+#
+# Railway-style subdomains (https://<name>.${PUBLIC_DOMAIN_ROOT}): set
+# PUBLIC_DOMAIN_ROOT, EDGE_TARGET_CIDRS, EDGE_DENY_IPS and enable the edge
+# proxy with COMPOSE_PROFILES=edge (usually edge,tunnel together with a
+# Cloudflare Tunnel). docs/PROXMOX_INSTALL.md, section 20.
+
+services:
+  postgres:
+    # Never publish the database; use `docker compose exec postgres psql`.
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  backend:
+    # Reached only through the frontend nginx (and the optional caddy).
+    ports: !reset []
+    environment:
+      APP_ENV: production
+      DEMO_MODE: "false"
+      PROXMOX_MOCK: ${PROXMOX_MOCK:-false}
+    deploy:
+      replicas: ${BACKEND_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          memory: 256M
+
+  frontend:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
+  # Profile "edge" (defined in docker-compose.yml). One replica: cloudflared
+  # connects to the name "edge"; Docker restarts it if it exits.
+  edge:
+    environment:
+      APP_ENV: production
+      DEMO_MODE: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 64M
+
+  # Profile "tunnel" (defined in docker-compose.yml).
+  cloudflared:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
+  # Automatic HTTPS for ${DOMAIN} (Let's Encrypt) with HSTS. Enable with
+  # COMPOSE_PROFILES=tls in .env; ports 80 and 443 must reach this VM. Set
+  # HTTP_BIND=127.0.0.1 at the same time so plain HTTP on HTTP_PORT is not
+  # reachable from outside (Caddy talks to frontend:8080 over the compose
+  # network, not over the published port).
+  caddy:
+    image: caddy:2.11-alpine
+    profiles: ["tls"]
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - "${TLS_BIND:-0.0.0.0}:80:80"
+      - "${TLS_BIND:-0.0.0.0}:443:443"
+      - "${TLS_BIND:-0.0.0.0}:443:443/udp"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  caddy_data:
+  caddy_config:

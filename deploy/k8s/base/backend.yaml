@@ -1,0 +1,152 @@
+# Nevatal Cloud API (Go). Auto-migrates the database at start-up (serialized
+# with a PostgreSQL advisory lock, so replicas may start together).
+#
+# The Service is HEADLESS on purpose: its DNS name resolves to the IPs of the
+# ready pods, and the frontend nginx (upstream "resolve", re-resolved every
+# 5s) balances least_conn across them with passive health checks and
+# retries. A ClusterIP would hide the pods behind one virtual IP and pin
+# nginx's keepalive connections to whichever pod kube-proxy picked.
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    app.kubernetes.io/name: nevatal-cloud
+    app.kubernetes.io/component: backend
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: nevatal-cloud
+    app.kubernetes.io/component: backend
+  ports:
+    - name: http
+      port: 8090
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app.kubernetes.io/name: nevatal-cloud
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nevatal-cloud
+      app.kubernetes.io/component: backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nevatal-cloud
+        app.kubernetes.io/component: backend
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      # preStop sleep (20s, endpoint + DNS propagation) + graceful shutdown
+      # (in-flight requests and jobs) must fit in this window.
+      terminationGracePeriodSeconds: 90
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        # Makes the storage volume writable for uid 10001. NFS-backed volumes
+        # ignore fsGroup: chown the export to 10001:10001 instead.
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: nevatal-cloud
+              app.kubernetes.io/component: backend
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: nevatal-cloud
+                    app.kubernetes.io/component: backend
+      containers:
+        - name: backend
+          image: nevatal-cloud-backend
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8090
+          envFrom:
+            - configMapRef:
+                name: nevatal-config
+            - secretRef:
+                name: nevatal-secrets
+          env:
+            # $(VAR) references resolve against the envFrom values above.
+            # Keep POSTGRES_PASSWORD URL-safe (openssl rand -hex 32).
+            - name: DATABASE_URL
+              value: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable
+          startupProbe:
+            # Allows up to 5 minutes for migrations + seeding on first start.
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          lifecycle:
+            preStop:
+              # Keep serving while the pod is removed from endpoints and the
+              # frontend's DNS cache (valid=5s) expires, then SIGTERM.
+              exec:
+                command: ["sleep", "20"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: storage
+              mountPath: /data/storage
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: nevatal-storage
+        # Multipart uploads (ISO, objects) are spooled here by the API.
+        - name: tmp
+          emptyDir:
+            sizeLimit: 10Gi

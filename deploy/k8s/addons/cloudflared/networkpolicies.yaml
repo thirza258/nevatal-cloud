@@ -1,0 +1,21 @@
+# Lets the connectors reach the web control plane. Additive to the base
+# policy frontend-from-ingress (Traefik); components/edge already allows
+# cloudflared -> edge:8088.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-from-cloudflared
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nevatal-cloud
+      app.kubernetes.io/component: frontend
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cloudflared
+      ports:
+        - protocol: TCP
+          port: 8080

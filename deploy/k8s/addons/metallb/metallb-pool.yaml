@@ -1,0 +1,30 @@
+# MetalLB layer-2 VIP pool for a k3s cluster running in Proxmox VMs.
+#
+# Install MetalLB first (pin the version you test), e.g.:
+#   kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.16.0/config/manifests/metallb-native.yaml
+#   kubectl -n metallb-system wait --for=condition=Available deploy/controller --timeout=120s
+# and start k3s with "--disable servicelb" so ServiceLB (klipper-lb) and
+# MetalLB do not both answer for LoadBalancer services.
+#
+# Then: kubectl apply -k deploy/k8s/addons/metallb
+#
+# The range must be free on the LAN (outside the DHCP scope, not used by any
+# VM). Traefik's LoadBalancer Service gets the first address; point DNS
+# (or your router's port forward for 80/443) at it.
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: lan-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    - 10.0.0.240-10.0.0.250
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: lan-l2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - lan-pool

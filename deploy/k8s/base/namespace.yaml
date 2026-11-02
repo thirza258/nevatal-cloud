@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nevatal-cloud
+  labels:
+    # Pod Security Admission. Every Nevatal workload satisfies "restricted"
+    # (non-root, RuntimeDefault seccomp, no capabilities, no privilege
+    # escalation); violations are reported as warnings/audit events.
+    # "baseline" is enforced so helper pods created in this namespace by
+    # other controllers (e.g. cert-manager HTTP-01 solvers) are not blocked.
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted

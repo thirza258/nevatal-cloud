@@ -1,0 +1,24 @@
+# Keep the build context small and free of secrets/binaries.
+# NOTE: migrations/ is Go source (go:embed) and MUST stay in the context.
+.git
+.gitignore
+.dockerignore
+Dockerfile
+bin/
+nevatal-api
+nevatal-migrate
+tmp/
+data/
+storage/
+coverage*
+*.out
+*.test
+*.prof
+.env
+.env.*
+*.env
+*.pem
+*.key
+.idea/
+.vscode/
+.DS_Store

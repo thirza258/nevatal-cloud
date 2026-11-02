@@ -26,9 +26,12 @@ import {
   Gamepad2,
   Smartphone,
   BookOpen,
+  Container,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useSystemConfig } from '../../context/SystemConfigContext';
 import { AIAssistantWidget } from '../ai/AIAssistantWidget';
+import { DemoBadge } from '../ui/DemoBadge';
 
 interface AppShellProps {
   currentPath: string;
@@ -45,7 +48,12 @@ interface NavItem {
 
 export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, children }) => {
   const { user, logout, switchDemoUser } = useAuth();
+  const { config } = useSystemConfig();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleSwitchDemoUser = (role: 'admin' | 'customer') => {
+    switchDemoUser(role).catch((err) => console.warn('Demo role switch failed:', err));
+  };
 
   const customerNav: NavItem[] = [
     { label: 'Overview', path: '/dashboard', icon: Layers },
@@ -53,6 +61,8 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
     { label: 'Cloud Resources', path: '/dashboard/resources', icon: Zap },
     { label: 'MCP Integrations', path: '/dashboard/integrations/mcp', icon: Code },
     { label: 'Compute (VMs)', path: '/dashboard/instances', icon: Server },
+    // Public Domains: listed only when the backend config enables them (fail closed).
+    ...(config.domains.enabled ? [{ label: 'Domains', path: '/dashboard/domains', icon: Globe }] : []),
     { label: 'App Hosting', path: '/dashboard/apps', icon: Globe },
     { label: 'Automations (n8n)', path: '/dashboard/automation', icon: Workflow },
     { label: 'AI Agents', path: '/dashboard/ai-agents', icon: Bot },
@@ -68,6 +78,8 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
     { label: 'Admin Overview', path: '/admin', icon: Shield },
     { label: 'User Directory', path: '/admin/users', icon: Users },
     { label: 'All Instances', path: '/admin/instances', icon: Server },
+    { label: 'Docker Viewer', path: '/admin/docker', icon: Container },
+    ...(config.domains.enabled ? [{ label: 'Domains', path: '/admin/domains', icon: Globe }] : []),
     { label: 'Provisioning Jobs', path: '/admin/jobs', icon: RefreshCw },
     { label: 'OS ISOs & Media', path: '/admin/isos', icon: Disc },
     { label: 'OS Templates', path: '/admin/templates', icon: Layers },
@@ -212,35 +224,37 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
           )}
         </div>
 
-        {/* Demo Switcher Quick Bar */}
-        <div className="p-2 mx-2 mb-2 bg-zinc-900/40 border border-zinc-800 rounded-lg">
-          <div className="text-[10px] font-mono uppercase text-zinc-400 mb-1 flex items-center justify-between">
-            <span>Role Switcher (Demo)</span>
-            <span className="text-zinc-300 font-mono text-[10px]">{user?.role}</span>
+        {/* Demo Switcher Quick Bar (only on demo deployments) */}
+        {config.demo_mode && (
+          <div className="p-2 mx-2 mb-2 bg-zinc-900/40 border border-zinc-800 rounded-lg">
+            <div className="text-[10px] font-mono uppercase text-zinc-400 mb-1 flex items-center justify-between">
+              <span>Role Switcher (Demo)</span>
+              <span className="text-zinc-300 font-mono text-[10px]">{user?.role}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                onClick={() => handleSwitchDemoUser('customer')}
+                className={`text-[11px] py-1 px-2 rounded font-medium transition-colors ${
+                  user?.role === 'customer'
+                    ? 'bg-zinc-800 text-white font-semibold'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-white'
+                }`}
+              >
+                Customer
+              </button>
+              <button
+                onClick={() => handleSwitchDemoUser('admin')}
+                className={`text-[11px] py-1 px-2 rounded font-medium transition-colors ${
+                  user?.role === 'admin'
+                    ? 'bg-zinc-800 text-white font-semibold'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-white'
+                }`}
+              >
+                Admin
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-1">
-            <button
-              onClick={() => switchDemoUser('customer')}
-              className={`text-[11px] py-1 px-2 rounded font-medium transition-colors ${
-                user?.role === 'customer'
-                  ? 'bg-zinc-800 text-white font-semibold'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-white'
-              }`}
-            >
-              Customer
-            </button>
-            <button
-              onClick={() => switchDemoUser('admin')}
-              className={`text-[11px] py-1 px-2 rounded font-medium transition-colors ${
-                user?.role === 'admin'
-                  ? 'bg-zinc-800 text-white font-semibold'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-white'
-              }`}
-            >
-              Admin
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* User Card & Logout */}
         <div className="p-2.5 border-t border-zinc-800 bg-zinc-950">
@@ -288,6 +302,9 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Demo deployment marker (renders nothing unless demo_mode) */}
+            <DemoBadge compactOnMobile />
+
             {/* Cluster / Node Badge */}
             <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md bg-zinc-900/60 border border-zinc-800 text-xs font-mono text-zinc-300">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />

@@ -6,12 +6,22 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nevatal/cloud/internal/config"
 	"github.com/nevatal/cloud/internal/models"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
-func Seed(db *gorm.DB) error {
+// Seed loads catalog data (node, templates, plans, ISOs, MCP servers, game and
+// Android catalogs) on every start and is idempotent. Demo fixtures (demo
+// customer, sample instances, apps, buckets, game servers) are only created
+// when cfg.DemoMode is true.
+func Seed(db *gorm.DB, cfg *config.Config) error {
+	nodeName := cfg.ProxmoxNodeName
+	if nodeName == "" {
+		nodeName = "pve-dell-r640"
+	}
+
 	// 1. Seed Nodes (Dell PowerEdge R640)
 	var nodeCount int64
 	db.Model(&models.Node{}).Count(&nodeCount)
@@ -20,7 +30,7 @@ func Seed(db *gorm.DB) error {
 		now := time.Now()
 		defaultNode = models.Node{
 			Name:              "Dell PowerEdge R640 Node 01",
-			ProxmoxNodeName:   "pve-dell-r640",
+			ProxmoxNodeName:   nodeName,
 			Status:            "online",
 			TotalCPUThreads:   64,
 			TotalMemoryMB:     262144, // 256 GB
@@ -33,6 +43,14 @@ func Seed(db *gorm.DB) error {
 		log.Println("Seeded primary Dell PowerEdge R640 Proxmox node.")
 	} else {
 		db.First(&defaultNode)
+		// Single-node installs: PROXMOX_NODE_NAME is authoritative, so a node
+		// seeded under the old default name follows the configured one.
+		if nodeCount == 1 && defaultNode.ProxmoxNodeName != nodeName {
+			if err := db.Model(&defaultNode).Update("proxmox_node_name", nodeName).Error; err == nil {
+				log.Printf("Renamed primary node %q -> %q to match PROXMOX_NODE_NAME.", defaultNode.ProxmoxNodeName, nodeName)
+				defaultNode.ProxmoxNodeName = nodeName
+			}
+		}
 	}
 
 	// 2. Seed OS Templates
@@ -75,8 +93,10 @@ func Seed(db *gorm.DB) error {
 				Enabled:             true,
 			},
 		}
-		for _, t := range templates {
-			if err := db.Create(&t).Error; err != nil {
+		// Index into the slice so generated IDs land on templates[i]
+		// (ubuntuTemplate below must carry the real ID).
+		for i := range templates {
+			if err := db.Create(&templates[i]).Error; err != nil {
 				return err
 			}
 		}
@@ -152,39 +172,21 @@ func Seed(db *gorm.DB) error {
 		log.Println("Seeded resource plans (Nano, Starter, Developer, Pro).")
 	}
 
-	// 4. Seed Admin User
-	var adminUser models.User
-	if err := db.Where("email = ?", "admin@nevatal.id").First(&adminUser).Error; err != nil {
-		adminPass, _ := bcrypt.GenerateFromPassword([]byte("AdminPass123!"), bcrypt.DefaultCost)
-		now := time.Now()
-		adminUser = models.User{
-			Email:           "admin@nevatal.id",
-			PasswordHash:    string(adminPass),
-			DisplayName:     "Platform Administrator",
-			Role:            models.RoleAdmin,
-			Status:          models.UserStatusActive,
-			EmailVerifiedAt: &now,
-		}
-		if err := db.Create(&adminUser).Error; err == nil {
-			adminQuota := models.ResourceQuota{
-				UserID:       adminUser.ID,
-				MaxVCPUs:     32,
-				MaxMemoryMB:  65536,
-				MaxStorageGB: 1000,
-				MaxInstances: 20,
-			}
-			_ = db.Create(&adminQuota)
-			log.Println("Seeded admin user: admin@nevatal.id")
-		}
+	// 4. Administrator accounts (see bootstrap.go)
+	if err := seedAdmins(db, cfg); err != nil {
+		return err
 	}
 
-	// 5. Seed Demo Customer User
+	// 5. Seed Demo Customer User (DEMO_MODE only). The demo fixtures below
+	// all hang off demoUser, so production databases get catalogs only.
 	var demoUser models.User
-	if err := db.Where("email = ?", "demo@nevatal.id").First(&demoUser).Error; err != nil {
-		demoPass, _ := bcrypt.GenerateFromPassword([]byte("DemoPass123!"), bcrypt.DefaultCost)
+	if !cfg.DemoMode {
+		// demoUser stays zero-valued: no demo fixtures.
+	} else if err := db.Where("email = ?", config.DemoUserEmail).First(&demoUser).Error; err != nil {
+		demoPass, _ := bcrypt.GenerateFromPassword([]byte(config.DemoUserPassword), bcrypt.DefaultCost)
 		now := time.Now()
 		demoUser = models.User{
-			Email:           "demo@nevatal.id",
+			Email:           config.DemoUserEmail,
 			PasswordHash:    string(demoPass),
 			DisplayName:     "Dev User",
 			Role:            models.RoleCustomer,
@@ -508,24 +510,24 @@ func Seed(db *gorm.DB) error {
 	}
 
 	// 8. Seed MCP Servers & Tools (PRD Section 37 & 38)
-	if err := seedMCPServers(db); err != nil {
+	if err := seedMCPServers(db, cfg.DemoMode); err != nil {
 		log.Printf("Warning: failed to seed MCP servers: %v", err)
 	}
 
 	// 9. Seed Game Server Templates, Versions & Demo Instances (PRD Section 56 & 65)
-	if err := seedGameServers(db); err != nil {
+	if err := seedGameServers(db, cfg.DemoMode); err != nil {
 		log.Printf("Warning: failed to seed game servers: %v", err)
 	}
 
 	// 10. Seed Android Waydroid Hosting (PRD Section 66-83)
-	if err := seedAndroidCloud(db); err != nil {
+	if err := seedAndroidCloud(db, cfg.DemoMode); err != nil {
 		log.Printf("Warning: failed to seed android cloud: %v", err)
 	}
 
 	return nil
 }
 
-func seedMCPServers(db *gorm.DB) error {
+func seedMCPServers(db *gorm.DB, demo bool) error {
 	now := time.Now()
 
 	// 1. First-Party Nevatal Cloud MCP Server
@@ -766,7 +768,9 @@ func seedMCPServers(db *gorm.DB) error {
 
 	// 3. Auto-connect customer users to core server and github
 	var targetUsers []models.User
-	db.Where("email IN ?", []string{"customer@nevatal.local", "demo@nevatal.id"}).Find(&targetUsers)
+	if demo {
+		db.Where("email IN ?", []string{"customer@nevatal.local", config.DemoUserEmail}).Find(&targetUsers)
+	}
 	for _, targetUser := range targetUsers {
 		var coreConn models.MCPConnection
 		if err := db.Where("user_id = ? AND server_id = ?", targetUser.ID, coreServer.ID).First(&coreConn).Error; err != nil {
@@ -827,7 +831,7 @@ func seedMCPServers(db *gorm.DB) error {
 	return nil
 }
 
-func seedGameServers(db *gorm.DB) error {
+func seedGameServers(db *gorm.DB, demo bool) error {
 	var count int64
 	db.Model(&models.GameServerTemplate{}).Count(&count)
 	if count > 0 {
@@ -1035,7 +1039,9 @@ func seedGameServers(db *gorm.DB) error {
 
 	// 3. Seed Demo Minecraft Server for Customer Demo User
 	var demoUser models.User
-	if err := db.First(&demoUser, "email = ?", "demo@nevatal.id").Error; err == nil {
+	if !demo {
+		// Production: catalog only, no demo game servers.
+	} else if err := db.First(&demoUser, "email = ?", config.DemoUserEmail).Error; err == nil {
 		mcID := uuid.New()
 		mcPort := 25565
 		mcVMID := 25565
@@ -1125,7 +1131,7 @@ func seedGameServers(db *gorm.DB) error {
 				StoragePath:   fmt.Sprintf("/storage/backups/game-servers/%s/backup-01.tar.gz", mcID),
 				WorldName:     "world",
 				IsAutomated:   true,
-				Checksum:      "sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+				Checksum:      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // column is varchar(64)
 				Status:        "completed",
 				CreatedAt:     now.Add(-24 * time.Hour),
 			})
@@ -1202,10 +1208,12 @@ func seedGameServers(db *gorm.DB) error {
 	return nil
 }
 
-func seedAndroidCloud(db *gorm.DB) error {
+func seedAndroidCloud(db *gorm.DB, demo bool) error {
 	now := time.Now()
 	var demoUser models.User
-	db.Where("email = ?", "demo@nevatal.id").First(&demoUser)
+	if demo {
+		db.Where("email = ?", config.DemoUserEmail).First(&demoUser)
+	}
 
 	// 5. Seed Android Waydroid Hosting (PRD Section 66-83)
 	var androidWorkerCount int64
@@ -1377,13 +1385,13 @@ func seedAndroidCloud(db *gorm.DB) error {
 		if err := db.Create(&demoInstance).Error; err == nil {
 			// Persistent Data Volume
 			_ = db.Create(&models.AndroidDataVolume{
-				InstanceID:  instID,
-				VolumeName:  "data-volume-userdata",
-				MountPath:   "/data",
-				SizeBytes:   1024 * 1024 * 1024 * 8, // 8 GB used
-				ZFSDataset:  "zfs-pool/android/" + instID.String(),
-				CreatedAt:   now.Add(-72 * time.Hour),
-				UpdatedAt:   now,
+				InstanceID: instID,
+				VolumeName: "data-volume-userdata",
+				MountPath:  "/data",
+				SizeBytes:  1024 * 1024 * 1024 * 8, // 8 GB used
+				ZFSDataset: "zfs-pool/android/" + instID.String(),
+				CreatedAt:  now.Add(-72 * time.Hour),
+				UpdatedAt:  now,
 			})
 
 			// Pre-installed sample applications
@@ -1428,4 +1436,3 @@ func seedAndroidCloud(db *gorm.DB) error {
 	log.Println("Seeded Android Waydroid images, worker nodes, and demo instance.")
 	return nil
 }
-

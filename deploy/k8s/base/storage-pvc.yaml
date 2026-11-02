@@ -1,0 +1,16 @@
+# Object-storage files (STORAGE_PATH=/data/storage).
+# ReadWriteOnce (default StorageClass, e.g. k3s local-path) is only valid with
+# ONE backend replica. The production overlay switches to ReadWriteMany
+# (NFS / Longhorn) so several replicas on different nodes can share it.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nevatal-storage
+  labels:
+    app.kubernetes.io/name: nevatal-cloud
+    app.kubernetes.io/component: backend
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi

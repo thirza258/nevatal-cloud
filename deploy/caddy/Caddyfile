@@ -1,0 +1,33 @@
+# Nevatal Cloud - Caddy TLS terminator (compose profile "tls").
+#
+# Obtains and renews a Let's Encrypt certificate for $DOMAIN automatically,
+# redirects HTTP to HTTPS, and proxies everything to the frontend nginx, which
+# serves the SPA and balances /api across the backend replicas.
+#
+# Requirements: DNS A/AAAA record for $DOMAIN -> this VM's public IP, and
+# TCP 80 + TCP/UDP 443 forwarded to it. Certificates are kept in the
+# caddy_data volume: do not delete it (Let's Encrypt rate limits re-issuance).
+{
+	# Uncomment to register the ACME account with a contact address:
+	# email ops@example.com
+}
+
+{$DOMAIN} {
+	header {
+		# HSTS belongs here, at the TLS terminator.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	# Caddy sets X-Forwarded-For / X-Forwarded-Proto / X-Forwarded-Host;
+	# nginx passes them on to the API. No request body limit is applied here
+	# (nginx enforces NGINX_CLIENT_MAX_BODY_SIZE / NGINX_ISO_MAX_BODY_SIZE).
+	reverse_proxy frontend:8080 {
+		health_uri /nginx-health
+		health_interval 15s
+	}
+
+	log {
+		output stdout
+	}
+}

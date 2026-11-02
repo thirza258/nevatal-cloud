@@ -1,37 +1,52 @@
 package api
 
 import (
-	"net/http"
+	"context"
+	"log"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nevatal/cloud/internal/api/handlers"
+	"github.com/nevatal/cloud/internal/api/handler"
 	"github.com/nevatal/cloud/internal/api/middleware"
 	"github.com/nevatal/cloud/internal/config"
-	"github.com/nevatal/cloud/internal/proxmox"
-	"github.com/nevatal/cloud/internal/services"
-	"gorm.io/gorm"
+	"github.com/nevatal/cloud/internal/usecase"
 )
 
+// RouterParams carries the use cases the HTTP handlers delegate to. Every
+// field except Cfg may be nil when only the route table is needed (tests):
+// handlers only dereference their use case while serving a request.
 type RouterParams struct {
-	Cfg                *config.Config
-	DB                 *gorm.DB
-	PVE                proxmox.ProxmoxClient
-	AuthService        *services.AuthService
-	QuotaService       *services.QuotaService
-	SSHKeyService      *services.SSHKeyService
-	AuditService       *services.AuditService
-	InstanceService    *services.InstanceService
-	WorkerService      *services.WorkerService
-	AppService         *services.AppService
-	AutomationService  *services.AutomationService
-	OpenClawService    *services.OpenClawService
-	ISOService         *services.ISOService
-	StorageService     *services.StorageService
-	GameServerService  *services.GameServerService
-	AndroidService     *services.AndroidService
-	AIAssistantService *services.AIAssistantService
-	MCPService         *services.MCPService
-	AIAgentService     *services.AIAgentService
+	Cfg *config.Config
+
+	Auth        *usecase.AuthUsecase
+	Quota       *usecase.QuotaUsecase
+	SSHKey      *usecase.SSHKeyUsecase
+	Audit       *usecase.AuditUsecase
+	Catalog     *usecase.CatalogUsecase
+	Dashboard   *usecase.DashboardUsecase
+	Job         *usecase.JobUsecase
+	Instance    *usecase.InstanceUsecase
+	Docker      *usecase.DockerUsecase
+	App         *usecase.AppUsecase
+	Automation  *usecase.AutomationUsecase
+	OpenClaw    *usecase.OpenClawUsecase
+	ISO         *usecase.ISOUsecase
+	Storage     *usecase.StorageUsecase
+	GameServer  *usecase.GameServerUsecase
+	Android     *usecase.AndroidUsecase
+	AIAssistant *usecase.AIAssistantUsecase
+	MCP         *usecase.MCPUsecase
+	AIAgent     *usecase.AIAgentUsecase
+	Resource    *usecase.ResourceUsecase
+	WordPress   *usecase.WordPressUsecase
+	Admin       *usecase.AdminUsecase
+	Domain      *usecase.DomainUsecase
+
+	// Orchestrator serves plans, approvals and executions (/ai/plans,
+	// /ai/executions, /ai/tools).
+	Orchestrator *usecase.OrchestratorUsecase
+	// Streams is cancelled when the HTTP server shuts down so long-lived
+	// responses (SSE) end promptly. Nil means never.
+	Streams context.Context
 }
 
 func SetupRouter(p RouterParams) *gin.Engine {
@@ -39,52 +54,47 @@ func SetupRouter(p RouterParams) *gin.Engine {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	router := gin.Default()
-	router.Use(middleware.SetupCORS())
+	router := gin.New()
+	// Probes hit /health every few seconds; keep them out of the access log.
+	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/health"}}), gin.Recovery())
+	// Only trust X-Forwarded-For from known proxies (nginx, ingress, LB);
+	// otherwise c.ClientIP() in audit logs is spoofable.
+	if err := router.SetTrustedProxies(p.Cfg.TrustedProxies); err != nil {
+		log.Printf("Warning: invalid TRUSTED_PROXIES (%v); trusting no proxies", err)
+		_ = router.SetTrustedProxies(nil)
+	}
+	router.Use(middleware.SetupCORSWithConfig(p.Cfg))
+
+	systemHandler := handler.NewSystemHandler(p.Cfg)
 
 	// Health check endpoint
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status":  "healthy",
-			"product": "Nevatal Cloud",
-			"version": "1.1.0",
-			"features": []string{
-				"compute_vps",
-				"wordpress_lemp_bridge",
-				"app_automated_deployment",
-				"n8n_workflow_automation",
-				"openclaw_ai_agents",
-				"s3_object_storage",
-				"admin_iso_management",
-				"openrouter_ai_assistant",
-				"game_server_hosting",
-				"android_cloud",
-			},
-		})
-	})
+	router.GET("/health", systemHandler.Health)
 
 	// Handlers initialization
-	authHandler := handlers.NewAuthHandler(p.AuthService, p.AuditService, p.Cfg)
-	dashboardHandler := handlers.NewDashboardHandler(p.DB, p.QuotaService, p.AuditService)
-	instanceHandler := handlers.NewInstanceHandler(p.DB, p.InstanceService, p.AuditService, p.PVE)
-	sshKeyHandler := handlers.NewSSHKeyHandler(p.SSHKeyService, p.AuditService)
-	jobHandler := handlers.NewJobHandler(p.DB)
-	templatePlanHandler := handlers.NewTemplatePlanHandler(p.DB, p.QuotaService, p.AuditService)
-	adminHandler := handlers.NewAdminHandler(p.DB, p.QuotaService, p.AuditService, p.WorkerService, p.PVE)
-	wpHandler := handlers.NewWordPressHandler(p.DB, p.Cfg, p.AuthService, p.InstanceService, p.AuditService, p.PVE)
+	authHandler := handler.NewAuthHandler(p.Auth, p.Cfg)
+	dashboardHandler := handler.NewDashboardHandler(p.Dashboard)
+	instanceHandler := handler.NewInstanceHandler(p.Instance)
+	sshKeyHandler := handler.NewSSHKeyHandler(p.SSHKey)
+	jobHandler := handler.NewJobHandler(p.Job)
+	templatePlanHandler := handler.NewTemplatePlanHandler(p.Catalog, p.Quota, p.Audit)
+	adminHandler := handler.NewAdminHandler(p.Admin)
+	wpHandler := handler.NewWordPressHandler(p.WordPress)
 
 	// New module handlers
-	appHandler := handlers.NewAppHandler(p.AppService)
-	automationHandler := handlers.NewAutomationHandler(p.AutomationService)
-	openClawHandler := handlers.NewOpenClawHandler(p.OpenClawService)
-	isoHandler := handlers.NewISOHandler(p.ISOService)
-	storageHandler := handlers.NewStorageHandler(p.StorageService)
-	gameServerHandler := handlers.NewGameServerHandler(p.GameServerService)
-	androidHandler := handlers.NewAndroidHandler(p.AndroidService)
-	aiAssistantHandler := handlers.NewAIAssistantHandler(p.AIAssistantService)
-	mcpHandler := handlers.NewMCPHandler(p.MCPService)
-	aiAgentHandler := handlers.NewAIAgentHandler(p.AIAgentService)
-	resourceHandler := handlers.NewResourceHandler(p.InstanceService, p.AppService, p.AutomationService, p.OpenClawService, p.StorageService, p.GameServerService, p.AndroidService, p.QuotaService)
+	appHandler := handler.NewAppHandler(p.App)
+	automationHandler := handler.NewAutomationHandler(p.Automation)
+	openClawHandler := handler.NewOpenClawHandler(p.OpenClaw)
+	isoHandler := handler.NewISOHandler(p.ISO)
+	storageHandler := handler.NewStorageHandler(p.Storage)
+	gameServerHandler := handler.NewGameServerHandler(p.GameServer)
+	androidHandler := handler.NewAndroidHandler(p.Android)
+	aiAssistantHandler := handler.NewAIAssistantHandler(p.AIAssistant)
+	mcpHandler := handler.NewMCPHandler(p.MCP)
+	aiAgentHandler := handler.NewAIAgentHandler(p.AIAgent)
+	dockerHandler := handler.NewDockerHandler(p.Docker)
+	resourceHandler := handler.NewResourceHandler(p.Resource)
+	domainHandler := handler.NewDomainHandler(p.Domain)
+	orchHandler := handler.NewOrchestratorHandler(p.Orchestrator, p.Streams)
 
 	// API v1 group
 	v1 := router.Group("/api/v1")
@@ -95,7 +105,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/logout", authHandler.Logout)
-			auth.GET("/me", middleware.AuthRequired(p.AuthService), authHandler.Me)
+			auth.GET("/me", middleware.AuthRequired(p.Auth, p.Cfg.CookieSecure), authHandler.Me)
 
 			// Social & Single Sign-On (OAuth)
 			auth.GET("/oauth/urls", authHandler.GetOAuthURLs)
@@ -103,6 +113,9 @@ func SetupRouter(p RouterParams) *gin.Engine {
 			auth.POST("/oauth/github", authHandler.OAuthGitHub)
 			auth.POST("/oauth/wordpress", authHandler.OAuthWordPress)
 		}
+
+		// Public runtime settings (demo/production mode for the SPA)
+		v1.GET("/system/config", systemHandler.GetConfig)
 
 		// Public/Semi-public catalogs
 		v1.GET("/templates", templatePlanHandler.ListTemplates)
@@ -119,7 +132,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 
 		// Authenticated customer endpoints
 		protected := v1.Group("")
-		protected.Use(middleware.AuthRequired(p.AuthService))
+		protected.Use(middleware.AuthRequired(p.Auth, p.Cfg.CookieSecure))
 		{
 			// Dashboard & Quotas
 			protected.GET("/dashboard", dashboardHandler.GetSummary)
@@ -143,6 +156,10 @@ func SetupRouter(p RouterParams) *gin.Engine {
 			protected.POST("/instances/:id/snapshots", instanceHandler.CreateSnapshot)
 			protected.POST("/instances/:id/snapshots/:snapname/restore", instanceHandler.RestoreSnapshot)
 			protected.DELETE("/instances/:id/snapshots/:snapname", instanceHandler.DeleteSnapshot)
+
+			// Docker viewer (via the QEMU guest agent)
+			protected.GET("/instances/:id/docker", dockerHandler.Overview)
+			protected.GET("/instances/:id/docker/containers/:container/logs", dockerHandler.Logs)
 
 			// Applications (Automated Git / Web Deployments)
 			protected.GET("/apps", appHandler.List)
@@ -230,12 +247,29 @@ func SetupRouter(p RouterParams) *gin.Engine {
 				ai.GET("/conversations/:id/messages", aiAgentHandler.ListMessages)
 				ai.GET("/conversations/:id/state", aiAgentHandler.GetState)
 
-				// Plans & Approvals
+				// Plans & Approvals (AI infrastructure orchestrator,
+				// docs/ORCHESTRATOR_API.md)
 				ai.GET("/conversations/:id/plans", aiAgentHandler.ListPlans)
-				ai.GET("/plans/:id", aiAgentHandler.GetPlan)
-				ai.POST("/plans/:id/validate", aiAgentHandler.ValidatePlan)
-				ai.POST("/plans/:id/approve", aiAgentHandler.ApprovePlan)
-				ai.POST("/plans/:id/cancel", aiAgentHandler.CancelPlan)
+				ai.GET("/plans/:id", orchHandler.GetPlan)
+				ai.PATCH("/plans/:id", orchHandler.PatchPlan)
+				ai.GET("/plans/:id/revisions", orchHandler.ListRevisions)
+				ai.GET("/plans/:id/revisions/:version", orchHandler.GetRevision)
+				ai.POST("/plans/:id/validate", orchHandler.ValidatePlan)
+				ai.POST("/plans/:id/approve", orchHandler.ApprovePlan)
+				ai.POST("/plans/:id/reject", orchHandler.RejectPlan)
+				ai.POST("/plans/:id/cancel", orchHandler.CancelPlan)
+				ai.POST("/plans/:id/execute", orchHandler.ExecutePlan)
+
+				// Executions
+				ai.GET("/executions", orchHandler.ListExecutions)
+				ai.GET("/executions/:id", orchHandler.GetExecution)
+				ai.GET("/executions/:id/events", orchHandler.Events)
+				ai.POST("/executions/:id/cancel", orchHandler.CancelExecution)
+				ai.POST("/executions/:id/tasks/:taskId/retry", orchHandler.RetryTask)
+				ai.POST("/executions/:id/recovery", orchHandler.Recovery)
+
+				// Tool registry (also MCP tools/list)
+				ai.GET("/tools", orchHandler.ListTools)
 
 				// Agent Runs
 				ai.GET("/runs/:id", aiAgentHandler.GetRun)
@@ -352,17 +386,30 @@ func SetupRouter(p RouterParams) *gin.Engine {
 
 			// Unified Resources Endpoint (PRD Section 34.1: /dashboard/resources)
 			protected.GET("/resources", resourceHandler.ListAll)
+
+			// Nevatal Domains: publish a VM port at https://<subdomain>.<PUBLIC_DOMAIN_ROOT>
+			domains := protected.Group("/domains")
+			domains.Use(middleware.RequireDomains(p.Cfg))
+			{
+				domains.GET("", domainHandler.List)
+				domains.GET("/check", domainHandler.Check)
+				domains.POST("", domainHandler.Create)
+				domains.PATCH("/:id", domainHandler.Update)
+				domains.DELETE("/:id", domainHandler.Release)
+			}
 		}
 
 		// Authenticated administrator endpoints
 		admin := v1.Group("/admin")
-		admin.Use(middleware.AuthRequired(p.AuthService), middleware.AdminOnly())
+		admin.Use(middleware.AuthRequired(p.Auth, p.Cfg.CookieSecure), middleware.AdminOnly())
 		{
 			admin.GET("/overview", adminHandler.Overview)
 			admin.GET("/users", adminHandler.ListUsers)
 			admin.PATCH("/users/:id", adminHandler.UpdateUserStatus)
 			admin.PUT("/users/:id/quotas", adminHandler.UpdateUserQuotas)
 			admin.GET("/instances", adminHandler.ListAllInstances)
+			admin.GET("/instances/:id/docker", dockerHandler.AdminOverview)
+			admin.GET("/instances/:id/docker/containers/:container/logs", dockerHandler.AdminLogs)
 			admin.GET("/jobs", adminHandler.ListJobs)
 			admin.POST("/jobs/:id/retry", adminHandler.RetryJob)
 			admin.GET("/nodes", adminHandler.ListNodes)
@@ -396,6 +443,14 @@ func SetupRouter(p RouterParams) *gin.Engine {
 				adminAndroid.PATCH("/images/:id/publish", androidHandler.AdminPublishImage)
 				adminAndroid.PATCH("/images/:id/unpublish", androidHandler.AdminUnpublishImage)
 				adminAndroid.POST("/images/:id/verify", androidHandler.AdminVerifyImage)
+			}
+
+			// Nevatal Domains moderation
+			adminDomains := admin.Group("/domains")
+			adminDomains.Use(middleware.RequireDomains(p.Cfg))
+			{
+				adminDomains.GET("", domainHandler.AdminList)
+				adminDomains.PATCH("/:id", domainHandler.AdminUpdate)
 			}
 		}
 	}

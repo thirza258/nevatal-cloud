@@ -1,0 +1,65 @@
+# Nevatal Cloud - Kubernetes base (k3s-friendly). Do not apply directly:
+#   kubectl apply -k deploy/k8s/overlays/demo        # or overlays/production
+#
+# Overlays add the Secret (secretGenerator from a gitignored secrets.env),
+# the image names/tags, the public host and the mode-specific settings.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: nevatal-cloud
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: nevatal-cloud
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false
+    includeTemplates: true
+
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - storage-pvc.yaml
+  - backend.yaml
+  - frontend.yaml
+  - ingress.yaml
+  - traefik-middlewares.yaml
+  - pdb.yaml
+  - networkpolicies.yaml
+
+# Non-secret settings, injected into the backend with envFrom. The name gets
+# a content hash, so changing a value rolls the pods automatically.
+configMapGenerator:
+  - name: nevatal-config
+    literals:
+      - APP_ENV=production
+      - DEMO_MODE=false
+      - PROXMOX_MOCK=false
+      - APP_BASE_URL=https://cloud.example.com
+      - CORS_ALLOWED_ORIGINS=
+      # Pod/cluster CIDRs of k3s (10.42/10.43) are inside the default private ranges.
+      - TRUSTED_PROXIES=
+      - COOKIE_SECURE=
+      - PORT=8090
+      - STORAGE_PATH=/data/storage
+      - POSTGRES_DB=nevatal_cloud
+      - DB_MAX_OPEN_CONNS=15
+      - DB_MAX_IDLE_CONNS=5
+      - PROXMOX_HOST=
+      - PROXMOX_PORT=8006
+      - PROXMOX_NODE_NAME=pve-dell-r640
+      - PROXMOX_STORAGE=local-zfs
+      - PROXMOX_VERIFY_TLS=false
+      - OPENROUTER_DEFAULT_MODEL=openai/gpt-4o-mini
+      - OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+      - WORDPRESS_URL=
+      - TZ=UTC
+      # Railway-style subdomains (https://<name>.<PUBLIC_DOMAIN_ROOT>): off here.
+      # The production overlay sets them and adds the edge proxy
+      # (components/edge); the demo overlay keeps PUBLIC_DOMAIN_ROOT empty.
+      - PUBLIC_DOMAIN_ROOT=
+      - RESERVED_SUBDOMAINS=
+      - MAX_DOMAINS_PER_USER=5
+      - DOMAIN_QUARANTINE_DAYS=14
+      - EDGE_TARGET_CIDRS=
+      - EDGE_DENY_IPS=
+      - EDGE_PORT=8088

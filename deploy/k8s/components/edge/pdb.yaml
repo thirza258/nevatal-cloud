@@ -1,0 +1,11 @@
+# One edge pod may be evicted at a time (2 replicas: one always serves).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: edge
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nevatal-cloud
+      app.kubernetes.io/component: edge

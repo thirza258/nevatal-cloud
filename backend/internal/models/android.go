@@ -136,12 +136,12 @@ type AndroidInstance struct {
 	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relations
-	Image        *AndroidImage           `gorm:"foreignKey:ImageID" json:"image,omitempty"`
-	WorkerNode   *AndroidWorkerNode      `gorm:"foreignKey:WorkerNodeID" json:"worker_node,omitempty"`
-	Resources    *AndroidInstanceResource`gorm:"foreignKey:InstanceID" json:"resources,omitempty"`
-	Applications []AndroidApplication    `gorm:"foreignKey:InstanceID" json:"applications,omitempty"`
-	Backups      []AndroidBackup         `gorm:"foreignKey:InstanceID" json:"backups,omitempty"`
-	Sessions     []AndroidSession        `gorm:"foreignKey:InstanceID" json:"sessions,omitempty"`
+	Image        *AndroidImage            `gorm:"foreignKey:ImageID" json:"image,omitempty"`
+	WorkerNode   *AndroidWorkerNode       `gorm:"foreignKey:WorkerNodeID" json:"worker_node,omitempty"`
+	Resources    *AndroidInstanceResource `gorm:"foreignKey:InstanceID" json:"resources,omitempty"`
+	Applications []AndroidApplication     `gorm:"foreignKey:InstanceID" json:"applications,omitempty"`
+	Backups      []AndroidBackup          `gorm:"foreignKey:InstanceID" json:"backups,omitempty"`
+	Sessions     []AndroidSession         `gorm:"foreignKey:InstanceID" json:"sessions,omitempty"`
 }
 
 func (AndroidInstance) TableName() string {

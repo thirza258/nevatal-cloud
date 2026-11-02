@@ -1,0 +1,23 @@
+# maxUnavailable (not minAvailable) so a single-replica deployment never
+# blocks `kubectl drain`; with 2+ replicas one always stays up.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nevatal-cloud
+      app.kubernetes.io/component: backend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nevatal-cloud
+      app.kubernetes.io/component: frontend

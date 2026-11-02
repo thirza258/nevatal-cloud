@@ -1,0 +1,94 @@
+# Nevatal Cloud - DEMO mode override.
+#
+# Public showcase: seeded demo accounts (admin@nevatal.id / demo@nevatal.id
+# with published passwords), role switcher and quick logins in the UI, mock
+# social login, and the SIMULATED hypervisor. It never talks to Proxmox.
+#
+# Used via COMPOSE_FILE=docker-compose.yml:deploy/compose/demo.yml
+# (set by deploy/env/demo.env.example) and ./deploy.sh --mode demo.
+#
+# The simulated hypervisor keeps its state in the memory of one API process,
+# so demo mode must run EXACTLY ONE backend replica.
+#
+# Railway-style subdomains are OFF in demo mode: PUBLIC_DOMAIN_ROOT is forced
+# empty and the "edge" profile is refused by ./deploy.sh. A Cloudflare Tunnel
+# (COMPOSE_PROFILES=tunnel) may still publish the demo itself, e.g.
+# demo.nevatal.id -> http://frontend:8080.
+
+services:
+  postgres:
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  backend:
+    ports: !reset []
+    environment:
+      APP_ENV: production
+      DEMO_MODE: "true"
+      PROXMOX_MOCK: "true"
+      PUBLIC_DOMAIN_ROOT: ""
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  frontend:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+
+  # Never part of a demo. Should someone enable the profile anyway,
+  # nevatal-edge refuses to start with DEMO_MODE=true.
+  edge:
+    environment:
+      APP_ENV: production
+      DEMO_MODE: "true"
+      PUBLIC_DOMAIN_ROOT: ""
+
+  cloudflared:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+
+  # Automatic HTTPS for ${DOMAIN} (Let's Encrypt). Enable with
+  # COMPOSE_PROFILES=tls in .env; ports 80 and 443 must reach this VM.
+  caddy:
+    image: caddy:2.11-alpine
+    profiles: ["tls"]
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - "${TLS_BIND:-0.0.0.0}:80:80"
+      - "${TLS_BIND:-0.0.0.0}:443:443"
+      - "${TLS_BIND:-0.0.0.0}:443:443/udp"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -23,12 +23,17 @@ interface AIAssistantWidgetProps {
   currentPath: string;
 }
 
-export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ onNavigate, currentPath }) => {
-  // If we are already on the dedicated /dashboard/ai-assistant page, don't show the widget
-  if (currentPath === '/dashboard/ai-assistant') {
-    return null;
-  }
+// Pages with their own full-height chat: the floating bubble would cover their composer.
+const HIDDEN_ON = new Set(['/dashboard/ai-assistant', '/dashboard/ai']);
 
+/**
+ * Hides the widget on HIDDEN_ON paths. The check lives in this wrapper (not before the hooks of
+ * the widget itself) so navigating to or from those pages never changes the hook order.
+ */
+export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = (props) =>
+  HIDDEN_ON.has(props.currentPath) ? null : <AIAssistantWidgetPanel {...props} />;
+
+const AIAssistantWidgetPanel: React.FC<AIAssistantWidgetProps> = ({ onNavigate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<AIAssistantMessage[]>([]);
   const [inputText, setInputText] = useState('');

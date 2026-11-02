@@ -1,0 +1,39 @@
+# Let's Encrypt ClusterIssuers for cert-manager (HTTP-01 through Traefik).
+#
+# Install cert-manager first (pin the version you test), e.g.:
+#   kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.21.3/cert-manager.yaml
+#   kubectl -n cert-manager wait --for=condition=Available deploy --all --timeout=180s
+# Then set your e-mail below and: kubectl apply -k deploy/k8s/addons/cert-manager
+#
+# The Nevatal Ingress requests "letsencrypt-prod". Try "letsencrypt-staging"
+# first while DNS/ports are being set up: staging has far higher rate limits
+# (its certificates are not trusted by browsers).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: ops@example.com
+    privateKeySecretRef:
+      name: letsencrypt-staging-account
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: ops@example.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-account
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik

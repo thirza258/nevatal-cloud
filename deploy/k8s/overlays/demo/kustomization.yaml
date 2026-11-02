@@ -1,0 +1,55 @@
+# Nevatal Cloud - DEMO overlay (public showcase, simulated hypervisor).
+#
+#   cp secrets.env.example secrets.env     # fill in; secrets.env is gitignored
+#   kubectl apply -k deploy/k8s/overlays/demo
+#
+# Demo accounts (admin@nevatal.id / AdminPass123!, demo@nevatal.id /
+# DemoPass123!) are public. The simulated hypervisor lives in the memory of
+# ONE API process: exactly one backend replica, Recreate strategy, no HPA.
+# No subdomain edge. A Cloudflare Tunnel may publish the demo itself
+# (deploy/k8s/addons/cloudflared, hostname demo.nevatal.id -> frontend).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: nevatal-cloud
+
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: nevatal-config
+    behavior: merge
+    literals:
+      - DEMO_MODE=true
+      - PROXMOX_MOCK=true
+      - APP_BASE_URL=https://demo.nevatal.id
+      # Railway-style subdomains stay OFF in demo mode (no edge component).
+      - PUBLIC_DOMAIN_ROOT=
+
+secretGenerator:
+  - name: nevatal-secrets
+    envs:
+      - secrets.env
+
+# These images are not published yet: build and push (or k3s-import) them
+# first and set newTag to that tag (docs/PROXMOX_INSTALL.md, k3s section).
+images:
+  - name: nevatal-cloud-backend
+    newName: ghcr.io/thirza258/nevatal-cloud-backend
+    newTag: "1.2.0"
+  - name: nevatal-cloud-frontend
+    newName: ghcr.io/thirza258/nevatal-cloud-frontend
+    newTag: "1.2.0"
+
+patches:
+  - path: backend-demo.yaml
+  - target:
+      kind: Ingress
+      name: nevatal-cloud
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: demo.nevatal.id
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: demo.nevatal.id

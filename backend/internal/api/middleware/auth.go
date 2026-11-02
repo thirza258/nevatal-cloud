@@ -6,42 +6,59 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/nevatal/cloud/internal/api/response"
 	"github.com/nevatal/cloud/internal/models"
-	"github.com/nevatal/cloud/internal/services"
+	"github.com/nevatal/cloud/internal/usecase"
 )
 
-func AuthRequired(authService *services.AuthService) gin.HandlerFunc {
+const (
+	// LegacySessionCookie is used on plain-HTTP (development) deployments.
+	LegacySessionCookie = "nevatal_token"
+	// SecureSessionCookie is used whenever cookies are Secure. The __Host-
+	// prefix forces Secure, Path=/ and no Domain attribute, so sibling
+	// subdomains (tenant apps on *.<PUBLIC_DOMAIN_ROOT>) cannot set or
+	// overwrite it.
+	SecureSessionCookie = "__Host-nevatal_token"
+)
+
+// SessionCookieName returns the session cookie name for the deployment.
+func SessionCookieName(secure bool) string {
+	if secure {
+		return SecureSessionCookie
+	}
+	return LegacySessionCookie
+}
+
+// AuthRequired accepts a Bearer token, or the session cookie on safe methods
+// only, and stores the caller's id, email and role in the gin context.
+//
+// Cookie auth is limited to GET/HEAD because tenant apps on sibling
+// subdomains are same-site with the control plane: SameSite=Lax would still
+// attach the cookie to their cross-origin POSTs (CSRF). The SPA always sends
+// Bearer tokens; the cookie only serves plain links such as file downloads.
+func AuthRequired(authService *usecase.AuthUsecase, secureCookies bool) gin.HandlerFunc {
+	cookieName := SessionCookieName(secureCookies)
 	return func(c *gin.Context) {
 		var tokenStr string
 
 		authHeader := c.GetHeader("Authorization")
 		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
 			tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
-		} else {
-			cookieToken, err := c.Cookie("nevatal_token")
+		} else if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead {
+			cookieToken, err := c.Cookie(cookieName)
 			if err == nil && cookieToken != "" {
 				tokenStr = cookieToken
 			}
 		}
 
 		if tokenStr == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": gin.H{
-					"code":    "UNAUTHORIZED",
-					"message": "Authentication required to access this resource",
-				},
-			})
+			response.AbortError(c, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required to access this resource")
 			return
 		}
 
 		claims, err := authService.ValidateToken(tokenStr)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": gin.H{
-					"code":    "INVALID_TOKEN",
-					"message": "Session expired or invalid token",
-				},
-			})
+			response.AbortError(c, http.StatusUnauthorized, "INVALID_TOKEN", "Session expired or invalid token")
 			return
 		}
 
@@ -57,12 +74,7 @@ func AdminOnly() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		roleVal, exists := c.Get("role")
 		if !exists || roleVal != models.RoleAdmin {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": gin.H{
-					"code":    "FORBIDDEN",
-					"message": "Administrator privileges required",
-				},
-			})
+			response.AbortError(c, http.StatusForbidden, "FORBIDDEN", "Administrator privileges required")
 			return
 		}
 		c.Next()

@@ -1,0 +1,21 @@
+# k3s only: tune the bundled Traefik for Nevatal Cloud uploads.
+#
+# Traefik v3 reads each request (body included) within
+# entryPoints.<name>.transport.respondingTimeouts.readTimeout, 60s by default.
+# Object-storage and ISO uploads take longer than that on normal links, so
+# raise it on both entry points (keep it bounded: 0 disables the protection).
+#
+#   kubectl apply -k deploy/k8s/addons/traefik
+#
+# k3s' helm-controller merges this into the bundled Traefik chart and rolls
+# the Traefik pods. Check: kubectl -n kube-system get pods -l app.kubernetes.io/name=traefik
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    additionalArguments:
+      - "--entryPoints.web.transport.respondingTimeouts.readTimeout=1h"
+      - "--entryPoints.websecure.transport.respondingTimeouts.readTimeout=1h"

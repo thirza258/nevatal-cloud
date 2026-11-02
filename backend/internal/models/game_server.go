@@ -16,15 +16,15 @@ const (
 
 // ServerSoftware constants per PRD Section 51.1 & 52.1
 const (
-	SoftwareVanilla       = "vanilla"
-	SoftwarePaper         = "paper"
-	SoftwarePurpur        = "purpur"
-	SoftwareFabric        = "fabric"
-	SoftwareForge         = "forge"
-	SoftwareNeoForge      = "neoforge"
-	SoftwareBedrock       = "bedrock"
-	SoftwareTerraria      = "terraria_vanilla"
-	SoftwareTModLoader    = "tmodloader"
+	SoftwareVanilla    = "vanilla"
+	SoftwarePaper      = "paper"
+	SoftwarePurpur     = "purpur"
+	SoftwareFabric     = "fabric"
+	SoftwareForge      = "forge"
+	SoftwareNeoForge   = "neoforge"
+	SoftwareBedrock    = "bedrock"
+	SoftwareTerraria   = "terraria_vanilla"
+	SoftwareTModLoader = "tmodloader"
 )
 
 // GameServerStatus constants per PRD Section 53
@@ -40,38 +40,38 @@ const (
 
 // GameServer represents a customer managed game server instance
 type GameServer struct {
-	ID                 uuid.UUID               `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	OwnerID            uuid.UUID               `gorm:"type:uuid;not null;index" json:"owner_id"`
-	Name               string                  `gorm:"type:varchar(100);not null" json:"name"`
-	Slug               string                  `gorm:"type:varchar(100);not null;index" json:"slug"`
-	GameType           string                  `gorm:"type:varchar(50);not null;index" json:"game_type"` // minecraft_java, minecraft_bedrock, terraria
-	GameVersion        string                  `gorm:"type:varchar(50);not null" json:"game_version"`
-	ServerSoftware     string                  `gorm:"type:varchar(50);not null" json:"server_software"`
-	Status             string                  `gorm:"type:varchar(32);not null;default:'installing'" json:"status"`
-	PlanName           string                  `gorm:"type:varchar(50);default:'basic'" json:"plan_name"` // starter, basic, standard, advanced, custom
-	CPUCores           int                     `gorm:"default:2" json:"cpu_cores"`
-	MemoryMB           int                     `gorm:"default:4096" json:"memory_mb"`
-	StorageGB          int                     `gorm:"default:20" json:"storage_gb"`
-	PlayerSlots        int                     `gorm:"default:10" json:"player_slots"`
-	AssignedPort       int                     `gorm:"not null" json:"assigned_port"`
-	QueryPort          int                     `gorm:"default:0" json:"query_port,omitempty"`
-	RCONPort           int                     `gorm:"default:0" json:"rcon_port,omitempty"`
-	RCONPassword       string                  `gorm:"type:varchar(100)" json:"-"`
-	PublicAddress      string                  `gorm:"type:varchar(255);not null" json:"public_address"`
-	CustomDomain       string                  `gorm:"type:varchar(255)" json:"custom_domain,omitempty"`
-	MOTD               string                  `gorm:"type:varchar(255);default:'Welcome to Nevatal Game Server'" json:"motd"`
-	ProxmoxVMID        *int                    `gorm:"column:proxmox_vmid" json:"proxmox_vmid,omitempty"`
-	NodeName           string                  `gorm:"type:varchar(100);default:'pve-dell-r640'" json:"node_name"`
-	UptimeSeconds      int64                   `gorm:"default:0" json:"uptime_seconds"`
-	TPS                float64                 `gorm:"default:20.0" json:"tps"`
-	MSPT               float64                 `gorm:"default:12.5" json:"mspt"`
-	OnlinePlayerCount  int                     `gorm:"default:0" json:"online_player_count"`
-	AutoBackupEnabled  bool                    `gorm:"default:true" json:"auto_backup_enabled"`
-	LastBackupAt       *time.Time              `json:"last_backup_at,omitempty"`
-	LastHealthCheckAt  *time.Time              `json:"last_health_check_at,omitempty"`
-	CreatedAt          time.Time               `json:"created_at"`
-	UpdatedAt          time.Time               `json:"updated_at"`
-	DeletedAt          gorm.DeletedAt          `gorm:"index" json:"-"`
+	ID                uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	OwnerID           uuid.UUID      `gorm:"type:uuid;not null;index" json:"owner_id"`
+	Name              string         `gorm:"type:varchar(100);not null" json:"name"`
+	Slug              string         `gorm:"type:varchar(100);not null;index" json:"slug"`
+	GameType          string         `gorm:"type:varchar(50);not null;index" json:"game_type"` // minecraft_java, minecraft_bedrock, terraria
+	GameVersion       string         `gorm:"type:varchar(50);not null" json:"game_version"`
+	ServerSoftware    string         `gorm:"type:varchar(50);not null" json:"server_software"`
+	Status            string         `gorm:"type:varchar(32);not null;default:'installing'" json:"status"`
+	PlanName          string         `gorm:"type:varchar(50);default:'basic'" json:"plan_name"` // starter, basic, standard, advanced, custom
+	CPUCores          int            `gorm:"default:2" json:"cpu_cores"`
+	MemoryMB          int            `gorm:"default:4096" json:"memory_mb"`
+	StorageGB         int            `gorm:"default:20" json:"storage_gb"`
+	PlayerSlots       int            `gorm:"default:10" json:"player_slots"`
+	AssignedPort      int            `gorm:"not null" json:"assigned_port"`
+	QueryPort         int            `gorm:"default:0" json:"query_port,omitempty"`
+	RCONPort          int            `gorm:"default:0" json:"rcon_port,omitempty"`
+	RCONPassword      string         `gorm:"type:varchar(100)" json:"-"`
+	PublicAddress     string         `gorm:"type:varchar(255);not null" json:"public_address"`
+	CustomDomain      string         `gorm:"type:varchar(255)" json:"custom_domain,omitempty"`
+	MOTD              string         `gorm:"type:varchar(255);default:'Welcome to Nevatal Game Server'" json:"motd"`
+	ProxmoxVMID       *int           `gorm:"column:proxmox_vmid" json:"proxmox_vmid,omitempty"`
+	NodeName          string         `gorm:"type:varchar(100);default:'pve-dell-r640'" json:"node_name"`
+	UptimeSeconds     int64          `gorm:"default:0" json:"uptime_seconds"`
+	TPS               float64        `gorm:"default:20.0" json:"tps"`
+	MSPT              float64        `gorm:"default:12.5" json:"mspt"`
+	OnlinePlayerCount int            `gorm:"default:0" json:"online_player_count"`
+	AutoBackupEnabled bool           `gorm:"default:true" json:"auto_backup_enabled"`
+	LastBackupAt      *time.Time     `json:"last_backup_at,omitempty"`
+	LastHealthCheckAt *time.Time     `json:"last_health_check_at,omitempty"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relations
 	Ports          []GameServerPort          `gorm:"foreignKey:ServerID" json:"ports,omitempty"`
@@ -117,15 +117,15 @@ type GameServerVersion struct {
 
 // GameServerPort tracks assigned ports and prevents collision
 type GameServerPort struct {
-	ID           uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	ServerID     uuid.UUID  `gorm:"type:uuid;not null;index" json:"server_id"`
-	PortNumber   int        `gorm:"not null;index" json:"port_number"`
-	Protocol     string     `gorm:"type:varchar(10);not null" json:"protocol"` // tcp, udp
-	ServiceType  string     `gorm:"type:varchar(20);not null" json:"service_type"` // game, query, rcon
-	NodeName     string     `gorm:"type:varchar(100);not null" json:"node_name"`
-	IsAllocated  bool       `gorm:"default:true" json:"is_allocated"`
-	AllocatedAt  time.Time  `json:"allocated_at"`
-	ReleasedAt   *time.Time `json:"released_at,omitempty"`
+	ID          uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	ServerID    uuid.UUID  `gorm:"type:uuid;not null;index" json:"server_id"`
+	PortNumber  int        `gorm:"not null;index" json:"port_number"`
+	Protocol    string     `gorm:"type:varchar(10);not null" json:"protocol"`     // tcp, udp
+	ServiceType string     `gorm:"type:varchar(20);not null" json:"service_type"` // game, query, rcon
+	NodeName    string     `gorm:"type:varchar(100);not null" json:"node_name"`
+	IsAllocated bool       `gorm:"default:true" json:"is_allocated"`
+	AllocatedAt time.Time  `json:"allocated_at"`
+	ReleasedAt  *time.Time `json:"released_at,omitempty"`
 }
 
 // GameServerConfiguration holds server-specific property settings

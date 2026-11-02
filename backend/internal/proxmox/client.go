@@ -23,7 +23,11 @@ type httpPVEClient struct {
 
 func NewClient(cfg *config.Config) ProxmoxClient {
 	if cfg.ProxmoxMock {
-		return NewMockClient(cfg.ProxmoxNodeName)
+		mock := NewMockClient(cfg.ProxmoxNodeName)
+		if cfg.ProxmoxMockLatency > 0 {
+			mock.(*mockPVEClient).latency = cfg.ProxmoxMockLatency
+		}
+		return mock
 	}
 
 	transport := &http.Transport{
@@ -48,21 +52,31 @@ func NewClient(cfg *config.Config) ProxmoxClient {
 }
 
 func (c *httpPVEClient) doRequest(ctx context.Context, method, endpoint string, body url.Values) ([]byte, error) {
-	targetURL := fmt.Sprintf("%s%s", c.baseURL, endpoint)
-
-	var reqBody io.Reader
 	if body != nil && (method == http.MethodPost || method == http.MethodPut) {
-		reqBody = strings.NewReader(body.Encode())
+		return c.send(ctx, method, endpoint, strings.NewReader(body.Encode()), "application/x-www-form-urlencoded")
 	}
+	if len(body) > 0 {
+		// GET/DELETE parameters travel in the query string.
+		sep := "?"
+		if strings.Contains(endpoint, "?") {
+			sep = "&"
+		}
+		endpoint += sep + body.Encode()
+	}
+	return c.send(ctx, method, endpoint, nil, "")
+}
 
-	req, err := http.NewRequestWithContext(ctx, method, targetURL, reqBody)
+func (c *httpPVEClient) send(ctx context.Context, method, endpoint string, body io.Reader, contentType string) ([]byte, error) {
+	targetURL := c.baseURL + endpoint
+
+	req, err := http.NewRequestWithContext(ctx, method, targetURL, body)
 	if err != nil {
 		return nil, fmt.Errorf("creating request failed: %w", err)
 	}
 
 	req.Header.Set("Authorization", c.authHeader)
-	if body != nil && (method == http.MethodPost || method == http.MethodPut) {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -71,13 +85,13 @@ func (c *httpPVEClient) doRequest(ctx context.Context, method, endpoint string, 
 	}
 	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	respBytes, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
 	if err != nil {
 		return nil, fmt.Errorf("reading proxmox response failed: %w", err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("proxmox api returned HTTP %d: %s", resp.StatusCode, string(respBytes))
+		return nil, newAPIError(resp.StatusCode, resp.Status, respBytes)
 	}
 
 	return respBytes, nil

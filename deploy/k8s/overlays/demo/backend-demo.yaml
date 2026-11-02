@@ -1,0 +1,22 @@
+# Exactly one API pod at any time: a rolling update would briefly run two
+# simulated hypervisors (and could not attach the ReadWriteOnce volume twice).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+    rollingUpdate: null
+  template:
+    spec:
+      containers:
+        - name: backend
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi

@@ -13,6 +13,10 @@ const (
 	JobStatusCompleted  = "completed"
 	JobStatusFailed     = "failed"
 
+	// JobErrorStale is the error code of a job failed by the stale-job
+	// reaper (its worker stopped heartbeating, e.g. the replica crashed).
+	JobErrorStale = "JOB_STALE"
+
 	OpCreate   = "create"
 	OpDelete   = "delete"
 	OpStart    = "start"
@@ -24,7 +28,7 @@ type ProvisioningJob struct {
 	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	OwnerID         uuid.UUID  `gorm:"type:uuid;index;not null" json:"owner_id"`
 	InstanceID      *uuid.UUID `gorm:"type:uuid;index" json:"instance_id,omitempty"`
-	IdempotencyKey  string     `gorm:"type:varchar(128);not null" json:"idempotency_key"`
+	IdempotencyKey  string     `gorm:"type:varchar(255);not null" json:"idempotency_key"`
 	OperationType   string     `gorm:"type:varchar(32);not null" json:"operation_type"` // create, delete, start, shutdown, restart
 	Status          string     `gorm:"type:varchar(32);index;not null;default:'queued'" json:"status"`
 	CurrentStep     string     `gorm:"type:varchar(64);default:'queued'" json:"current_step"`
@@ -35,6 +39,10 @@ type ProvisioningJob struct {
 	CompletedAt     *time.Time `json:"completed_at,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
+	// HeartbeatAt is refreshed by the worker while the job runs; the
+	// stale-job reaper fails active jobs whose heartbeat stopped. Not part of
+	// the job JSON.
+	HeartbeatAt *time.Time `gorm:"column:heartbeat_at" json:"-"`
 
 	Instance *Instance `gorm:"foreignKey:InstanceID" json:"instance,omitempty"`
 }

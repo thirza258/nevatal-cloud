@@ -17,7 +17,7 @@ type OpenClawInstance struct {
 	GatewayEndpoint   string     `gorm:"type:varchar(255);not null" json:"gateway_endpoint"`
 	GatewayAuthToken  string     `gorm:"type:varchar(255);not null" json:"-"` // secret token for gateway access
 	WorkspacePath     string     `gorm:"type:varchar(255);not null" json:"workspace_path"`
-	AIProvider        string     `gorm:"type:varchar(50);not null;default:'openai'" json:"ai_provider"` // openai, anthropic, gemini, ollama, deepseek
+	AIProvider        string     `gorm:"column:ai_provider;type:varchar(50);not null;default:'openai'" json:"ai_provider"` // openai, anthropic, gemini, ollama, deepseek
 	DefaultModel      string     `gorm:"type:varchar(100);not null;default:'gpt-4o'" json:"default_model"`
 	EncryptedAPIKey   string     `gorm:"type:varchar(512)" json:"-"`
 	MaskedAPIKey      string     `gorm:"type:varchar(50)" json:"masked_api_key"`

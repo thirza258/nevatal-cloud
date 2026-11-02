@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Instance } from '../../types';
 import { apiRequest } from '../../lib/api';
 import { StatusBadge } from '../../components/ui/Badge';
-import { Server, Search, RefreshCw } from 'lucide-react';
+import { Server, Search, RefreshCw, Container } from 'lucide-react';
 
-export const AdminInstances: React.FC = () => {
+interface AdminInstancesProps {
+  onNavigate?: (path: string, param?: string) => void;
+}
+
+export const AdminInstances: React.FC<AdminInstancesProps> = ({ onNavigate }) => {
   const [instances, setInstances] = useState<Instance[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -70,6 +74,7 @@ export const AdminInstances: React.FC = () => {
                   <th className="py-3.5 px-4">Allocation</th>
                   <th className="py-3.5 px-4">Private IP</th>
                   <th className="py-3.5 px-4">Proxmox Target</th>
+                  {onNavigate && <th className="py-3.5 px-4 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 font-mono">
@@ -97,6 +102,19 @@ export const AdminInstances: React.FC = () => {
                     <td className="py-3.5 px-4 text-slate-400 text-[11px]">
                       {inst.node?.proxmox_node_name || 'pve-dell-r640'} (VMID: #{inst.proxmox_vmid || '—'})
                     </td>
+                    {onNavigate && (
+                      <td className="py-3.5 px-4 text-right font-sans">
+                        <button
+                          type="button"
+                          onClick={() => onNavigate(`/admin/docker?instance=${encodeURIComponent(inst.id)}`)}
+                          title="Inspect Docker containers and logs in this VM"
+                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-[11px] font-medium text-zinc-300 hover:text-white hover:border-zinc-700 transition-colors"
+                        >
+                          <Container className="w-3 h-3" />
+                          <span>Docker</span>
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

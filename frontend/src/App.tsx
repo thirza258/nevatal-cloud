@@ -1,73 +1,121 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from './context/AuthContext';
 import { AppShell } from './components/layout/AppShell';
+import { FullPageFallback, PageFallback, RouteErrorBoundary } from './components/layout/RouteBoundary';
+import { AI_WORKSPACE_PATH, conversationIdFromPath, isAIWorkspacePath } from './lib/aiRoutes';
 
-// Public Landing & Documentation
+// Public Landing Page stays in the entry chunk (first paint for most visitors).
 import { LandingPage } from './pages/LandingPage';
-import { DocsPage } from './pages/docs/DocsPage';
-import { LegalPage } from './pages/LegalPage';
+
+// Every other route is code-split and loaded on demand.
+// Public Documentation & Legal
+const DocsPage = lazy(() => import('./pages/docs/DocsPage').then((m) => ({ default: m.DocsPage })));
+const LegalPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.LegalPage })));
 
 // Customer Compute & Core Pages
-import { Login } from './pages/Login';
-import { Register } from './pages/Register';
-import { Dashboard } from './pages/Dashboard';
-import { InstancesList } from './pages/InstancesList';
-import { InstanceDetails } from './pages/InstanceDetails';
-import { CreateInstance } from './pages/CreateInstance';
-import { JobProgress } from './pages/JobProgress';
-import { SSHKeys } from './pages/SSHKeys';
-import { UsageQuotas } from './pages/UsageQuotas';
-import { ActivityPage } from './pages/ActivityPage';
+const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })));
+const Register = lazy(() => import('./pages/Register').then((m) => ({ default: m.Register })));
+const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })));
+const InstancesList = lazy(() => import('./pages/InstancesList').then((m) => ({ default: m.InstancesList })));
+const InstanceDetails = lazy(() => import('./pages/InstanceDetails').then((m) => ({ default: m.InstanceDetails })));
+const CreateInstance = lazy(() => import('./pages/CreateInstance').then((m) => ({ default: m.CreateInstance })));
+const JobProgress = lazy(() => import('./pages/JobProgress').then((m) => ({ default: m.JobProgress })));
+const SSHKeys = lazy(() => import('./pages/SSHKeys').then((m) => ({ default: m.SSHKeys })));
+const UsageQuotas = lazy(() => import('./pages/UsageQuotas').then((m) => ({ default: m.UsageQuotas })));
+const ActivityPage = lazy(() => import('./pages/ActivityPage').then((m) => ({ default: m.ActivityPage })));
+
+// Public Domains (https://<name>.<root> forwarding to a VM port; each page gates itself on the config)
+const DomainsPage = lazy(() => import('./pages/domains/DomainsPage').then((m) => ({ default: m.DomainsPage })));
 
 // Applications (Git & Web Hosting)
-import { AppsList } from './pages/apps/AppsList';
-import { CreateApp } from './pages/apps/CreateApp';
-import { AppDetails } from './pages/apps/AppDetails';
+const AppsList = lazy(() => import('./pages/apps/AppsList').then((m) => ({ default: m.AppsList })));
+const CreateApp = lazy(() => import('./pages/apps/CreateApp').then((m) => ({ default: m.CreateApp })));
+const AppDetails = lazy(() => import('./pages/apps/AppDetails').then((m) => ({ default: m.AppDetails })));
 
 // Workflow Automation (n8n)
-import { AutomationList } from './pages/automation/AutomationList';
-import { CreateAutomation } from './pages/automation/CreateAutomation';
-import { AutomationDetails } from './pages/automation/AutomationDetails';
+const AutomationList = lazy(() =>
+  import('./pages/automation/AutomationList').then((m) => ({ default: m.AutomationList }))
+);
+const CreateAutomation = lazy(() =>
+  import('./pages/automation/CreateAutomation').then((m) => ({ default: m.CreateAutomation }))
+);
+const AutomationDetails = lazy(() =>
+  import('./pages/automation/AutomationDetails').then((m) => ({ default: m.AutomationDetails }))
+);
 
 // AI Personal Assistants (OpenClaw)
-import { OpenClawList } from './pages/ai-agents/OpenClawList';
-import { CreateOpenClaw } from './pages/ai-agents/CreateOpenClaw';
-import { OpenClawDetails } from './pages/ai-agents/OpenClawDetails';
+const OpenClawList = lazy(() => import('./pages/ai-agents/OpenClawList').then((m) => ({ default: m.OpenClawList })));
+const CreateOpenClaw = lazy(() =>
+  import('./pages/ai-agents/CreateOpenClaw').then((m) => ({ default: m.CreateOpenClaw }))
+);
+const OpenClawDetails = lazy(() =>
+  import('./pages/ai-agents/OpenClawDetails').then((m) => ({ default: m.OpenClawDetails }))
+);
 
 // AI Cloud Assistant (OpenRouter Copilot)
-import { AIAssistant } from './pages/AIAssistant';
+const AIAssistant = lazy(() => import('./pages/AIAssistant').then((m) => ({ default: m.AIAssistant })));
 
 // Nevatal AI Cloud Agent (PRD Section 33-48)
-import { AICloudAgent } from './pages/ai/AICloudAgent';
-import { UnifiedResources } from './pages/resources/UnifiedResources';
-import { MCPRegistry } from './pages/integrations/MCPRegistry';
+const AICloudAgent = lazy(() => import('./pages/ai/AICloudAgent').then((m) => ({ default: m.AICloudAgent })));
+const UnifiedResources = lazy(() =>
+  import('./pages/resources/UnifiedResources').then((m) => ({ default: m.UnifiedResources }))
+);
+const MCPRegistry = lazy(() => import('./pages/integrations/MCPRegistry').then((m) => ({ default: m.MCPRegistry })));
 
 // S3 Object Storage & File Manager
-import { StorageOverviewPage } from './pages/storage/StorageOverview';
-import { FileManager } from './pages/storage/FileManager';
-import { AccessKeys } from './pages/storage/AccessKeys';
+const StorageOverviewPage = lazy(() =>
+  import('./pages/storage/StorageOverview').then((m) => ({ default: m.StorageOverviewPage }))
+);
+const FileManager = lazy(() => import('./pages/storage/FileManager').then((m) => ({ default: m.FileManager })));
+const AccessKeys = lazy(() => import('./pages/storage/AccessKeys').then((m) => ({ default: m.AccessKeys })));
 
 // Game Server Hosting (PRD Addendum 49-65)
-import { GameServersList } from './pages/game-servers/GameServersList';
-import { CreateGameServer } from './pages/game-servers/CreateGameServer';
-import { GameServerDetails } from './pages/game-servers/GameServerDetails';
+const GameServersList = lazy(() =>
+  import('./pages/game-servers/GameServersList').then((m) => ({ default: m.GameServersList }))
+);
+const CreateGameServer = lazy(() =>
+  import('./pages/game-servers/CreateGameServer').then((m) => ({ default: m.CreateGameServer }))
+);
+const GameServerDetails = lazy(() =>
+  import('./pages/game-servers/GameServerDetails').then((m) => ({ default: m.GameServerDetails }))
+);
 
 // Managed Waydroid Android Cloud (PRD Addendum 66-83)
-import { AndroidInstancesList } from './pages/android/AndroidInstancesList';
-import { CreateAndroidInstance } from './pages/android/CreateAndroidInstance';
-import { AndroidInstanceDetails } from './pages/android/AndroidInstanceDetails';
-import { AdminAndroidImages } from './pages/admin/AdminAndroidImages';
+const AndroidInstancesList = lazy(() =>
+  import('./pages/android/AndroidInstancesList').then((m) => ({ default: m.AndroidInstancesList }))
+);
+const CreateAndroidInstance = lazy(() =>
+  import('./pages/android/CreateAndroidInstance').then((m) => ({ default: m.CreateAndroidInstance }))
+);
+const AndroidInstanceDetails = lazy(() =>
+  import('./pages/android/AndroidInstanceDetails').then((m) => ({ default: m.AndroidInstanceDetails }))
+);
+const AdminAndroidImages = lazy(() =>
+  import('./pages/admin/AdminAndroidImages').then((m) => ({ default: m.AdminAndroidImages }))
+);
 
 // Admin Pages
-import { AdminOverview } from './pages/admin/AdminOverview';
-import { AdminUsers } from './pages/admin/AdminUsers';
-import { AdminInstances } from './pages/admin/AdminInstances';
-import { AdminJobs } from './pages/admin/AdminJobs';
-import { AdminISOs } from './pages/admin/AdminISOs';
-import { AdminTemplates } from './pages/admin/AdminTemplates';
-import { AdminPlans } from './pages/admin/AdminPlans';
-import { AdminNodes } from './pages/admin/AdminNodes';
-import { AdminAudit } from './pages/admin/AdminAudit';
+const AdminOverview = lazy(() => import('./pages/admin/AdminOverview').then((m) => ({ default: m.AdminOverview })));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers').then((m) => ({ default: m.AdminUsers })));
+const AdminInstances = lazy(() =>
+  import('./pages/admin/AdminInstances').then((m) => ({ default: m.AdminInstances }))
+);
+const AdminDocker = lazy(() => import('./pages/admin/AdminDocker').then((m) => ({ default: m.AdminDocker })));
+const AdminJobs = lazy(() => import('./pages/admin/AdminJobs').then((m) => ({ default: m.AdminJobs })));
+const AdminISOs = lazy(() => import('./pages/admin/AdminISOs').then((m) => ({ default: m.AdminISOs })));
+const AdminTemplates = lazy(() =>
+  import('./pages/admin/AdminTemplates').then((m) => ({ default: m.AdminTemplates }))
+);
+const AdminPlans = lazy(() => import('./pages/admin/AdminPlans').then((m) => ({ default: m.AdminPlans })));
+const AdminNodes = lazy(() => import('./pages/admin/AdminNodes').then((m) => ({ default: m.AdminNodes })));
+const AdminAudit = lazy(() => import('./pages/admin/AdminAudit').then((m) => ({ default: m.AdminAudit })));
+const AdminDomains = lazy(() => import('./pages/admin/AdminDomains').then((m) => ({ default: m.AdminDomains })));
+
+/** Routing matches on the pathname only; any `?query`/`#hash` is left for the page to read. */
+const pathnameOf = (path: string): string => {
+  const cut = path.search(/[?#]/);
+  return (cut === -1 ? path : path.slice(0, cut)) || '/';
+};
 
 export const App: React.FC = () => {
   const { user, loading } = useAuth();
@@ -87,10 +135,15 @@ export const App: React.FC = () => {
   }, []);
 
   const handleNavigate = (path: string, routeParam?: string) => {
-    setCurrentPath(path);
+    const pathname = pathnameOf(path);
+    const samePage = pathname === window.location.pathname;
+    setCurrentPath(pathname);
     setParam(routeParam);
-    if (window.location.pathname !== path) {
+    if (window.location.pathname + window.location.search !== path) {
       window.history.pushState({}, '', path);
+      // Only the query string changed (e.g. /admin/docker?instance=…): the routed page stays
+      // mounted, so let it re-read the URL exactly as it does on back/forward.
+      if (samePage) window.dispatchEvent(new PopStateEvent('popstate'));
     }
     window.scrollTo(0, 0);
   };
@@ -106,6 +159,23 @@ export const App: React.FC = () => {
     );
   }
 
+  // Full-screen public routes: own Suspense boundary (no shell around them).
+  const publicRoute = (node: React.ReactNode) => (
+    <RouteErrorBoundary key={currentPath} fullScreen>
+      <Suspense fallback={<FullPageFallback />}>{node}</Suspense>
+    </RouteErrorBoundary>
+  );
+
+  // Authenticated routes: the Suspense boundary sits inside the shell's content area, so the
+  // sidebar/top bar stay put while a page chunk loads.
+  const shellRoute = (shellPath: string, node: React.ReactNode) => (
+    <AppShell currentPath={shellPath} onNavigate={handleNavigate}>
+      <RouteErrorBoundary key={shellPath}>
+        <Suspense fallback={<PageFallback />}>{node}</Suspense>
+      </RouteErrorBoundary>
+    </AppShell>
+  );
+
   // Public Landing Page
   if (currentPath === '/' || currentPath === '/home' || currentPath === '/landing') {
     return <LandingPage onNavigate={handleNavigate} />;
@@ -113,36 +183,46 @@ export const App: React.FC = () => {
 
   // Legal & Compliance Pages
   if (currentPath === '/privacy' || currentPath === '/terms') {
-    return <LegalPage onNavigate={handleNavigate} initialTab={currentPath === '/terms' ? 'terms' : 'privacy'} />;
+    return publicRoute(
+      <LegalPage onNavigate={handleNavigate} initialTab={currentPath === '/terms' ? 'terms' : 'privacy'} />
+    );
   }
 
   // Public Documentation Portal
   if (currentPath.startsWith('/docs')) {
     const cleanPath = currentPath.replace(/\/+$/, '');
     const slug = (cleanPath !== '/docs' ? cleanPath.replace(/^\/docs\//, '') : undefined) || param || 'overview';
-    return <DocsPage onNavigate={handleNavigate} initialArticleId={slug} />;
+    return publicRoute(<DocsPage onNavigate={handleNavigate} initialArticleId={slug} />);
   }
 
   // Not authenticated view for protected or auth pages
   if (!user) {
     if (currentPath === '/register') {
-      return <Register onNavigate={handleNavigate} />;
+      return publicRoute(<Register onNavigate={handleNavigate} />);
     }
-    return <Login onNavigate={handleNavigate} />;
+    return publicRoute(<Login onNavigate={handleNavigate} />);
   }
 
   // Authenticated redirect from login/register
   if (currentPath === '/login' || currentPath === '/register') {
-    return (
-      <AppShell currentPath="/dashboard" onNavigate={handleNavigate}>
-        <Dashboard onNavigate={handleNavigate} />
-      </AppShell>
-    );
+    return shellRoute('/dashboard', <Dashboard onNavigate={handleNavigate} />);
   }
 
+  // The AI workspace owns /dashboard/ai, /dashboard/ai/new and /dashboard/ai/conversations[/<id>]
+  // (deep link: /dashboard/ai/conversations/<conversationId>?plan=<planId>). One shell key for all of
+  // them, so switching conversations does not remount the workspace (live execution streams survive).
+  const aiWorkspace =
+    isAIWorkspacePath(currentPath) &&
+    (currentPath === AI_WORKSPACE_PATH ||
+      currentPath === '/dashboard/ai/new' ||
+      currentPath === '/dashboard/ai/conversations' ||
+      currentPath.startsWith('/dashboard/ai/conversations/'));
+  const aiConversationId = aiWorkspace ? conversationIdFromPath(currentPath).id ?? param : undefined;
+
   // Authenticated view within AppShell
-  return (
-    <AppShell currentPath={currentPath} onNavigate={handleNavigate}>
+  return shellRoute(
+    aiWorkspace ? AI_WORKSPACE_PATH : currentPath,
+    <>
       {/* Customer Compute Routes */}
       {currentPath === '/dashboard' && <Dashboard onNavigate={handleNavigate} />}
 
@@ -161,6 +241,9 @@ export const App: React.FC = () => {
       {currentPath === '/dashboard/jobs' && param && (
         <JobProgress jobId={param} onNavigate={handleNavigate} />
       )}
+
+      {/* Public Domains (renders a neutral notice unless the backend enables the feature) */}
+      {currentPath === '/dashboard/domains' && <DomainsPage onNavigate={handleNavigate} />}
 
       {/* Applications (Git & Web Hosting) */}
       {currentPath === '/dashboard/apps' && !param && (
@@ -188,13 +271,8 @@ export const App: React.FC = () => {
         <CreateAutomation onNavigate={handleNavigate} />
       )}
 
-      {/* Nevatal AI Cloud Agent (PRD Section 33-48) */}
-      {(currentPath === '/dashboard/ai' || currentPath === '/dashboard/ai/new') && (
-        <AICloudAgent onNavigate={handleNavigate} />
-      )}
-      {currentPath === '/dashboard/ai/conversations' && (
-        <AICloudAgent conversationId={param} onNavigate={handleNavigate} />
-      )}
+      {/* Nevatal AI Cloud Agent / Infrastructure Orchestrator workspace (PRD Section 33-48) */}
+      {aiWorkspace && <AICloudAgent conversationId={aiConversationId} onNavigate={handleNavigate} />}
 
       {/* Cloud Resources Inventory (PRD Section 34.1) */}
       {currentPath === '/dashboard/resources' && (
@@ -274,7 +352,9 @@ export const App: React.FC = () => {
       {/* Admin Routes */}
       {currentPath === '/admin' && <AdminOverview />}
       {currentPath === '/admin/users' && <AdminUsers />}
-      {currentPath === '/admin/instances' && <AdminInstances />}
+      {currentPath === '/admin/instances' && <AdminInstances onNavigate={handleNavigate} />}
+      {currentPath === '/admin/docker' && <AdminDocker onNavigate={handleNavigate} />}
+      {currentPath === '/admin/domains' && <AdminDomains onNavigate={handleNavigate} />}
       {currentPath === '/admin/jobs' && <AdminJobs />}
       {currentPath === '/admin/isos' && <AdminISOs />}
       {currentPath === '/admin/templates' && <AdminTemplates onNavigate={handleNavigate} />}
@@ -282,6 +362,6 @@ export const App: React.FC = () => {
       {currentPath === '/admin/nodes' && <AdminNodes />}
       {currentPath === '/admin/android/images' && <AdminAndroidImages />}
       {currentPath === '/admin/audit-logs' && <AdminAudit />}
-    </AppShell>
+    </>
   );
 };

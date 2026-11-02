@@ -1,0 +1,116 @@
+# Nevatal Cloud - PRODUCTION overlay (real Proxmox VE hypervisor).
+#
+#   cp secrets.env.example secrets.env     # fill in; secrets.env is gitignored
+#   # edit PROXMOX_* below, the host names and the image tags
+#   kubectl apply -k deploy/k8s/overlays/production
+#
+# Backend: HPA 2-6 replicas (CPU 70%), frontend: HPA 2-4 replicas.
+# Railway-style subdomains: the edge proxy (components/edge, 2 replicas) and
+# its settings below; publish it with a Cloudflare Tunnel
+# (deploy/k8s/addons/cloudflared). docs/PROXMOX_INSTALL.md, section 20.
+# Object storage needs a ReadWriteMany volume shared by all API replicas
+# (storage-rwx.yaml). With ReadWriteOnce storage you MUST pin the backend to
+# one replica (set the HPA to minReplicas: 1 / maxReplicas: 1).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: nevatal-cloud
+
+resources:
+  - ../../base
+  - hpa.yaml
+
+# Subdomain edge proxy (Deployment + ClusterIP Service + PDB + NetworkPolicies).
+# To turn the feature off: remove this component and set PUBLIC_DOMAIN_ROOT=
+# (empty) below.
+components:
+  - ../../components/edge
+
+configMapGenerator:
+  - name: nevatal-config
+    behavior: merge
+    literals:
+      - DEMO_MODE=false
+      - PROXMOX_MOCK=false
+      - APP_BASE_URL=https://cloud.nevatal.id
+      # Proxmox node reachable from the cluster pods (API port 8006).
+      - PROXMOX_HOST=CHANGE_ME
+      - PROXMOX_PORT=8006
+      - PROXMOX_NODE_NAME=pve-dell-r640
+      - PROXMOX_STORAGE=local-zfs
+      - PROXMOX_VERIFY_TLS=false
+      # Railway-style subdomains: https://<name>.<PUBLIC_DOMAIN_ROOT>.
+      # Strongly recommended: a separate registrable domain for tenant apps
+      # (e.g. nevatal.app) instead of the control plane's domain (section 20).
+      - PUBLIC_DOMAIN_ROOT=nevatal.id
+      # Every name with its own DNS record in Cloudflare that is not in the
+      # built-in list (www, cloud, demo, api, mail, ... are built in): an
+      # explicit record wins over the wildcard. Comma-separated labels.
+      - RESERVED_SUBDOMAINS=
+      - MAX_DOMAINS_PER_USER=5
+      - DOMAIN_QUARANTINE_DAYS=14
+      # PLACEHOLDERS - the customer VM subnet(s), and addresses the edge must
+      # never reach: gateway, the k3s nodes' addresses on the customer
+      # network, the Proxmox host. Keep the CIDR equal to the edge-egress
+      # NetworkPolicy patch below.
+      - EDGE_TARGET_CIDRS=10.20.0.0/24
+      - EDGE_DENY_IPS=10.20.0.1,10.20.0.31,10.20.0.32,10.20.0.33,10.0.0.2
+
+secretGenerator:
+  - name: nevatal-secrets
+    envs:
+      - secrets.env
+
+# These images are not published yet: build and push (or k3s-import) them
+# first and set newTag to that tag (docs/PROXMOX_INSTALL.md, k3s section).
+images:
+  - name: nevatal-cloud-backend
+    newName: ghcr.io/thirza258/nevatal-cloud-backend
+    newTag: "1.2.0"
+  - name: nevatal-cloud-frontend
+    newName: ghcr.io/thirza258/nevatal-cloud-frontend
+    newTag: "1.2.0"
+
+patches:
+  - path: backend-production.yaml
+  - path: storage-rwx.yaml
+  # The HPAs own the replica counts: drop them from the Deployments so
+  # `kubectl apply` does not fight the autoscaler.
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |-
+      - op: remove
+        path: /spec/replicas
+  - target:
+      kind: Deployment
+      name: frontend
+    patch: |-
+      - op: remove
+        path: /spec/replicas
+  - target:
+      kind: Ingress
+      name: nevatal-cloud
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: cloud.nevatal.id
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: cloud.nevatal.id
+  # Edge egress = the customer VM subnet (same value as EDGE_TARGET_CIDRS).
+  # "except": in-subnet addresses from EDGE_DENY_IPS (gateway, node IPs).
+  # Kubernetes rejects except entries outside the cidr.
+  - target:
+      kind: NetworkPolicy
+      name: edge-egress
+    patch: |-
+      - op: replace
+        path: /spec/egress/2/to/0/ipBlock
+        value:
+          cidr: 10.20.0.0/24
+          except:
+            - 10.20.0.1/32
+            - 10.20.0.31/32
+            - 10.20.0.32/32
+            - 10.20.0.33/32

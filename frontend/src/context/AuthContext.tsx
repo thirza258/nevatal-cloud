@@ -1,6 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { apiRequest } from '../lib/api';
+import { useSystemConfig } from './SystemConfigContext';
+
+// Seeded demo accounts. Only usable through switchDemoUser, which refuses to run unless the
+// backend reports demo_mode=true. The real control is the backend not seeding/accepting these
+// accounts outside demo deployments.
+const DEMO_ACCOUNTS: Record<'admin' | 'customer', { email: string; password: string }> = {
+  admin: { email: 'admin@nevatal.id', password: 'AdminPass123!' },
+  customer: { email: 'demo@nevatal.id', password: 'DemoPass123!' },
+};
 
 interface AuthContextType {
   user: User | null;
@@ -10,6 +19,7 @@ interface AuthContextType {
   register: (email: string, pass: string, name: string) => Promise<void>;
   loginWithOAuth: (provider: 'google' | 'github' | 'wordpress', payload?: any) => Promise<void>;
   logout: () => void;
+  /** Signs in as a seeded demo account. Rejects unless the backend reports demo_mode. */
   switchDemoUser: (role: 'admin' | 'customer') => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -17,6 +27,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { config } = useSystemConfig();
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('nevatal_token'));
   const [loading, setLoading] = useState(true);
@@ -85,11 +96,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchDemoUser = async (role: 'admin' | 'customer') => {
-    if (role === 'admin') {
-      await login('admin@nevatal.id', 'AdminPass123!');
-    } else {
-      await login('demo@nevatal.id', 'DemoPass123!');
+    if (!config.demo_mode) {
+      throw new Error('Demo accounts are disabled on this deployment.');
     }
+    const account = DEMO_ACCOUNTS[role];
+    await login(account.email, account.password);
   };
 
   return (

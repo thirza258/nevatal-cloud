@@ -1,0 +1,75 @@
+# Ingress-only network policies (k3s enforces them with its embedded
+# kube-router controller). Egress stays open on purpose: the backend needs
+# DNS, the Proxmox API (:8006) and OpenRouter.
+#
+#   Traefik (kube-system) -> frontend:8080 -> backend:8090 -> postgres:5432
+#
+# Policies are additive: components/edge adds cloudflared -> edge:8088,
+# edge -> postgres:5432 and the edge's egress limits; addons/cloudflared adds
+# cloudflared -> frontend:8080.
+
+# PostgreSQL: only the API pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-from-backend
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nevatal-cloud
+      app.kubernetes.io/component: postgres
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: nevatal-cloud
+              app.kubernetes.io/component: backend
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# API: only the frontend nginx pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-from-frontend
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nevatal-cloud
+      app.kubernetes.io/component: backend
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: nevatal-cloud
+              app.kubernetes.io/component: frontend
+      ports:
+        - protocol: TCP
+          port: 8090
+---
+# Frontend: only the ingress controller (k3s Traefik in kube-system).
+# Adjust the selectors for another controller (e.g. ingress-nginx).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-from-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nevatal-cloud
+      app.kubernetes.io/component: frontend
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 8080

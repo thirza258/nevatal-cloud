@@ -22,6 +22,12 @@ type ProxmoxClient interface {
 	GetVNCProxy(ctx context.Context, node string, vmid int) (*VNCProxyTicket, error)
 	WaitForTask(ctx context.Context, node string, upid string) error
 	GetNextVMID(ctx context.Context) (int, error)
+
+	// QEMU guest agent command execution (argv only, no shell). Requires
+	// qemu-guest-agent in the guest and, on the API token, VM.Monitor (PVE 8)
+	// or VM.GuestAgent.Unrestricted (PVE 9). See agent_exec.go.
+	AgentExec(ctx context.Context, node string, vmid int, command []string) (int, error)
+	AgentExecStatus(ctx context.Context, node string, vmid int, pid int) (*AgentExecStatus, error)
 }
 
 type NodeStatus struct {

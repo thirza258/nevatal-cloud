@@ -1,0 +1,38 @@
+# Cloudflare Tunnel connector for the Nevatal Cloud namespace.
+#
+# Two cloudflared replicas run the SAME remotely-managed tunnel (Cloudflare
+# spreads requests across the connectors). Hostnames are configured in the
+# Cloudflare dashboard, in this order (docs/PROXMOX_INSTALL.md, section 20):
+#
+#   cloud.nevatal.id  -> http://frontend.nevatal-cloud.svc.cluster.local:80
+#   demo.nevatal.id   -> http://frontend.nevatal-cloud.svc.cluster.local:80  (demo cluster)
+#   *.nevatal.id      -> http://edge.nevatal-cloud.svc.cluster.local:8088    (production)
+#
+# With a tunnel, Traefik, MetalLB and cert-manager are not needed for public
+# traffic, and no Ingress exists for *.nevatal.id.
+#
+# Apply AFTER the overlay (the namespace must exist):
+#   cp tunnel.env.example tunnel.env && chmod 600 tunnel.env   # gitignored
+#   kubectl apply -k deploy/k8s/addons/cloudflared
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: nevatal-cloud
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: nevatal-cloud
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false
+    includeTemplates: true
+
+resources:
+  - cloudflared.yaml
+  - networkpolicies.yaml
+
+# TUNNEL_TOKEN of the remotely-managed tunnel. The name gets a content hash,
+# so a new token rolls the connectors automatically.
+secretGenerator:
+  - name: cloudflared-token
+    envs:
+      - tunnel.env

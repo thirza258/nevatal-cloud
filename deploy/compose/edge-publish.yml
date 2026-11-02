@@ -1,0 +1,22 @@
+# Nevatal Cloud - publish the subdomain edge on a host port.
+#
+# Only needed when the Cloudflare Tunnel connector (or another reverse proxy)
+# runs OUTSIDE this compose stack, e.g. cloudflared in a small LXC. With the
+# "tunnel" profile, cloudflared reaches the edge as http://edge:8088 over the
+# compose network and this file is not needed.
+#
+# Append it to COMPOSE_FILE in .env (after the mode override), e.g.:
+#   COMPOSE_FILE=docker-compose.yml:deploy/compose/production.yml:deploy/compose/edge-publish.yml
+#   COMPOSE_PROFILES=edge
+#   EDGE_BIND=10.0.0.50        # this VM's address that the connector can reach
+#   EDGE_PORT_HOST=8088
+#
+# The edge speaks plain HTTP and trusts nothing but its routing table: allow
+# EDGE_PORT_HOST only from the connector's address (Proxmox VM firewall,
+# docs/PROXMOX_INSTALL.md section 20). Keep EDGE_BIND=127.0.0.1 when the
+# connector runs on this host outside Docker.
+
+services:
+  edge:
+    ports:
+      - "${EDGE_BIND:-127.0.0.1}:${EDGE_PORT_HOST:?Set EDGE_PORT_HOST (host port for the edge, e.g. 8088)}:8088"

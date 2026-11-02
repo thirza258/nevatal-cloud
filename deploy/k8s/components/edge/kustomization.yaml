@@ -1,0 +1,24 @@
+# Nevatal Cloud - subdomain edge proxy (kustomize Component).
+#
+# Serves https://<name>.<PUBLIC_DOMAIN_ROOT>: the edge pods read the routes
+# from PostgreSQL and proxy each name to the private IP:port of the customer VM
+# that claimed it. Enabled by overlays/production (components: [...]); never
+# used by the demo overlay.
+#
+# Traffic path with a Cloudflare Tunnel (addons/cloudflared):
+#   Cloudflare -> cloudflared pods -> http://edge.nevatal-cloud.svc.cluster.local:8088
+# There is no Traefik Ingress for *.<PUBLIC_DOMAIN_ROOT>: the tunnel replaces it.
+#
+# Requirements (docs/PROXMOX_INSTALL.md, section 20):
+#   * the k3s nodes reach the customer VM network (a NIC on that bridge/VLAN
+#     or a route); pod traffic leaves through the node (SNAT);
+#   * EDGE_TARGET_CIDRS / EDGE_DENY_IPS in the overlay's nevatal-config, and
+#     the same customer CIDR in the edge-egress NetworkPolicy (the production
+#     overlay patches it).
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - edge.yaml
+  - pdb.yaml
+  - networkpolicies.yaml

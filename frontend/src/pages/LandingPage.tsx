@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { R640Chassis, type R640Variant } from '../components/landing/R640Chassis';
 import {
   Server,
   Zap,
@@ -35,7 +36,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState<'compute' | 'game' | 'android' | 'ai'>('compute');
   const [copiedCurl, setCopiedCurl] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [wireframeInvert, setWireframeInvert] = useState(true);
+  const [chassisView, setChassisView] = useState<R640Variant>('blueprint');
 
   const copyCurl = () => {
     navigator.clipboard.writeText('curl -s https://cloud.nevatal.id/api/v1/health');
@@ -146,17 +147,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
       {/* Hero Section */}
       <section className="relative pt-16 sm:pt-24 pb-16 px-4 sm:px-8 border-b border-zinc-850 overflow-hidden">
-        {/* Subtle Ambient Blueprint Wireframe Watermark in Background */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.035] select-none overflow-hidden"
-        >
-          <img
-            src="/dell-r640-blueprint.png"
-            alt=""
-            className="w-[140%] max-w-none filter invert hue-rotate-180 brightness-150 transform -rotate-1 scale-110"
-          />
-        </div>
 
         <div className="max-w-5xl mx-auto text-center space-y-6 relative z-10">
           {/* Hardware & Engine Eyebrow */}
@@ -234,18 +224,33 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               </span>
               <span className="text-zinc-600 font-mono">·</span>
               <span className="text-[11px] font-mono text-zinc-400">
-                1U ULTRA-DENSE BARE-METAL HYPERVISOR WIREFRAME
+                1U RACK SERVER · FRONT PANEL · 10 × 2.5″ BAYS
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setWireframeInvert(!wireframeInvert)}
-                className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
-                title="Toggle schematic color mode"
+              <div
+                role="radiogroup"
+                aria-label="Chassis drawing style"
+                className="flex items-center gap-0.5 bg-zinc-950 p-0.5 rounded border border-zinc-800 text-[10px] font-mono"
               >
-                {wireframeInvert ? 'Mode: Dark Wireframe' : 'Mode: Original CAD'}
-              </button>
+                {([
+                  ['blueprint', 'Blueprint'],
+                  ['front', 'Front panel'],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    role="radio"
+                    aria-checked={chassisView === value}
+                    onClick={() => setChassisView(value)}
+                    className={`px-2 py-0.5 rounded transition-colors ${
+                      chassisView === value ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-mono text-zinc-400 pl-2 border-l border-zinc-800">
                 <span className="px-1.5 py-0.5 rounded bg-zinc-950 border border-zinc-800 text-zinc-300">2x Xeon Gold</span>
                 <span className="px-1.5 py-0.5 rounded bg-zinc-950 border border-zinc-800 text-zinc-300">10x NVMe U.2</span>
@@ -254,23 +259,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             </div>
           </div>
 
-          {/* Blueprint Image Visual Stage */}
-          <div className={`relative px-4 sm:px-8 py-6 sm:py-8 flex flex-col items-center justify-center transition-colors duration-300 ${
-            wireframeInvert
-              ? 'bg-zinc-950 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:20px_20px]'
-              : 'bg-zinc-900/60 bg-[radial-gradient(#3f3f46_1px,transparent_1px)] [background-size:20px_20px]'
-          }`}>
-            <div className="w-full relative group">
-              <img
-                src="/dell-r640-blueprint.png"
-                alt="Dell PowerEdge R640 Bare-Metal Server Blueprint Wireframe"
-                className={`w-full h-auto max-h-[320px] object-contain mx-auto select-none transition-all duration-300 ${
-                  wireframeInvert
-                    ? 'filter invert hue-rotate-180 brightness-110 contrast-125 drop-shadow-[0_0_20px_rgba(255,255,255,0.08)]'
-                    : 'filter drop-shadow-[0_0_20px_rgba(0,0,0,0.5)]'
-                }`}
-              />
-            </div>
+          {/* Chassis drawing stage (vector, drawn from Dell's R640 front-view reference) */}
+          <div className="relative px-4 sm:px-8 py-6 sm:py-8 flex flex-col items-center justify-center bg-zinc-950 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:20px_20px]">
+            <R640Chassis variant={chassisView} className="w-full" />
 
             {/* Chassis Technical Callout Grid */}
             <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-2.5 mt-6 pt-5 border-t border-zinc-850/80 font-mono text-[11px]">

@@ -158,17 +158,29 @@ func (AIPlanResource) TableName() string {
 	return "ai_plan_resources"
 }
 
-// AIApproval binds an approval strictly to a plan version
+// AIApproval binds an approval strictly to a plan version and its spec hash.
+// Statuses: approved, superseded, expired, rejected, consumed (orchestrator);
+// pending and cancelled only on rows written before migration 000007.
 type AIApproval struct {
 	ID          uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	PlanID      uuid.UUID  `gorm:"type:uuid;not null;index" json:"plan_id"`
 	UserID      uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"`
 	Version     int        `gorm:"not null" json:"version"`
-	Status      string     `gorm:"type:varchar(32);not null;default:'pending'" json:"status"` // pending, approved, rejected, cancelled, expired
+	Status      string     `gorm:"type:varchar(32);not null;default:'pending'" json:"status"`
 	ExpiresAt   time.Time  `gorm:"not null" json:"expires_at"`
 	ApprovedAt  *time.Time `json:"approved_at,omitempty"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
+
+	// Orchestrator binding (migration 000007).
+	PlanVersion       *int       `gorm:"column:plan_version" json:"plan_version,omitempty"`
+	SpecHash          string     `gorm:"type:varchar(80);not null;default:''" json:"spec_hash,omitempty"`
+	RiskLevel         string     `gorm:"type:varchar(16);not null;default:''" json:"risk_level,omitempty"`
+	AcknowledgedRisks bool       `gorm:"not null;default:false" json:"acknowledged_risks,omitempty"`
+	Consumed          bool       `gorm:"not null;default:false" json:"consumed,omitempty"`
+	ConsumedAt        *time.Time `json:"consumed_at,omitempty"`
+	ExecutionID       *uuid.UUID `gorm:"type:uuid" json:"execution_id,omitempty"`
+	SupersededAt      *time.Time `json:"superseded_at,omitempty"`
 }
 
 func (a *AIApproval) BeforeCreate(tx *gorm.DB) error {

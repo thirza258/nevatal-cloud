@@ -44,7 +44,7 @@ type StorageObject struct {
 	FolderPrefix string    `gorm:"type:varchar(512);default:''" json:"folder_prefix"`
 	ContentType  string    `gorm:"type:varchar(150);not null;default:'application/octet-stream'" json:"content_type"`
 	SizeBytes    int64     `gorm:"not null" json:"size_bytes"`
-	ETag         string    `gorm:"type:varchar(64)" json:"etag"`
+	ETag         string    `gorm:"column:etag;type:varchar(64)" json:"etag"`
 	IsFolder     bool      `gorm:"not null;default:false" json:"is_folder"`
 	PublicURL    string    `gorm:"type:varchar(512)" json:"public_url,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`

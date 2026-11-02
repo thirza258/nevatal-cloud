@@ -28,6 +28,24 @@ type mockPVEClient struct {
 	vms        map[int]*mockVM
 	tasks      map[string]string // upid -> status (OK, RUNNING)
 	deletedVMs map[int]bool
+	execs      map[int]*AgentExecStatus // guest-agent pid -> finished result
+	execPID    int
+	// latency delays clone and start calls (PROXMOX_MOCK_LATENCY_MS), so
+	// tests can interrupt a provisioning job while it runs.
+	latency time.Duration
+}
+
+// simulateLatency waits for the configured latency or until ctx is done.
+func (m *mockPVEClient) simulateLatency(ctx context.Context) error {
+	if m.latency <= 0 {
+		return nil
+	}
+	select {
+	case <-time.After(m.latency):
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func NewMockClient(nodeName string) ProxmoxClient {
@@ -40,6 +58,8 @@ func NewMockClient(nodeName string) ProxmoxClient {
 		vms:        make(map[int]*mockVM),
 		tasks:      make(map[string]string),
 		deletedVMs: make(map[int]bool),
+		execs:      make(map[int]*AgentExecStatus),
+		execPID:    4000,
 	}
 
 	// Pre-seed demo VM
@@ -134,6 +154,9 @@ func (m *mockPVEClient) GetNextVMID(ctx context.Context) (int, error) {
 }
 
 func (m *mockPVEClient) CloneVM(ctx context.Context, node string, templateVMID, newVMID int, name, targetStorage string) (string, error) {
+	if err := m.simulateLatency(ctx); err != nil {
+		return "", err
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -187,6 +210,9 @@ func (m *mockPVEClient) ResizeDisk(ctx context.Context, node string, vmid int, d
 }
 
 func (m *mockPVEClient) StartVM(ctx context.Context, node string, vmid int) (string, error) {
+	if err := m.simulateLatency(ctx); err != nil {
+		return "", err
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

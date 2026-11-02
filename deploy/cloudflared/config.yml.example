@@ -1,0 +1,41 @@
+# Nevatal Cloud - cloudflared config for a LOCALLY-MANAGED tunnel.
+#
+# Only for a connector you run yourself with a config file, e.g. in a small
+# LXC (docs/PROXMOX_INSTALL.md, section 20.3 b / 20.6). The compose profile
+# "tunnel" and deploy/k8s/addons/cloudflared use a REMOTELY-managed tunnel
+# instead: there the same rules are entered in the Cloudflare dashboard.
+#
+#   sudo install -d -m 0755 /etc/cloudflared
+#   sudo cp deploy/cloudflared/config.yml.example /etc/cloudflared/config.yml
+#   # replace <TUNNEL_UUID> and the addresses, copy ~/.cloudflared/<TUNNEL_UUID>.json
+#   sudo cloudflared --config /etc/cloudflared/config.yml tunnel ingress validate
+#   sudo cloudflared --config /etc/cloudflared/config.yml tunnel ingress rule https://cloud.nevatal.id
+#
+# Rules are matched top to bottom and the FIRST match wins: the wildcard must
+# come after every explicit hostname, otherwise cloud.nevatal.id would be sent
+# to the edge. The last rule (no hostname) is required.
+#
+# Addresses below assume cloudflared runs OUTSIDE the control-plane VM:
+#   * 10.0.0.50:3080 = nginx of the control plane (HTTP_BIND=10.0.0.50)
+#   * 10.0.0.50:8088 = edge, published with deploy/compose/edge-publish.yml
+#     (EDGE_BIND=10.0.0.50, EDGE_PORT_HOST=8088)
+# Allow both ports on the control-plane VM only from this connector.
+
+tunnel: <TUNNEL_UUID>
+credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  # Control plane.
+  - hostname: cloud.nevatal.id
+    service: http://10.0.0.50:3080
+  # Optional: a demo stack on another VM.
+  - hostname: demo.nevatal.id
+    service: http://10.0.0.60:3080
+  # Customer apps: https://<name>.nevatal.id -> nevatal-edge. Use the tenant
+  # domain from PUBLIC_DOMAIN_ROOT (recommended: a separate one, e.g. *.nevatal.app).
+  - hostname: "*.nevatal.id"
+    service: http://10.0.0.50:8088
+    originRequest:
+      connectTimeout: 10s
+  # Everything else.
+  - service: http_status:404

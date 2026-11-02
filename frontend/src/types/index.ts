@@ -483,6 +483,8 @@ export interface AIConversation {
   updated_at: string;
   messages?: AIMessage[];
   plans?: AIResourcePlan[];
+  /** Preloaded by GET /ai/conversations/:id. */
+  state_obj?: { active_plan_id?: string | null } | null;
 }
 
 export interface AIMessage {
@@ -958,3 +960,388 @@ export interface AndroidInstance {
 
 
 
+
+// --- Runtime System Configuration (GET /system/config, public) ---
+export interface SystemConfig {
+  environment: 'production' | 'development' | (string & {});
+  demo_mode: boolean;
+  proxmox_mock: boolean;
+  version: string;
+  features: {
+    docker_viewer: boolean;
+    /** Public domains. Always equal to `domains.enabled` after normalization (fail closed). */
+    domains: boolean;
+  };
+  domains: DomainsConfig;
+  auth: {
+    password_login: boolean;
+    social_login: boolean;
+    registration: boolean;
+  };
+}
+
+// --- Public Domains (https://<subdomain>.<root> → a port of the customer's VM) ---
+export interface DomainsConfig {
+  /** True only when the backend enables the feature and reports a usable root domain. */
+  enabled: boolean;
+  /** Root domain the subdomains live under, e.g. "nevatal.id" (lowercase, no leading dot). */
+  root: string;
+  /** Per-user limit; 0 when unknown (the server still enforces DOMAIN_LIMIT_REACHED). */
+  max_per_user: number;
+}
+
+export type DomainLiveStatus =
+  | 'live'
+  | 'disabled'
+  | 'instance_missing'
+  | 'instance_stopped'
+  | 'no_ip'
+  | 'ip_not_routable'
+  | 'ip_conflict';
+
+export type DomainCheckReasonCode = '' | 'INVALID' | 'RESERVED' | 'TAKEN' | 'QUARANTINED';
+
+export interface DomainOwner {
+  id: string;
+  email: string;
+  display_name: string;
+}
+
+export interface Domain {
+  id: string;
+  subdomain: string;
+  hostname: string;
+  url: string;
+  instance_id: string | null;
+  instance_name: string;
+  instance_status: InstanceStatus | (string & {});
+  target_port: number;
+  target_ip: string | null;
+  enabled: boolean;
+  admin_disabled: boolean;
+  disabled_reason: string;
+  live_status: DomainLiveStatus | (string & {});
+  created_at: string;
+  updated_at: string;
+  /** Present on the admin listing only. */
+  owner?: DomainOwner;
+}
+
+export interface DomainAvailability {
+  subdomain: string;
+  hostname: string;
+  available: boolean;
+  reason_code: DomainCheckReasonCode | (string & {});
+  reason: string;
+}
+
+export interface DomainPatch {
+  instance_id?: string;
+  target_port?: number;
+  enabled?: boolean;
+}
+
+// --- Docker Viewer (read-only, via QEMU guest agent) ---
+export type DockerReasonCode =
+  | ''
+  | 'VM_NOT_RUNNING'
+  | 'GUEST_AGENT_UNAVAILABLE'
+  | 'GUEST_AGENT_TIMEOUT'
+  | 'DOCKER_NOT_INSTALLED'
+  | 'DOCKER_DAEMON_UNAVAILABLE'
+  | 'DOCKER_PERMISSION_DENIED';
+
+export type DockerContainerState =
+  | 'running'
+  | 'exited'
+  | 'paused'
+  | 'restarting'
+  | 'created'
+  | 'dead'
+  | 'removing';
+
+export interface DockerContainer {
+  id: string;
+  name: string;
+  image: string;
+  state: DockerContainerState | (string & {});
+  status: string;
+  ports: string;
+  created_at: string;
+  command: string;
+  cpu_percent?: string;
+  mem_usage?: string;
+  mem_percent?: string;
+}
+
+export interface DockerOverview {
+  instance_id: string;
+  hostname: string;
+  vmid: number;
+  node: string;
+  available: boolean;
+  reason_code: DockerReasonCode | (string & {});
+  reason: string;
+  docker_version: string;
+  containers: DockerContainer[];
+  fetched_at: string;
+}
+
+export interface DockerLogLine {
+  ts: string;
+  stream: 'stdout' | 'stderr';
+  message: string;
+}
+
+export interface DockerLogs {
+  instance_id: string;
+  container: string;
+  tail: number;
+  since: string;
+  lines: DockerLogLine[];
+  truncated: boolean;
+  fetched_at: string;
+}
+
+// --- AI Infrastructure Orchestrator, Phase 1 (contract: docs/ORCHESTRATOR_API.md) ---
+
+/** Task risk = tool risk; plan risk = the highest risk of its tasks. */
+export type RiskLevel = 'read' | 'low' | 'medium' | 'high' | 'destructive';
+
+/** `awaiting_confirmation` is the pre-orchestrator spelling of `awaiting_approval`. */
+export type OrchestratorPlanStatus =
+  | 'draft'
+  | 'validating'
+  | 'awaiting_approval'
+  | 'awaiting_confirmation'
+  | 'approved'
+  | 'executing'
+  | 'verifying'
+  | 'completed'
+  | 'rejected'
+  | 'cancelled'
+  | 'failed'
+  | 'partially_completed'
+  | (string & {});
+
+export interface PlanSpecResource {
+  key: string;
+  type: string;
+  action: string;
+  config: Record<string, unknown>;
+}
+
+export interface PlanSpecification {
+  intent?: string;
+  resources?: PlanSpecResource[];
+  [field: string]: unknown;
+}
+
+export interface PlanTask {
+  key: string;
+  tool: string;
+  title: string;
+  depends_on: string[];
+  risk: RiskLevel;
+  input?: Record<string, unknown>;
+}
+
+export interface PlanValidationIssue {
+  code: string;
+  message: string;
+  task_key?: string;
+}
+
+export interface PlanValidation {
+  status: 'passed' | 'warnings' | 'failed' | (string & {});
+  checked_at?: string;
+  errors: PlanValidationIssue[];
+  warnings: PlanValidationIssue[];
+}
+
+export interface ConfirmationRequirement {
+  type: 'typed_name' | (string & {});
+  expected: string[];
+}
+
+export interface PlanRevision {
+  version: number;
+  spec_hash: string;
+  created_at: string;
+  created_by: 'planner' | 'user' | (string & {});
+  summary: string;
+  specification: PlanSpecification;
+  tasks: PlanTask[];
+  estimated_resources: Record<string, unknown>;
+  risk_level: RiskLevel;
+  requires_approval: boolean;
+  confirmation_required: ConfirmationRequirement | null;
+  validation: PlanValidation | null;
+}
+
+export interface PlanRevisionSummary {
+  version: number;
+  spec_hash: string;
+  created_at: string;
+  created_by: string;
+  summary: string;
+  risk_level: RiskLevel;
+}
+
+export type ApprovalStatus = 'approved' | 'superseded' | 'expired' | 'rejected' | 'consumed' | (string & {});
+
+export interface PlanApproval {
+  id: string;
+  version: number;
+  spec_hash: string;
+  status: ApprovalStatus;
+  risk_level: RiskLevel;
+  expires_at: string;
+  created_at: string;
+}
+
+/** GET /ai/plans/:id: the legacy plan fields plus the orchestrator fields. */
+export interface OrchestratorPlan {
+  id: string;
+  conversation_id: string;
+  user_id?: string;
+  version?: number;
+  intent?: string;
+  status: OrchestratorPlanStatus;
+  title: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+  current_version: number;
+  revision: PlanRevision | null;
+  approval: PlanApproval | null;
+  latest_execution_id: string | null;
+}
+
+export type ExecutionStatus =
+  | 'queued'
+  | 'running'
+  | 'verifying'
+  | 'completed'
+  | 'failed'
+  | 'partially_completed'
+  | 'cancelling'
+  | 'cancelled'
+  | (string & {});
+
+export type TaskStatus =
+  | 'queued'
+  | 'blocked'
+  | 'running'
+  | 'retrying'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'skipped'
+  | 'compensating'
+  | (string & {});
+
+export interface VerificationCheck {
+  name: string;
+  status: 'pass' | 'fail' | 'skip' | (string & {});
+  detail?: string;
+}
+
+export interface TaskVerification {
+  status: 'verified' | 'unverified' | 'failed' | (string & {});
+  checks: VerificationCheck[];
+}
+
+export interface ExecutionTask {
+  id: string;
+  key: string;
+  tool: string;
+  title: string;
+  risk: RiskLevel;
+  depends_on: string[];
+  status: TaskStatus;
+  attempt: number;
+  max_attempts: number;
+  next_attempt_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  output: Record<string, unknown> | null;
+  error: { code: string; message: string } | null;
+  verification: TaskVerification | null;
+}
+
+export interface ExecutionReportResource {
+  type: string;
+  id: string;
+  name: string;
+  status: string;
+  access?: Record<string, string>;
+}
+
+export interface ExecutionReport {
+  summary: string;
+  resources: ExecutionReportResource[];
+  warnings: string[];
+  next_actions: string[];
+}
+
+export type RecoveryAction = 'retry_failed' | 'keep' | 'delete_created';
+
+export interface RecoveryOption {
+  action: RecoveryAction | (string & {});
+  label: string;
+  requires_approval: boolean;
+}
+
+export interface Execution {
+  id: string;
+  plan_id: string;
+  plan_version: number;
+  conversation_id: string | null;
+  status: ExecutionStatus;
+  cancel_requested: boolean;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  tasks: ExecutionTask[];
+  report: ExecutionReport | null;
+  recovery_options: RecoveryOption[];
+  /** Only on ExecutionSummary (GET /ai/executions). */
+  task_counts?: Partial<Record<string, number>>;
+}
+
+export type ExecutionSummary = Omit<Execution, 'tasks'> & { tasks?: ExecutionTask[] };
+
+export type ExecutionEventSeverity = 'info' | 'warning' | 'error' | (string & {});
+
+export interface ExecutionEvent {
+  seq: number;
+  id: string;
+  type: string;
+  severity: ExecutionEventSeverity;
+  message: string;
+  task_key: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface OrchestratorTool {
+  id: string;
+  title: string;
+  description: string;
+  risk: RiskLevel;
+  resource_types: string[];
+  idempotent: boolean;
+  timeout_seconds: number;
+  requires_admin: boolean;
+  input_schema: unknown;
+}
+
+/** POST /ai/plans/:id/approve response. */
+export interface ApprovePlanResult {
+  approval: PlanApproval | null;
+  execution: Execution | null;
+  plan_id: string;
+  status: string;
+  message: string;
+}

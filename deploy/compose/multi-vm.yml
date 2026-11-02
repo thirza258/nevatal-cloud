@@ -1,0 +1,44 @@
+# Nevatal Cloud - topology B override: several app VMs behind HAProxy.
+#
+# Each app VM runs frontend + backend only. They share:
+#   * one PostgreSQL server (dedicated VM)       -> EXTERNAL_DATABASE_URL
+#   * one NFS export for object storage files    -> NFS_SERVER / NFS_EXPORT
+#
+# Stack it on top of the production override in the app VM's .env:
+#   COMPOSE_FILE=docker-compose.yml:deploy/compose/production.yml:deploy/compose/multi-vm.yml
+#
+# The NFS export must be writable by uid/gid 10001 (the API user), e.g. on
+# the NFS server: chown -R 10001:10001 /srv/nevatal/storage
+# A named volume keeps its first options: create it on a fresh VM, or remove
+# it (docker volume rm <project>_storagedata) before changing NFS settings.
+
+services:
+  postgres:
+    # Not started on app VMs (only when this profile is enabled explicitly).
+    profiles: ["bundled-postgres"]
+
+  backend:
+    depends_on: !reset {}
+    environment:
+      DATABASE_URL: ${EXTERNAL_DATABASE_URL:?Set EXTERNAL_DATABASE_URL (postgres://user:pass@db-host:5432/nevatal_cloud?sslmode=disable)}
+
+  migrate:
+    depends_on: !reset {}
+    environment:
+      DATABASE_URL: ${EXTERNAL_DATABASE_URL:?Set EXTERNAL_DATABASE_URL}
+
+  # Profile "edge": only on the app VM(s) with a NIC/route into the customer
+  # VM network. Several VMs may run it behind one tunnel (one cloudflared per
+  # VM, same token: Cloudflare spreads requests across the connectors).
+  edge:
+    depends_on: !reset {}
+    environment:
+      DATABASE_URL: ${EXTERNAL_DATABASE_URL:?Set EXTERNAL_DATABASE_URL}
+
+volumes:
+  storagedata:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: "addr=${NFS_SERVER:?Set NFS_SERVER (NFS server IP)},nfsvers=4.2,rw,hard,noatime"
+      device: ":${NFS_EXPORT:-/srv/nevatal/storage}"

@@ -1,0 +1,19 @@
+# Shared object storage for every API replica (on any node).
+# storageClassName is a PLACEHOLDER: use the RWX-capable class of your cluster,
+# e.g. "nfs-client" (nfs-subdir-external-provisioner) or "longhorn"
+# (Longhorn RWX). The backend writes as uid 10001: make sure the NFS export
+# allows it (nfs-subdir-external-provisioner creates world-writable dirs).
+#
+# No RWX storage available? Keep ReadWriteOnce (delete this patch) and pin
+# the backend to ONE replica in hpa.yaml (minReplicas: 1, maxReplicas: 1).
+# PVC access modes and class are immutable: decide before the first apply.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nevatal-storage
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 200Gi

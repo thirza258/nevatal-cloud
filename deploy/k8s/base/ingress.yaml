@@ -1,0 +1,31 @@
+# Public entry point through Traefik (the k3s default ingress controller).
+# TLS certificate issued by cert-manager (deploy/k8s/addons/cert-manager).
+# The overlays replace the host. HTTP->HTTPS redirect and HSTS come from the
+# Traefik middlewares in traefik-middlewares.yaml.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nevatal-cloud
+  labels:
+    app.kubernetes.io/name: nevatal-cloud
+    app.kubernetes.io/component: frontend
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.middlewares: nevatal-cloud-redirect-https@kubernetescrd,nevatal-cloud-hsts@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - cloud.example.com
+      secretName: nevatal-cloud-tls
+  rules:
+    - host: cloud.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http
