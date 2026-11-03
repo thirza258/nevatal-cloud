@@ -20,6 +20,7 @@ import (
 	"github.com/nevatal/cloud/internal/models"
 	"github.com/nevatal/cloud/internal/proxmox"
 	"github.com/nevatal/cloud/internal/repository"
+	"github.com/nevatal/cloud/internal/secret"
 	"github.com/nevatal/cloud/internal/usecase"
 )
 
@@ -80,6 +81,11 @@ func main() {
 	aiAgentRepo := repository.NewAIAgentRepository(db)
 	domainRepo := repository.NewDomainRepository(db)
 	orchRepo := repository.NewOrchestratorRepository(db)
+	infraTemplateRepo := repository.NewInfraTemplateRepository(db)
+	managedDBRepo := repository.NewDatabaseRepository(db)
+	notificationRepo := repository.NewNotificationRepository(db)
+	infraCheckRepo := repository.NewInfraCheckRepository(db)
+	policyRepo := repository.NewAutomationPolicyRepository(db)
 
 	// 5. Use cases (business logic)
 	auditUC := usecase.NewAuditUsecase(auditRepo)
@@ -114,7 +120,6 @@ func main() {
 	portUC := usecase.NewPortUsecase(portRepo)
 	gameServerUC := usecase.NewGameServerUsecase(gameServerRepo, cfg, portUC, auditUC, quotaUC, pveClient)
 	androidUC := usecase.NewAndroidUsecase(androidRepo, cfg, auditUC, quotaUC, pveClient)
-	resourceUC := usecase.NewResourceUsecase(instanceUC, appUC, automationUC, openClawUC, storageUC, gameServerUC, androidUC, quotaUC)
 	wordPressUC := usecase.NewWordPressUsecase(cfg, usecase.WordPressRepos{
 		Nodes:     nodeRepo,
 		Instances: instanceRepo,
@@ -122,30 +127,51 @@ func main() {
 		Plans:     planRepo,
 		Users:     userRepo,
 	}, authUC, instanceUC, auditUC, pveClient)
-	orchUC := usecase.NewOrchestratorUsecase(tx, usecase.OrchestratorRepos{
-		Orch:      orchRepo,
-		Agent:     aiAgentRepo,
-		Users:     userRepo,
-		Templates: templateRepo,
-		Plans:     planRepo,
-		SSHKeys:   sshKeyRepo,
-		Nodes:     nodeRepo,
+	domainUC := usecase.NewDomainUsecase(tx, usecase.DomainRepos{
+		Domains:   domainRepo,
 		Instances: instanceRepo,
-		Snapshots: snapshotRepo,
-		Jobs:      jobRepo,
-		Android:   androidRepo,
-		Storage:   storageRepo,
+	}, cfg, auditUC)
+	notificationUC := usecase.NewNotificationUsecase(notificationRepo)
+	secretCipher := secret.New(cfg.JWTSecret)
+	databaseUC := usecase.NewDatabaseUsecase(managedDBRepo, auditUC, quotaUC, cfg, secretCipher)
+	resourceUC := usecase.NewResourceUsecase(instanceUC, appUC, automationUC, openClawUC, storageUC, gameServerUC, androidUC, databaseUC, quotaUC)
+	policiesUC := usecase.NewAutomationPolicyUsecase(policyRepo, notificationUC, auditUC)
+	orchUC := usecase.NewOrchestratorUsecase(tx, usecase.OrchestratorRepos{
+		Orch:           orchRepo,
+		Agent:          aiAgentRepo,
+		Users:          userRepo,
+		Templates:      templateRepo,
+		Plans:          planRepo,
+		SSHKeys:        sshKeyRepo,
+		Nodes:          nodeRepo,
+		Instances:      instanceRepo,
+		Snapshots:      snapshotRepo,
+		Jobs:           jobRepo,
+		Android:        androidRepo,
+		Storage:        storageRepo,
+		InfraTemplates: infraTemplateRepo,
+		Databases:      managedDBRepo,
+		Domains:        domainRepo,
 	}, usecase.OrchestratorServices{
-		Instance:   instanceUC,
-		App:        appUC,
-		Automation: automationUC,
-		OpenClaw:   openClawUC,
-		Storage:    storageUC,
-		GameServer: gameServerUC,
-		Android:    androidUC,
-		Quota:      quotaUC,
-		Audit:      auditUC,
+		Instance:      instanceUC,
+		App:           appUC,
+		Automation:    automationUC,
+		OpenClaw:      openClawUC,
+		Storage:       storageUC,
+		GameServer:    gameServerUC,
+		Android:       androidUC,
+		Database:      databaseUC,
+		Domain:        domainUC,
+		Quota:         quotaUC,
+		Audit:         auditUC,
+		Notifications: notificationUC,
+		Policies:      policiesUC,
 	}, cfg, pveClient)
+	policiesUC.SetPlans(orchUC)
+	monitoringUC := usecase.NewMonitoringUsecase(infraCheckRepo, notificationUC, policiesUC,
+		instanceUC, appUC, gameServerUC, androidUC, databaseUC, quotaUC, cfg)
+	monitoringUC.SetInterval(cfg.MonitorInterval)
+	databaseUC.SetBackupInterval(cfg.OrchDBBackupInterval)
 	// The assistant's action cards become orchestrator plans (never direct
 	// provisioning), so it is built after the orchestrator.
 	aiAssistantUC := usecase.NewAIAssistantUsecase(usecase.AIAssistantRepos{
@@ -170,6 +196,7 @@ func main() {
 		SSHKeys:   sshKeyRepo,
 		Android:   androidRepo,
 	}, cfg, instanceUC, appUC, automationUC, openClawUC, storageUC, gameServerUC, androidUC, quotaUC, mcpUC, orchUC, pveClient)
+	aiAgentUC.SetDatabaseService(databaseUC)
 	adminUC := usecase.NewAdminUsecase(usecase.AdminRepos{
 		Users:     userRepo,
 		Instances: instanceRepo,
@@ -178,10 +205,6 @@ func main() {
 		Templates: templateRepo,
 		Plans:     planRepo,
 	}, quotaUC, auditUC, workerUC, pveClient)
-	domainUC := usecase.NewDomainUsecase(tx, usecase.DomainRepos{
-		Domains:   domainRepo,
-		Instances: instanceRepo,
-	}, cfg, auditUC)
 	if cfg.DomainsEnabled() {
 		log.Printf("Nevatal Domains enabled: customers publish at https://<subdomain>.%s (edge targets: %v)", cfg.PublicDomainRoot, cfg.EdgeTargetCIDRs)
 	}
@@ -201,6 +224,16 @@ func main() {
 	defer stopReaper()
 	workerUC.StartReaper(reaperCtx)
 	log.Printf("Provisioning jobs: heartbeat every %s, failed as %s after %s without one", cfg.JobHeartbeatInterval, models.JobErrorStale, cfg.JobStaleAfter)
+	monitorCtx, stopMonitor := context.WithCancel(context.Background())
+	defer stopMonitor()
+	monitoringUC.Start(monitorCtx)
+	log.Printf("Infrastructure checks: monitor loop every %s", cfg.MonitorInterval)
+	databaseUC.StartBackups(monitorCtx)
+	log.Printf("Managed databases: automatic backup cadence %s", cfg.OrchDBBackupInterval)
+	notificationUC.StartRetention(monitorCtx, cfg.NotificationRetention)
+	if cfg.NotificationRetention > 0 {
+		log.Printf("Notifications: retention %s", cfg.NotificationRetention)
+	}
 
 	// Long-lived responses (SSE) end when the HTTP server starts shutting
 	// down, so Shutdown does not wait for them.
@@ -209,30 +242,34 @@ func main() {
 
 	// 6. HTTP router (handlers)
 	router := api.SetupRouter(api.RouterParams{
-		Cfg:         cfg,
-		Auth:        authUC,
-		Quota:       quotaUC,
-		SSHKey:      sshKeyUC,
-		Audit:       auditUC,
-		Catalog:     catalogUC,
-		Dashboard:   dashboardUC,
-		Job:         jobUC,
-		Instance:    instanceUC,
-		Docker:      dockerUC,
-		App:         appUC,
-		Automation:  automationUC,
-		OpenClaw:    openClawUC,
-		ISO:         isoUC,
-		Storage:     storageUC,
-		GameServer:  gameServerUC,
-		Android:     androidUC,
-		AIAssistant: aiAssistantUC,
-		MCP:         mcpUC,
-		AIAgent:     aiAgentUC,
-		Resource:    resourceUC,
-		WordPress:   wordPressUC,
-		Admin:       adminUC,
-		Domain:      domainUC,
+		Cfg:          cfg,
+		Auth:         authUC,
+		Quota:        quotaUC,
+		SSHKey:       sshKeyUC,
+		Audit:        auditUC,
+		Catalog:      catalogUC,
+		Dashboard:    dashboardUC,
+		Job:          jobUC,
+		Instance:     instanceUC,
+		Docker:       dockerUC,
+		App:          appUC,
+		Automation:   automationUC,
+		OpenClaw:     openClawUC,
+		ISO:          isoUC,
+		Storage:      storageUC,
+		GameServer:   gameServerUC,
+		Android:      androidUC,
+		AIAssistant:  aiAssistantUC,
+		MCP:          mcpUC,
+		AIAgent:      aiAgentUC,
+		Resource:     resourceUC,
+		WordPress:    wordPressUC,
+		Admin:        adminUC,
+		Domain:       domainUC,
+		Database:     databaseUC,
+		Notification: notificationUC,
+		Monitoring:   monitoringUC,
+		Policies:     policiesUC,
 
 		Orchestrator: orchUC,
 		Streams:      streamCtx,
@@ -272,6 +309,7 @@ func main() {
 	shutdownStart := time.Now()
 	engine.StopClaiming()
 	stopReaper()
+	stopMonitor()
 	engineDone := make(chan struct{})
 	go func() {
 		// Tasks still running after 50 s are stopped without a result and

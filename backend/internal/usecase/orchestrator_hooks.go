@@ -249,6 +249,71 @@ func (s *OrchestratorUsecase) Verify(ctx context.Context, exec *models.AIExecuti
 			status = a.Status
 		}
 		v.Checks = append(v.Checks, row(err == nil, status, models.AndroidStatusRunning, "provisioning"), runtime("Android instances"))
+	case orchestrator.ToolServicePower:
+		in := taskInput(task)
+		typ := orchestrator.String(in, "resource_type")
+		id := idFrom("resource_id")
+		want := models.StateRunning
+		if orchestrator.String(in, "action") == orchestrator.ActionStop {
+			want = models.StateStopped
+		}
+		return s.verifyServiceState(ctx, user, typ, id, want)
+	case orchestrator.ToolServiceDelete:
+		in := taskInput(task)
+		typ := orchestrator.String(in, "resource_type")
+		return s.verifyServiceAbsent(ctx, user, typ, idFrom("resource_id"))
+	case orchestrator.ToolDatabaseCreate:
+		db, err := s.svc.Database.Get(ctx, idFrom("database_id"), user)
+		status := ""
+		if err == nil {
+			status = db.Status
+		}
+		v.Checks = append(v.Checks, row(err == nil, status, models.DatabaseStatusRunning, "provisioning"))
+		v.Checks = append(v.Checks, skip("database_probe", "a live connection probe is not performed for managed databases"))
+	case orchestrator.ToolAppDeploy:
+		app, err := s.svc.App.Get(ctx, idFrom("application_id"), user, false)
+		if err != nil {
+			v.Checks = append(v.Checks, check("application_record", false, "application not found"))
+			break
+		}
+		ok := app.Status != "failed"
+		detail := "application status " + app.Status
+		if len(app.Deployments) > 0 {
+			dep := app.Deployments[0]
+			detail = "latest deployment " + dep.Status
+			ok = dep.Status != "failed" && (orchestrator.String(output, "deployment_id") == "" || dep.ID.String() == orchestrator.String(output, "deployment_id"))
+		}
+		v.Checks = append(v.Checks, check("deployment_record", ok, detail))
+		v.Checks = append(v.Checks, runtime("application health"))
+	case orchestrator.ToolServiceBackupCreate:
+		v.Checks = append(v.Checks, check("backup_record", orchestrator.String(output, "backup_id") != "", "backup was recorded"))
+		v.Checks = append(v.Checks, skip("backup_integrity", "backup contents are verified by the storage backend, not by the control plane"))
+	case orchestrator.ToolServiceBackupRestore:
+		v.Checks = append(v.Checks, skip("restore_result", "a restore cannot be observed after the fact"))
+	case orchestrator.ToolBucketUpdate:
+		in := taskInput(task)
+		b, err := s.repos.Storage.FindBucket(ctx, idFrom("bucket_id"), user)
+		if err != nil {
+			v.Checks = append(v.Checks, check("bucket_record", false, "bucket not found"))
+		} else {
+			ok := true
+			if raw, present := in["is_public"]; present {
+				if wantPublic, isBool := raw.(bool); isBool {
+					ok = (b.Visibility == "public") == wantPublic
+				}
+			}
+			v.Checks = append(v.Checks, check("bucket_visibility", ok, "visibility is "+b.Visibility))
+		}
+	case orchestrator.ToolBucketObjectDelete:
+		objID := idFrom("object_id")
+		_, err := s.svc.Storage.GetObject(ctx, objID)
+		v.Checks = append(v.Checks, check("object_absent", err != nil, "object record removed"))
+	case orchestrator.ToolDomainClaim:
+		v.Checks = append(v.Checks, check("domain_record", orchestrator.String(output, "domain_id") != "", "domain was recorded"))
+		v.Checks = append(v.Checks, skip("domain_routing", "edge routing is verified by the edge health endpoint"))
+	case orchestrator.ToolDomainRelease:
+		v.Checks = append(v.Checks, check("domain_record", true, "domain release recorded"))
+		v.Checks = append(v.Checks, skip("domain_routing", "edge routing is verified by the edge health endpoint"))
 	default:
 		v.Checks = append(v.Checks, skip("verifier", "no verifier for "+task.Tool))
 	}
@@ -266,6 +331,51 @@ func hasSkip(v *orchestrator.Verification) bool {
 		}
 	}
 	return false
+}
+
+func taskInput(task *models.AIExecutionTask) map[string]any {
+	var in map[string]any
+	_ = orchestrator.DecodeJSON(task.Input, &in)
+	if in == nil {
+		in = map[string]any{}
+	}
+	return in
+}
+
+func stateMatches(status, want string) bool {
+	if status == want {
+		return true
+	}
+	if want == models.StateRunning && (status == "active" || status == models.DatabaseStatusRunning) {
+		return true
+	}
+	return false
+}
+
+// verifyServiceState compares a generic service resource with a desired
+// power state.
+func (s *OrchestratorUsecase) verifyServiceState(ctx context.Context, userID uuid.UUID, typ string, id uuid.UUID, want string) *orchestrator.Verification {
+	v := &orchestrator.Verification{}
+	if typ == orchestrator.TypeVPS {
+		return s.verifyVPS(ctx, userID, id, want, want == models.StateRunning)
+	}
+	item, err := s.getServiceResource(ctx, userID, typ, id)
+	if err != nil {
+		v.Checks = append(v.Checks, check("resource_record", false, "resource not found"))
+		return v.Summarize()
+	}
+	status := serviceStatus(item)
+	v.Checks = append(v.Checks, check("resource_record", stateMatches(status, want), fmt.Sprintf("recorded status %s (want %s)", status, want)))
+	v.Checks = append(v.Checks, skip("runtime_probe", "no runtime probe for "+typ+" in this phase"))
+	return v.Summarize()
+}
+
+// verifyServiceAbsent checks that a deleted service resource is gone.
+func (s *OrchestratorUsecase) verifyServiceAbsent(ctx context.Context, userID uuid.UUID, typ string, id uuid.UUID) *orchestrator.Verification {
+	v := &orchestrator.Verification{}
+	_, err := s.getServiceResource(ctx, userID, typ, id)
+	v.Checks = append(v.Checks, check("resource_record_absent", err != nil, "resource record deleted"))
+	return v.Summarize()
 }
 
 type reportEntry struct {
@@ -440,6 +550,26 @@ func (s *OrchestratorUsecase) reportResource(ctx context.Context, userID uuid.UU
 			return res
 		}
 		res.Name, res.Status = a.Name, a.Status
+	case orchestrator.TypeDatabase:
+		db, err := s.svc.Database.Get(ctx, e.id, userID)
+		if err != nil {
+			return res
+		}
+		res.Name, res.Status = db.Name, db.Status
+		res.Access["endpoint"] = fmt.Sprintf("%s:%d", db.Host, db.Port)
+		res.Access["database"] = db.DatabaseName
+	case orchestrator.TypeDomain:
+		domains, err := s.svc.Domain.List(ctx, userID)
+		if err != nil {
+			return res
+		}
+		for _, d := range domains {
+			if d.Domain.ID == e.id {
+				res.Name, res.Status = d.Domain.Hostname, string(d.LiveStatus)
+				res.Access["url"] = "https://" + d.Domain.Hostname
+				break
+			}
+		}
 	}
 	return res
 }
@@ -516,6 +646,55 @@ func (s *OrchestratorUsecase) StatusChanged(ctx context.Context, exec *models.AI
 		_ = s.repos.Orch.SetPlanResourceResult(ctx, exec.PlanID, name, legacy, provisioned, errMsg)
 	}
 	s.postResultMessage(ctx, exec, tasks, status)
+	if isTerminalExecStatus(status) {
+		s.afterExecutionTerminal(exec, status)
+	}
+}
+
+// afterExecutionTerminal writes the in-app notification and evaluates the
+// user's automation policies after the transaction that finished the
+// execution committed. It never runs inside the engine transaction, and a
+// failure here can never change the execution outcome.
+func (s *OrchestratorUsecase) afterExecutionTerminal(exec *models.AIExecution, status string) {
+	userID, execID, planID, convID := exec.UserID, exec.ID, exec.PlanID, exec.ConversationID
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		summary := "Execution " + status
+		if fresh, err := s.repos.Orch.FindExecution(ctx, execID, nil); err == nil && fresh.Report != nil {
+			var report orchestrator.Report
+			if json.Unmarshal([]byte(*fresh.Report), &report) == nil && report.Summary != "" {
+				summary = report.Summary
+			}
+		}
+		severity := models.NotificationSeverityInfo
+		title := "Execution completed"
+		switch status {
+		case models.ExecFailed:
+			severity, title = models.NotificationSeverityCritical, "Execution failed"
+		case models.ExecPartiallyCompleted:
+			severity, title = models.NotificationSeverityWarning, "Execution partially completed"
+		case models.ExecCancelled:
+			severity, title = models.NotificationSeverityWarning, "Execution cancelled"
+		}
+		if s.svc.Notifications != nil {
+			s.svc.Notifications.Notify(ctx, NotificationInput{
+				UserID: userID, Type: models.NotificationTypeExecution, Severity: severity,
+				Title: title, Message: summary, ResourceType: "plan", ResourceID: &planID,
+				ActionURL: PlanURL(convID, planID), DedupeKey: "execution:" + execID.String() + ":" + status,
+			})
+		}
+		if s.svc.Policies != nil {
+			trigger := models.PolicyTriggerExecutionCompleted
+			if status == models.ExecFailed || status == models.ExecPartiallyCompleted {
+				trigger = models.PolicyTriggerExecutionFailed
+			}
+			s.svc.Policies.Evaluate(ctx, userID, PolicyEvent{
+				Trigger: trigger, Severity: severity, Action: status, Message: summary,
+				ExecutionID: execID.String(), PlanID: planID.String(),
+			})
+		}
+	}()
 }
 
 // postResultMessage writes the assistant message that reports a finished

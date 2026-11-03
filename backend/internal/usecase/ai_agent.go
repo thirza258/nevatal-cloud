@@ -36,6 +36,7 @@ type AIAgentUsecase struct {
 	storageService    *StorageUsecase
 	gameServerService *GameServerUsecase
 	androidService    *AndroidUsecase
+	databaseService   *DatabaseUsecase
 	quotaService      *QuotaUsecase
 	mcpService        *MCPUsecase
 	orch              *OrchestratorUsecase
@@ -116,7 +117,7 @@ func (s *AIAgentUsecase) CreateConversation(ctx context.Context, userID uuid.UUI
 		ConversationID: conv.ID,
 		UserID:         userID,
 		Role:           "assistant",
-		Content:        "👋 **Hello! I am your Nevatal AI Cloud Agent.**\n\nI can help you design, configure, and provision production cloud infrastructure through simple natural language.\n\n**What would you like to build today?**\n- 🖥️ **Virtual Private Server (VPS)** with Ubuntu, Debian, Alpine, or WordPress\n- 🌐 **Deploy a Web Application** from GitHub or GitLab\n- ⚡ **n8n Workflow Automation** instance\n- 🤖 **OpenClaw Autonomous AI Agent**\n- 🗄️ **S3-compatible Object Storage Bucket**\n- 🎮 **Game Server Hosting** (Minecraft Java/Bedrock, Terraria)\n- 🔍 **Inspect resources, health, or troubleshoot issues**",
+		Content:        "👋 **Hello! I am your Nevatal AI Cloud Agent.**\n\nI can help you design, configure, and provision production cloud infrastructure through simple natural language.\n\n**What would you like to build today?**\n- 🖥️ **Virtual Private Server (VPS)** with Ubuntu, Debian, Alpine, or WordPress\n- 🌐 **Deploy a Web Application** from GitHub or GitLab\n- ⚡ **n8n Workflow Automation** instance\n- 🤖 **OpenClaw Autonomous AI Agent**\n- 🗄️ **S3-compatible Object Storage Bucket**\n- 🎮 **Game Server Hosting** (Minecraft Java/Bedrock, Terraria)\n- 💾 **Managed Database** (PostgreSQL, MySQL, Redis, MongoDB)\n- 🧩 **Deploy a saved infrastructure template**\n- 🩺 **Diagnose resources and check infrastructure health**\n- 💡 **Optimize costs and right-size idle resources**",
 		CreatedAt:      time.Now(),
 	}
 	_ = s.repos.Agent.CreateMessage(ctx, &welcomeMsg)
@@ -185,6 +186,10 @@ type SendMessageInput struct {
 	Answers   map[string]interface{} `json:"answers,omitempty"`    // Map of key-value answers
 	APIKey    string                 `json:"api_key,omitempty"`    // Optional user OpenRouter API Key
 	Model     string                 `json:"model,omitempty"`      // Model preference
+	// IsAdmin is set by the handler from the authenticated request; it is
+	// never accepted from the body. Plans created from chat use it for
+	// administrator-only tools (for example an admin template).
+	IsAdmin bool `json:"-"`
 }
 
 type SendMessageResponse struct {
@@ -274,20 +279,42 @@ func (s *AIAgentUsecase) ProcessUserMessage(
 	if intent == "" {
 		intent = detectIntent(msgLower)
 		convState.CurrentIntent = intent
-	} else if detected := detectIntent(msgLower); detected == "delete_vps" && intent != detected {
-		// An explicit delete request starts a new (destructive) plan even in
-		// a conversation that was about something else.
-		intent = detected
-		convState.CurrentIntent = intent
-		convState.ActivePlanID = nil
-		delete(reqs, "target_instance_id")
+	}
+
+	// Explicit operation requests switch the turn even when the conversation
+	// was about something else. Destructive and plan-creating requests also
+	// become the conversation's intent (they start a new plan); read-only
+	// diagnostics and advice are handled for this turn only, so a pending
+	// plan stays intact.
+	turnIntent := intent
+	if input.AnswerKey == "" && len(input.Answers) == 0 {
+		switch detected := detectIntent(msgLower); detected {
+		case "delete_vps", "deploy_template", "create_database":
+			if intent != detected {
+				turnIntent, intent = detected, detected
+				convState.CurrentIntent = detected
+				convState.ActivePlanID = nil
+				convState.PendingQuestions = "[]"
+				delete(reqs, "target_instance_id")
+				delete(reqs, "infra_template_id")
+				delete(reqs, "template_name")
+				delete(reqs, "template_awaiting_param")
+				for k := range reqs {
+					if strings.HasPrefix(k, templateParamPrefix) {
+						delete(reqs, k)
+					}
+				}
+			}
+		case "troubleshoot", "advisor":
+			turnIntent = detected
+		}
 	}
 
 	// Extract inline specifications from user message
 	extractRequirementsFromText(msgLower, reqs, templates, sshKeys)
 
 	// 4. State Machine Branching
-	switch intent {
+	switch turnIntent {
 	case "create_vps":
 		assistantReply, uiPayload, planProposal, newPlanID = s.handleVPSWorkflow(
 			ctx, convID, userID, convState, reqs, templates, sshKeys, quotaUsage,
@@ -320,9 +347,24 @@ func (s *AIAgentUsecase) ProcessUserMessage(
 		assistantReply, uiPayload, planProposal, newPlanID = s.handleDeleteVPSWorkflow(
 			ctx, convID, userID, convState, reqs, msgLower,
 		)
+	case "create_database":
+		assistantReply, uiPayload, planProposal, newPlanID = s.handleDatabaseWorkflow(
+			ctx, convID, userID, convState, reqs, msgLower,
+		)
+	case "deploy_template":
+		assistantReply, uiPayload, planProposal, newPlanID = s.handleTemplateWorkflow(
+			ctx, convID, userID, input.IsAdmin, convState, reqs, msgLower,
+		)
+	case "advisor":
+		assistantReply = s.handleAdvisor(ctx, userID)
+		if turnIntent == convState.CurrentIntent {
+			convState.State = models.StateCompleted
+		}
 	case "troubleshoot":
-		assistantReply = s.handleTroubleshooting(msgLower, userID)
-		convState.State = models.StateCompleted
+		assistantReply = s.handleDiagnostics(ctx, userID, msgLower)
+		if turnIntent == convState.CurrentIntent {
+			convState.State = models.StateCompleted
+		}
 	default:
 		// General cloud advice & discovery
 		assistantReply = s.handleGeneralQuery(msgLower, quotaUsage, templates)
@@ -1391,6 +1433,15 @@ func detectIntent(msg string) string {
 		!containsAny(msg, "game", "minecraft", "terraria", "android", "bucket", "n8n", "openclaw") {
 		return "delete_vps"
 	}
+	if isTemplateRequest(msg) {
+		return "deploy_template"
+	}
+	if isDatabaseRequest(msg) {
+		return "create_database"
+	}
+	if isAdvisorRequest(msg) {
+		return "advisor"
+	}
 	if strings.Contains(msg, "android") || strings.Contains(msg, "waydroid") ||
 		strings.Contains(msg, "apk") || strings.Contains(msg, "lineageos") ||
 		strings.Contains(msg, "mobile app") || strings.Contains(msg, "android cloud") {
@@ -1412,8 +1463,11 @@ func detectIntent(msg string) string {
 	if strings.Contains(msg, "s3") || strings.Contains(msg, "bucket") || strings.Contains(msg, "minio") {
 		return "create_storage"
 	}
-	if strings.Contains(msg, "troubleshoot") || strings.Contains(msg, "error") || strings.Contains(msg, "stopped") ||
-		strings.Contains(msg, "failed") || strings.Contains(msg, "debug") {
+	if strings.Contains(msg, "troubleshoot") || strings.Contains(msg, "diagnose") || strings.Contains(msg, "error") ||
+		strings.Contains(msg, "stopped") || strings.Contains(msg, "failed") || strings.Contains(msg, "failing") ||
+		strings.Contains(msg, "debug") || strings.Contains(msg, "unhealthy") || strings.Contains(msg, "not working") ||
+		strings.Contains(msg, "broken") || strings.Contains(msg, "is down") || strings.Contains(msg, " down") ||
+		strings.Contains(msg, "health check") {
 		return "troubleshoot"
 	}
 	if strings.Contains(msg, "website") || strings.Contains(msg, "github") ||
@@ -1558,19 +1612,6 @@ func extractRequirementsFromText(
 	}
 }
 
-func (s *AIAgentUsecase) handleTroubleshooting(msg string, userID uuid.UUID) string {
-	return `### 🛠️ Cloud Diagnostics & Troubleshooting
-
-I checked your environment and cluster events:
-
-1. **Hypervisor Health**: Dell PowerEdge R640 Proxmox node is **online** with normal CPU and memory loads.
-2. **Network Bridge**: ` + "`vmbr0`" + ` is passing DHCP and public traffic normally.
-3. **Common Resolution Steps**:
-   - Check instance console: Open [Instances](/dashboard/instances) and click **"Open Proxmox Console"** to inspect guest kernel boot logs.
-   - Review Cloud-Init log: ` + "`cat /var/log/cloud-init-output.log`" + `
-   - If a service failed to bind to port 80/443, check that no other process is holding the socket.`
-}
-
 func (s *AIAgentUsecase) handleGeneralQuery(msg string, quota *models.QuotaUsage, templates []models.OSTemplate) string {
 	usedVCPUs, maxVCPUs := 0, 4
 	if quota != nil {
@@ -1584,10 +1625,13 @@ I am ready to help you manage and deploy services on our Dell PowerEdge R640 ent
 - %d / %d vCPU Cores currently allocated
 - %d available OS images ready for deployment
 
-**Tell me what you'd like to build:**
+**Tell me what you'd like to build or check:**
 - *"Create an Ubuntu 24.04 VPS with 4GB RAM for my Go API"*
 - *"Deploy my GitHub repository to a live web server"*
-- *"Launch a dedicated n8n automation instance"*
+- *"Create a PostgreSQL database named appdb"*
+- *"Deploy the web-stack template"*
+- *"Diagnose web-01"* or *"health check all resources"*
+- *"Optimize my costs"*
 - *"Set up an S3 storage bucket for backups"*`, usedVCPUs, maxVCPUs, len(templates))
 }
 
@@ -1689,6 +1733,12 @@ func (s *AIAgentUsecase) answerReadRequest(ctx context.Context, userID uuid.UUID
 		return fmt.Sprintf("### Your quota\n\n- vCPU: %d / %d\n- Memory: %s / %s\n- Disk: %d / %d GB\n- Instances: %d / %d",
 			quota.UsedVCPUs, quota.MaxVCPUs, formatMB(quota.UsedMemoryMB), formatMB(quota.MaxMemoryMB),
 			quota.UsedStorageGB, quota.MaxStorageGB, quota.UsedInstances, quota.MaxInstances) + footer
+	case containsAny(msg, "cost", "spend", "bill", "savings", "optimize", "advisor"):
+		return "Your estimated costs and optimization advice are on [Operations · Advisor](/dashboard/operations?tab=advisor)." + footer
+	case containsAny(msg, "database", "postgres", "mysql", "redis", "mongo"):
+		return "Your managed databases are listed under [Operations · Databases](/dashboard/operations?tab=databases)." + footer
+	case containsAny(msg, "template"):
+		return "Your infrastructure templates are listed under [Operations · Templates](/dashboard/operations?tab=templates)." + footer
 	case containsAny(msg, "bucket", "storage", "s3", "minio"):
 		return "Your buckets are listed under [Object Storage](/dashboard/storage)." + footer
 	case containsAny(msg, "game", "minecraft", "terraria"):

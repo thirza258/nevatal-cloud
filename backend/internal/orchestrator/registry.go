@@ -14,6 +14,7 @@ type ToolDef struct {
 	Title          string         `json:"title"`
 	Description    string         `json:"description"`
 	Risk           string         `json:"risk"`
+	Role           string         `json:"role"`
 	ResourceTypes  []string       `json:"resource_types"`
 	Idempotent     bool           `json:"idempotent"`
 	TimeoutSeconds int            `json:"timeout_seconds"`
@@ -76,6 +77,9 @@ func (r *Registry) Register(def ToolDef) {
 	}
 	if def.ResourceTypes == nil {
 		def.ResourceTypes = []string{}
+	}
+	if def.Role == "" {
+		def.Role = RoleForTool(def.ID)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -149,12 +153,40 @@ const (
 	ToolBucketDelete       = "bucket.delete"
 )
 
+// Phase 2-4 tool ids.
+const (
+	ToolServiceList          = "service.list"
+	ToolServiceGet           = "service.get"
+	ToolServiceLogs          = "service.logs"
+	ToolServicePower         = "service.power"
+	ToolServiceDelete        = "service.delete"
+	ToolServiceBackupCreate  = "service.backup.create"
+	ToolServiceBackupRestore = "service.backup.restore"
+	ToolDatabaseCreate       = "database.create"
+	ToolAppDeploy            = "app.deploy"
+	ToolBucketUpdate         = "bucket.update"
+	ToolBucketObjectList     = "bucket.objects.list"
+	ToolBucketObjectDelete   = "bucket.object.delete"
+	ToolDomainList           = "domain.list"
+	ToolDomainClaim          = "domain.claim"
+	ToolDomainRelease        = "domain.release"
+	ToolTemplateList         = "template.list"
+	ToolTemplateGet          = "template.get"
+	ToolTemplateSave         = "template.save"
+	ToolTemplateDeploy       = "template.deploy"
+	ToolDiagnosticsResource  = "diagnostics.resource"
+	ToolAdvisorOptimize      = "advisor.optimize"
+	ToolTopology             = "infra.topology"
+)
+
 // Patterns shared by schemas and the planner.
 const (
 	VPSNamePattern      = `^[a-z0-9][a-z0-9\-\.]{1,62}[a-z0-9]$`
 	BucketNamePattern   = `^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$`
 	ServiceNamePattern  = `^[A-Za-z0-9][A-Za-z0-9 _\.\-]{0,62}[A-Za-z0-9]$`
 	SnapshotNamePattern = `^[a-zA-Z0-9_\-]{1,40}$`
+	DatabaseNamePattern = `^[a-z][a-z0-9\-]{1,62}$`
+	SubdomainPattern    = `^[a-z0-9](?:[a-z0-9-]*[a-z0-9])$`
 )
 
 func obj(props map[string]any, required ...string) map[string]any {
@@ -201,10 +233,13 @@ func instanceRef() map[string]any {
 	}, "instance_id")
 }
 
-// DefaultRegistry returns the Phase 1 tool definitions (no runners bound).
+// DefaultRegistry returns the orchestrator tool definitions (no runners bound).
 func DefaultRegistry() *Registry {
 	r := NewRegistry()
 	for _, d := range phase1Tools() {
+		r.Register(d)
+	}
+	for _, d := range phase2Tools() {
 		r.Register(d)
 	}
 	for k, tool := range defaultActions {
@@ -276,10 +311,14 @@ func phase1Tools() []ToolDef {
 			}, "name")},
 		{ID: ToolAppCreate, Title: "Create application", Description: "Create a web application deployment from a Git repository.", Risk: RiskMedium,
 			ResourceTypes: []string{"app"}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
-				"name":           strPattern("Application name", ServiceNamePattern, 64),
-				"repository_url": strPattern("HTTPS Git repository URL", `^https://[^\s]+$`, 512),
-				"framework":      enum("Framework", "go", "react", "nextjs", "python", "docker", "static", "nodejs"),
-				"branch":         strPattern("Production branch", `^[A-Za-z0-9._/\-]{1,100}$`, 100),
+				"name":            strPattern("Application name", ServiceNamePattern, 64),
+				"repository_url":  strPattern("HTTPS Git repository URL", `^https://[^\s]+$`, 512),
+				"framework":       enum("Framework", "go", "react", "nextjs", "python", "docker", "static", "nodejs"),
+				"branch":          strPattern("Production branch", `^[A-Za-z0-9._/\-]{1,100}$`, 100),
+				"database_key":    str("Resource key of a database in the same plan that the application uses"),
+				"bucket_keys":     map[string]any{"type": "array", "maxItems": 10, "items": str("Bucket resource key"), "description": "Resource keys of buckets in the same plan that the application uses"},
+				"vps_key":         str("Resource key of a VPS in the same plan that hosts the application"),
+				"vps_instance_id": uuidStr("Existing VPS id that hosts the application"),
 			}, "name", "repository_url")},
 		{ID: ToolN8nCreate, Title: "Create n8n instance", Description: "Provision a dedicated n8n workflow automation instance.", Risk: RiskMedium,
 			ResourceTypes: []string{"n8n"}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
@@ -346,5 +385,165 @@ func phase1Tools() []ToolDef {
 				"bucket_id": uuidStr("Bucket id"),
 				"name":      str("Bucket name (informational)"),
 			}, "bucket_id")},
+	}
+}
+
+// Phase 2-4 tools: operate existing services, manage databases, domains,
+// buckets, reusable templates, diagnostics, the advisor and topology. Generic
+// service.* tools keep the registry small; the policy engine looks up the
+// target resource by type and id and the execution engine enforces the same
+// risk, approval and ownership rules as the type-specific Phase 1 tools.
+func phase2Tools() []ToolDef {
+	serviceTypes := []string{TypeVPS, TypeApp, TypeN8n, TypeOpenClaw, TypeGameServer, TypeAndroid, TypeDatabase}
+	backupTypes := []string{TypeN8n, TypeOpenClaw, TypeGameServer, TypeAndroid, TypeDatabase}
+	allTypes := append(append([]string{}, serviceTypes...), TypeBucket, TypeDomain)
+
+	serviceListSchema := obj(map[string]any{
+		"resource_type": enum("Resource type", allTypes...),
+		"status":        str("Optional status filter"),
+	})
+	serviceGetSchema := obj(map[string]any{
+		"resource_type": enum("Resource type", allTypes...),
+		"resource_id":   uuidStr("Resource id"),
+		"name":          str("Resource name (informational)"),
+	}, "resource_type", "resource_id")
+	serviceLogsSchema := obj(map[string]any{
+		"resource_type": enum("Resource type", serviceTypes...),
+		"resource_id":   uuidStr("Resource id"),
+		"lines":         integer("Number of log lines", 1, 2000),
+	}, "resource_type", "resource_id")
+	servicePowerSchema := obj(map[string]any{
+		"resource_type": enum("Resource type", serviceTypes...),
+		"resource_id":   uuidStr("Resource id"),
+		"action":        enum("Power action", ActionStart, ActionStop, ActionRestart),
+		"name":          str("Resource name (informational)"),
+	}, "resource_type", "resource_id", "action")
+	serviceDeleteSchema := obj(map[string]any{
+		"resource_type": enum("Resource type", serviceTypes...),
+		"resource_id":   uuidStr("Resource id"),
+		"name":          str("Resource name (informational)"),
+	}, "resource_type", "resource_id")
+	serviceBackupCreateSchema := obj(map[string]any{
+		"resource_type": enum("Resource type", backupTypes...),
+		"resource_id":   uuidStr("Resource id"),
+		"name":          str("Backup name (defaults to a timestamped name)"),
+	}, "resource_type", "resource_id")
+	serviceBackupRestoreSchema := obj(map[string]any{
+		"resource_type": enum("Resource type", backupTypes...),
+		"resource_id":   uuidStr("Resource id"),
+		"backup_id":     uuidStr("Backup id"),
+		"name":          str("Resource name (informational)"),
+	}, "resource_type", "resource_id", "backup_id")
+
+	templateParamSchema := obj(map[string]any{
+		"key":      strPattern("Parameter key", `^[A-Za-z_][A-Za-z0-9_]{0,63}$`, 64),
+		"label":    str("Human-readable label"),
+		"type":     enum("Parameter type", TemplateParamString, TemplateParamInt, TemplateParamBool, TemplateParamEnum),
+		"required": boolean("Required when deploying"),
+		"default":  map[string]any{"description": "Default value"},
+		"enum":     map[string]any{"type": "array", "maxItems": 50, "items": str("Allowed value")},
+	}, "key")
+
+	return []ToolDef{
+		// Read tools.
+		{ID: ToolServiceList, Title: "List service resources", Description: "List the caller's VPS, applications, n8n, OpenClaw, game servers, Android instances, databases, buckets or domains.", Risk: RiskRead,
+			ResourceTypes: allTypes, Idempotent: true, TimeoutSeconds: 30, InputSchema: serviceListSchema},
+		{ID: ToolServiceGet, Title: "Get service resource", Description: "Get one of the caller's service resources.", Risk: RiskRead,
+			ResourceTypes: allTypes, Idempotent: true, TimeoutSeconds: 30, InputSchema: serviceGetSchema},
+		{ID: ToolServiceLogs, Title: "Get service logs", Description: "Read recent logs of an application, n8n instance, OpenClaw agent, game server, Android instance or database.", Risk: RiskRead,
+			ResourceTypes: serviceTypes, Idempotent: true, TimeoutSeconds: 60, InputSchema: serviceLogsSchema},
+		{ID: ToolBucketObjectList, Title: "List bucket objects", Description: "List the objects and folders of one of the caller's buckets.", Risk: RiskRead,
+			ResourceTypes: []string{TypeBucket}, Idempotent: true, TimeoutSeconds: 30, InputSchema: obj(map[string]any{
+				"bucket_id": uuidStr("Bucket id"),
+				"prefix":    str("Key prefix"),
+				"limit":     integer("Maximum objects", 1, 1000),
+			}, "bucket_id")},
+		{ID: ToolDomainList, Title: "List domains", Description: "List the caller's registered domains and their live status.", Risk: RiskRead,
+			ResourceTypes: []string{TypeDomain}, Idempotent: true, TimeoutSeconds: 30, InputSchema: obj(nil)},
+		{ID: ToolTemplateList, Title: "List infrastructure templates", Description: "List the caller's templates and public templates.", Risk: RiskRead,
+			ResourceTypes: []string{"template"}, Idempotent: true, TimeoutSeconds: 30, InputSchema: obj(nil)},
+		{ID: ToolTemplateGet, Title: "Get infrastructure template", Description: "Get one visible infrastructure template.", Risk: RiskRead,
+			ResourceTypes: []string{"template"}, Idempotent: true, TimeoutSeconds: 30, InputSchema: obj(map[string]any{
+				"template_id": uuidStr("Template id"),
+			}, "template_id")},
+		{ID: ToolDiagnosticsResource, Title: "Diagnose resource", Description: "Collect authorized metrics, status and logs and rank likely causes with remediation options.", Risk: RiskRead,
+			ResourceTypes: allTypes, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
+				"resource_type": enum("Resource type", allTypes...),
+				"resource_id":   uuidStr("Resource id"),
+			}, "resource_type", "resource_id")},
+		{ID: ToolAdvisorOptimize, Title: "Optimization advisor", Description: "Analyze the caller's resources and recommend optimizations with estimated costs. Never changes anything.", Risk: RiskRead,
+			ResourceTypes: []string{"account"}, Idempotent: true, TimeoutSeconds: 120, InputSchema: obj(nil)},
+		{ID: ToolTopology, Title: "Infrastructure topology", Description: "Return the caller's resources and the relationships between them.", Risk: RiskRead,
+			ResourceTypes: []string{"account"}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(nil)},
+
+		// Medium tools.
+		{ID: ToolServiceBackupCreate, Title: "Back up service", Description: "Create a backup of an n8n instance, OpenClaw agent, game server, Android instance or database.", Risk: RiskMedium,
+			ResourceTypes: backupTypes, Idempotent: false, TimeoutSeconds: 600, InputSchema: serviceBackupCreateSchema},
+		{ID: ToolDatabaseCreate, Title: "Create database", Description: "Provision a managed PostgreSQL, MySQL, Redis or MongoDB database with generated credentials.", Risk: RiskMedium,
+			ResourceTypes: []string{TypeDatabase}, Idempotent: true, TimeoutSeconds: 900, InputSchema: obj(map[string]any{
+				"name":            strPattern("Database name", DatabaseNamePattern, 63),
+				"engine":          enum("Engine", DatabaseEnginePostgres, DatabaseEngineMySQL, DatabaseEngineRedis, DatabaseEngineMongo),
+				"engine_version":  strPattern("Engine version", `^[A-Za-z0-9.\-]{0,32}$`, 32),
+				"plan_name":       enum("Sizing plan", "starter", "standard", "power", "custom"),
+				"vcpus":           integer("Virtual CPUs", 1, 16),
+				"memory_mb":       integer("Memory in MB", 256, 65536),
+				"storage_gb":      integer("Storage in GB", 5, 1024),
+				"database_name":   strPattern("Logical database name", `^[a-z][a-z0-9_]{0,62}$`, 63),
+				"auto_backup":     boolean("Enable automatic backups"),
+				"vps_key":         str("Resource key of a VPS in the same plan that hosts the database"),
+				"vps_instance_id": uuidStr("Existing VPS id that hosts the database"),
+			}, "name", "engine")},
+		{ID: ToolAppDeploy, Title: "Redeploy application", Description: "Trigger a new deployment of a Git-backed application.", Risk: RiskMedium,
+			ResourceTypes: []string{TypeApp}, Idempotent: false, TimeoutSeconds: 300, InputSchema: obj(map[string]any{
+				"app_id":         uuidStr("Application id"),
+				"commit_message": str("Deployment message"),
+				"name":           str("Application name (informational)"),
+			}, "app_id")},
+		{ID: ToolBucketUpdate, Title: "Update bucket", Description: "Change the visibility or description of an object storage bucket.", Risk: RiskMedium,
+			ResourceTypes: []string{TypeBucket}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
+				"bucket_id":   uuidStr("Bucket id"),
+				"is_public":   boolean("Public read access"),
+				"description": str("Description"),
+			}, "bucket_id")},
+		{ID: ToolDomainClaim, Title: "Claim domain", Description: "Publish one port of a VPS at https://<subdomain>.<platform domain>.", Risk: RiskMedium,
+			ResourceTypes: []string{TypeDomain}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
+				"subdomain":   strPattern("Subdomain", SubdomainPattern, 63),
+				"instance_id": uuidStr("Instance (VPS) id"),
+				"target_port": integer("Backend port", 1, 65535),
+			}, "subdomain", "instance_id", "target_port")},
+		{ID: ToolTemplateSave, Title: "Save infrastructure template", Description: "Save a parameterized infrastructure specification as a reusable template. Secrets are rejected.", Risk: RiskLow,
+			ResourceTypes: []string{"template"}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
+				"name":          strPattern("Template name", ServiceNamePattern, 120),
+				"description":   map[string]any{"type": "string", "maxLength": 2000, "description": "Description"},
+				"specification": map[string]any{"type": "object", "description": "Specification with {{parameter}} placeholders"},
+				"parameters":    map[string]any{"type": "array", "maxItems": 30, "items": templateParamSchema, "description": "Parameters"},
+				"is_public":     boolean("Visible to every user"),
+			}, "name", "specification")},
+		{ID: ToolTemplateDeploy, Title: "Deploy infrastructure template", Description: "Create a plan from a saved template with parameter values. Nothing runs until the plan is approved.", Risk: RiskMedium,
+			ResourceTypes: []string{"template"}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
+				"template_id": uuidStr("Template id"),
+				"parameters":  map[string]any{"type": "object", "description": "Parameter values"},
+			}, "template_id")},
+
+		// High tools.
+		{ID: ToolServicePower, Title: "Power service resource", Description: "Start, stop or restart an application, n8n instance, OpenClaw agent, game server, Android instance or database.", Risk: RiskHigh,
+			ResourceTypes: serviceTypes, Idempotent: true, TimeoutSeconds: 300, InputSchema: servicePowerSchema},
+		{ID: ToolDomainRelease, Title: "Release domain", Description: "Stop publishing a domain (the site becomes unreachable at that address).", Risk: RiskHigh,
+			ResourceTypes: []string{TypeDomain}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
+				"domain_id": uuidStr("Domain id"),
+				"name":      str("Hostname (informational)"),
+			}, "domain_id")},
+
+		// Destructive tools.
+		{ID: ToolServiceDelete, Title: "Delete service resource", Description: "Permanently delete an application, n8n instance, OpenClaw agent, game server, Android instance or database.", Risk: RiskDestructive,
+			ResourceTypes: serviceTypes, Idempotent: true, TimeoutSeconds: 600, InputSchema: serviceDeleteSchema},
+		{ID: ToolServiceBackupRestore, Title: "Restore service backup", Description: "Restore a game server, Android instance or database from a backup (changes since the backup are lost).", Risk: RiskDestructive,
+			ResourceTypes: backupTypes, Idempotent: false, TimeoutSeconds: 900, InputSchema: serviceBackupRestoreSchema},
+		{ID: ToolBucketObjectDelete, Title: "Delete bucket object", Description: "Permanently delete an object or folder from an object storage bucket.", Risk: RiskDestructive,
+			ResourceTypes: []string{TypeBucket}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
+				"bucket_id": uuidStr("Bucket id"),
+				"object_id": uuidStr("Object id"),
+				"name":      str("Object key (informational)"),
+			}, "bucket_id", "object_id")},
 	}
 }

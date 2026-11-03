@@ -177,6 +177,23 @@ func (f *fakeEnv) Bucket(_ context.Context, _ uuid.UUID, id uuid.UUID) (*BucketR
 }
 func (f *fakeEnv) BucketNameTaken(context.Context, string) (bool, error)          { return false, nil }
 func (f *fakeEnv) AndroidImagePublished(context.Context, uuid.UUID) (bool, error) { return true, nil }
+func (f *fakeEnv) BucketObject(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*BucketObjectRef, error) {
+	return nil, nil
+}
+func (f *fakeEnv) ServiceResource(context.Context, uuid.UUID, string, uuid.UUID) (*ServiceResourceRef, error) {
+	return nil, nil
+}
+func (f *fakeEnv) DatabaseNameTaken(context.Context, uuid.UUID, string) (bool, error) {
+	return false, nil
+}
+func (f *fakeEnv) Template(context.Context, uuid.UUID, uuid.UUID) (*TemplateRef, error) {
+	return nil, nil
+}
+func (f *fakeEnv) Domain(context.Context, uuid.UUID, uuid.UUID) (*DomainRef, error) { return nil, nil }
+func (f *fakeEnv) DomainsEnabled() bool                                             { return true }
+func (f *fakeEnv) SubdomainAvailable(context.Context, uuid.UUID, string) (bool, error) {
+	return true, nil
+}
 func (f *fakeEnv) Quota(context.Context, uuid.UUID) (*QuotaSnapshot, error) {
 	q := f.quota
 	return &q, nil
@@ -338,11 +355,11 @@ func TestRecoveryOptions(t *testing.T) {
 	actions := []string{}
 	for _, o := range opts {
 		actions = append(actions, o.Action)
-		if o.Action == RecoveryDeleteCreated && !o.RequiresApproval {
-			t.Error("delete_created must require approval")
+		if (o.Action == RecoveryDeleteCreated || o.Action == RecoveryCompensate) && !o.RequiresApproval {
+			t.Errorf("%s must require approval", o.Action)
 		}
 	}
-	if strings.Join(actions, ",") != "retry_failed,keep,delete_created" {
+	if strings.Join(actions, ",") != "retry_failed,diagnose,keep,delete_created,compensate" {
 		t.Fatalf("options = %v", actions)
 	}
 	if len(RecoveryOptions(models.ExecCompleted, tasks, true)) != 0 {
@@ -354,7 +371,7 @@ func TestRecoveryOptions(t *testing.T) {
 			t.Error("delete_created offered without created resources")
 		}
 	}
-	if got := WithoutDeleteCreated(opts); len(got) != 2 || got[0].Action != RecoveryRetryFailed || got[1].Action != RecoveryKeep {
+	if got := WithoutDeleteCreated(opts); len(got) != 3 || got[0].Action != RecoveryRetryFailed || got[1].Action != RecoveryDiagnose || got[2].Action != RecoveryKeep {
 		t.Errorf("WithoutDeleteCreated = %v", got)
 	}
 	if failureStatus(tasks) != models.ExecPartiallyCompleted {

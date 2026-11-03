@@ -120,6 +120,22 @@ type Config struct {
 	// of every task using tool fail). Honoured only in development with the
 	// simulated hypervisor; used by the orchestrator end-to-end tests.
 	OrchFaults map[string]int
+	// Cost rate card used by the advisor (monthly estimates, not invoices).
+	OrchCostCurrency string
+	OrchCostVCPU     float64
+	OrchCostMemoryGB float64
+	OrchCostDiskGB   float64
+	OrchCostBucketGB float64
+	// MonitorInterval is how often the scheduled check loop looks for due
+	// checks (MONITOR_INTERVAL_SECONDS, default 30).
+	MonitorInterval time.Duration
+	// OrchDBBackupInterval is how often a running managed database with
+	// auto_backup enabled gets an automatic backup
+	// (ORCH_DB_BACKUP_INTERVAL_SECONDS, default 86400).
+	OrchDBBackupInterval time.Duration
+	// NotificationRetention is how long in-app notifications are kept
+	// (ORCH_NOTIFICATION_RETENTION_DAYS, default 30; 0 keeps every row).
+	NotificationRetention time.Duration
 	// ProxmoxMockLatency slows simulated clone/start calls
 	// (PROXMOX_MOCK_LATENCY_MS); simulated hypervisor only.
 	ProxmoxMockLatency time.Duration
@@ -271,6 +287,24 @@ func (c *Config) loadOrchestrator() {
 	}
 	c.OrchPollInterval = time.Duration(getInt("ORCH_POLL_MS", 1000)) * time.Millisecond
 	c.OrchRetryBase = time.Duration(getInt("ORCH_RETRY_BASE_MS", 2000)) * time.Millisecond
+	c.OrchCostCurrency = getEnv("ORCH_COST_CURRENCY", "USD")
+	c.OrchCostVCPU = getFloat("ORCH_COST_VCPU_MONTH", 5)
+	c.OrchCostMemoryGB = getFloat("ORCH_COST_MEMORY_GB_MONTH", 2.5)
+	c.OrchCostDiskGB = getFloat("ORCH_COST_DISK_GB_MONTH", 0.1)
+	c.OrchCostBucketGB = getFloat("ORCH_COST_BUCKET_GB_MONTH", 0.02)
+	c.MonitorInterval = time.Duration(getInt("MONITOR_INTERVAL_SECONDS", 30)) * time.Second
+	if c.MonitorInterval < 5*time.Second {
+		c.MonitorInterval = 5 * time.Second
+	}
+	c.OrchDBBackupInterval = time.Duration(getInt("ORCH_DB_BACKUP_INTERVAL_SECONDS", 86400)) * time.Second
+	if c.OrchDBBackupInterval < time.Minute {
+		c.OrchDBBackupInterval = time.Minute
+		c.warn("ORCH_DB_BACKUP_INTERVAL_SECONDS is below 60; using 1m")
+	}
+	c.NotificationRetention = time.Duration(getInt("ORCH_NOTIFICATION_RETENTION_DAYS", 30)) * 24 * time.Hour
+	if c.NotificationRetention < 0 {
+		c.NotificationRetention = 0
+	}
 
 	if raw := strings.TrimSpace(os.Getenv("ORCH_FAULTS")); raw != "" {
 		if !c.ProxmoxMock || c.IsProduction() {
@@ -551,6 +585,18 @@ func getInt(key string, defaultVal int) int {
 	}
 	val, err := strconv.Atoi(raw)
 	if err != nil || val <= 0 {
+		return defaultVal
+	}
+	return val
+}
+
+func getFloat(key string, defaultVal float64) float64 {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaultVal
+	}
+	val, err := strconv.ParseFloat(raw, 64)
+	if err != nil || val < 0 {
 		return defaultVal
 	}
 	return val

@@ -124,9 +124,12 @@ Approval expiry: 60 min (medium/high), 15 min (destructive).
   `progress_steps` (initial steps), `result_details` (`{}`), `message`.
 
 **Recovery `action`:** `retry_failed` (re-queue failed tasks and their skipped descendants,
-same as per-task retry), `keep` (acknowledge partial result; execution stays
-`partially_completed`), `delete_created` (creates a **new destructive plan** to remove the
-resources this execution created and returns `{"plan_id"}`; never deletes directly).
+same as per-task retry), `diagnose` (read-only diagnostics of the resources the execution
+touched; returns `diagnostics`, changes nothing), `keep` (acknowledge partial result;
+execution stays `partially_completed`), `delete_created` and `compensate` (create a **new
+destructive plan** to remove the resources this execution created and return `{"plan_id"}`;
+never delete directly; `compensate` uses the same approval-bound mechanism under a
+compensation label).
 
 ---
 
@@ -155,9 +158,10 @@ resources this execution created and returns `{"plan_id"}`; never deletes direct
 - `verification`: `{"status": "verified|unverified|failed", "checks": [{"name", "status": "pass|fail|skip", "detail"}]}`.
   Mock hypervisor / unreachable checks report `unverified`, never `verified`.
 - `report` (terminal): `{"summary", "resources": [{"type", "id", "name", "status", "access": {"ssh": "ssh ubuntu@10.0.0.5"}}], "warnings": [], "next_actions": []}`.
-- `recovery_options` (when `failed` / `partially_completed`): `[{"action": "retry_failed"|"keep"|"delete_created", "label", "requires_approval": bool}]`.
-  `delete_created` is listed only while the execution has `created` resources (VPS, bucket) that
-  are not deleted and still exist; `modified`-only executions never offer it.
+- `recovery_options` (when `failed` / `partially_completed`): `[{"action": "retry_failed"|"diagnose"|"keep"|"delete_created"|"compensate", "label", "requires_approval": bool}]`.
+  `diagnose` appears when a task failed; `delete_created` and `compensate` are listed only while
+  the execution has `created` resources (VPS, bucket) that are not deleted and still exist;
+  `modified`-only executions never offer them.
 - ExecutionSummary = Execution without `tasks`, plus `{"task_counts": {"succeeded": 2, "failed": 0, …}}`.
 
 ---

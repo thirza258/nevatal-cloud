@@ -190,24 +190,32 @@ func (AIExecutionEvent) TableName() string { return "ai_execution_events" }
 
 // Resource relations recorded by the orchestrator.
 const (
-	RelationCreated  = "created"
-	RelationDeleted  = "deleted"
-	RelationModified = "modified"
+	RelationCreated   = "created"
+	RelationDeleted   = "deleted"
+	RelationModified  = "modified"
+	RelationUses      = "uses"
+	RelationHosts     = "hosts"
+	RelationDependsOn = "depends_on"
+	RelationRoutesTo  = "routes_to"
 )
 
 // ResourceRelationship records that an execution (task) created, modified or
-// deleted a resource.
+// deleted a resource. For topology relations (uses, hosts, depends_on) the
+// row's resource is the source and Related* is the target.
 type ResourceRelationship struct {
-	ID           uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	OwnerID      uuid.UUID  `gorm:"type:uuid;not null" json:"owner_id"`
-	ExecutionID  *uuid.UUID `gorm:"type:uuid" json:"execution_id"`
-	TaskID       *uuid.UUID `gorm:"type:uuid" json:"task_id"`
-	PlanID       *uuid.UUID `gorm:"type:uuid" json:"plan_id"`
-	Relation     string     `gorm:"type:varchar(32);not null" json:"relation"`
-	ResourceType string     `gorm:"type:varchar(32);not null" json:"resource_type"`
-	ResourceID   uuid.UUID  `gorm:"type:uuid;not null" json:"resource_id"`
-	ResourceName string     `gorm:"type:varchar(255);not null" json:"resource_name"`
-	CreatedAt    time.Time  `json:"created_at"`
+	ID                  uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	OwnerID             uuid.UUID  `gorm:"type:uuid;not null" json:"owner_id"`
+	ExecutionID         *uuid.UUID `gorm:"type:uuid" json:"execution_id"`
+	TaskID              *uuid.UUID `gorm:"type:uuid" json:"task_id"`
+	PlanID              *uuid.UUID `gorm:"type:uuid" json:"plan_id"`
+	Relation            string     `gorm:"type:varchar(32);not null" json:"relation"`
+	ResourceType        string     `gorm:"type:varchar(32);not null" json:"resource_type"`
+	ResourceID          uuid.UUID  `gorm:"type:uuid;not null" json:"resource_id"`
+	ResourceName        string     `gorm:"type:varchar(255);not null" json:"resource_name"`
+	RelatedResourceType string     `gorm:"type:varchar(32);not null;default:''" json:"related_resource_type"`
+	RelatedResourceID   *uuid.UUID `gorm:"type:uuid" json:"related_resource_id"`
+	RelatedResourceName string     `gorm:"type:varchar(255);not null;default:''" json:"related_resource_name"`
+	CreatedAt           time.Time  `json:"created_at"`
 }
 
 func (r *ResourceRelationship) BeforeCreate(tx *gorm.DB) error {

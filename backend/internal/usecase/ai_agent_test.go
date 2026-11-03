@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nevatal/cloud/internal/config"
 	"github.com/nevatal/cloud/internal/models"
+	"github.com/nevatal/cloud/internal/orchestrator"
 )
 
 func TestDetectIntent(t *testing.T) {
@@ -185,6 +186,113 @@ func TestReadRequestsNeverStartAPlan(t *testing.T) {
 	} {
 		if got := isReadRequest(strings.ToLower(msg), owned); got != want {
 			t.Errorf("isReadRequest(%q, owned) = %v, want %v", msg, got, want)
+		}
+	}
+}
+
+func TestDetectPhaseTwoIntents(t *testing.T) {
+	for msg, want := range map[string]string{
+		"create a postgres database named appdb": "create_database",
+		"provision a redis database":             "create_database",
+		"deploy the web-stack template":          "deploy_template",
+		"use template production-vps":            "deploy_template",
+		"optimize my costs":                      "advisor",
+		"diagnose web-01":                        "troubleshoot",
+		"health check all resources":             "troubleshoot",
+		"why is my database down":                "troubleshoot",
+	} {
+		if got := detectIntent(strings.ToLower(msg)); got != want {
+			t.Errorf("detectIntent(%q) = %q, want %q", msg, got, want)
+		}
+	}
+}
+
+func TestTemplateParamValue(t *testing.T) {
+	min, max := 1, 5
+	replicas := TemplateParameter{Key: "replicas", Type: models.TemplateParamInt, Min: &min, Max: &max}
+	if got, err := templateParamValue(replicas, "3"); err != nil || got != 3 {
+		t.Fatalf("integer param = %v, %v; want 3", got, err)
+	}
+	if _, err := templateParamValue(replicas, "9"); err == nil {
+		t.Fatal("out-of-range integer was accepted")
+	}
+	public := TemplateParameter{Key: "public", Type: models.TemplateParamBool}
+	if got, err := templateParamValue(public, "yes"); err != nil || got != true {
+		t.Fatalf("boolean param = %v, %v; want true", got, err)
+	}
+	region := TemplateParameter{Key: "region", Type: models.TemplateParamEnum, Enum: []string{"eu", "us"}}
+	if got, err := templateParamValue(region, "US"); err != nil || got != "us" {
+		t.Fatalf("enum param = %v, %v; want us", got, err)
+	}
+	if _, err := templateParamValue(region, "asia"); err == nil {
+		t.Fatal("unknown enum value was accepted")
+	}
+}
+
+func TestMatchOwnedResourcePrefersTypeAndLongestName(t *testing.T) {
+	refs := []ownedResourceRef{
+		{Type: "database", Name: "db", ID: uuid.New(), Status: "running"},
+		{Type: "vps", Name: "web", ID: uuid.New(), Status: "running"},
+		{Type: "vps", Name: "web-01", ID: uuid.New(), Status: "running"},
+	}
+	if got := matchOwnedResource(refs, "why is web-01 down?"); got == nil || got.Name != "web-01" {
+		t.Fatalf("matched %+v, want web-01", got)
+	}
+	if got := matchOwnedResource(refs, "diagnose the database db"); got == nil || got.Type != "database" {
+		t.Fatalf("matched %+v, want the database", got)
+	}
+	if got := matchOwnedResource(refs, "diagnose missing-01"); got != nil {
+		t.Fatalf("matched %+v, want no match", got)
+	}
+}
+
+func TestFormatDiagnosticAndAdvisor(t *testing.T) {
+	diagnostic := &orchestrator.DiagnosticResult{
+		ResourceType: "vps", ResourceID: uuid.New(), Name: "web-01", Health: "critical",
+		Facts:      []orchestrator.Fact{{Name: "status", Value: "stopped", Status: "critical"}},
+		Hypotheses: []orchestrator.Hypothesis{{Cause: "the resource is stopped", Confidence: "high"}},
+		Recommendations: []orchestrator.Recommendation{
+			{Action: "start", Label: "Start the resource", Risk: "medium", RequiresApproval: true},
+		},
+	}
+	out := formatDiagnostic(diagnostic)
+	for _, want := range []string{"web-01", "CRITICAL", "the resource is stopped", "Start the resource"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatDiagnostic() missing %q:\n%s", want, out)
+		}
+	}
+
+	advisor := &AdvisorReport{
+		Currency: "USD", MonthlyTotal: 12.5,
+		CostResources: []orchestrator.CostItem{{Name: "web-01", ResourceType: "vps", Monthly: 12.5}},
+		Optimizations: []orchestrator.Optimization{{
+			Title: "Consistently idle resource", Category: "rightsize", ResourceName: "web-01",
+			Current: "2 vCPU", Observed: "CPU 4%", Proposed: "1 vCPU", ExpectedBenefit: "lower cost",
+			Risk: "high", RequiresApproval: true,
+		}},
+	}
+	out = formatAdvisorReport(advisor)
+	for _, want := range []string{"12.50 USD", "web-01", "Consistently idle resource", "requires an approved plan"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatAdvisorReport() missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestSanitizeDatabaseName(t *testing.T) {
+	for raw, want := range map[string]string{
+		"App DB_01": "app-db-01",
+		"--":        "", // filled by the caller's generated fallback below
+	} {
+		got := sanitizeDatabaseName(raw, "postgresql")
+		if want == "" {
+			if !strings.HasPrefix(got, "db-postgresql-") {
+				t.Errorf("sanitizeDatabaseName(%q) = %q, want generated fallback", raw, got)
+			}
+			continue
+		}
+		if got != want {
+			t.Errorf("sanitizeDatabaseName(%q) = %q, want %q", raw, got, want)
 		}
 	}
 }

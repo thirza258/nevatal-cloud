@@ -327,6 +327,8 @@ func (h *OrchestratorHandler) Recovery(c *gin.Context) {
 		return
 	}
 	switch {
+	case res.Diagnostics != nil:
+		response.OK(c, res.Diagnostics)
 	case res.PlanID != nil:
 		response.Created(c, response.RecoveryPlan{PlanID: *res.PlanID})
 	case req.Action == orchestrator.RecoveryRetryFailed:

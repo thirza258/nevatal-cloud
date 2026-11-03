@@ -23,31 +23,38 @@ const MaxActiveExecutions = 3
 
 // OrchestratorRepos are the repositories the orchestrator reads and writes.
 type OrchestratorRepos struct {
-	Orch      repository.OrchestratorRepository
-	Agent     repository.AIAgentRepository
-	Users     repository.UserRepository
-	Templates repository.TemplateRepository
-	Plans     repository.PlanRepository
-	SSHKeys   repository.SSHKeyRepository
-	Nodes     repository.NodeRepository
-	Instances repository.InstanceRepository
-	Snapshots repository.SnapshotRepository
-	Jobs      repository.JobRepository
-	Android   repository.AndroidRepository
-	Storage   repository.StorageRepository
+	Orch           repository.OrchestratorRepository
+	Agent          repository.AIAgentRepository
+	Users          repository.UserRepository
+	Templates      repository.TemplateRepository
+	Plans          repository.PlanRepository
+	SSHKeys        repository.SSHKeyRepository
+	Nodes          repository.NodeRepository
+	Instances      repository.InstanceRepository
+	Snapshots      repository.SnapshotRepository
+	Jobs           repository.JobRepository
+	Android        repository.AndroidRepository
+	Storage        repository.StorageRepository
+	InfraTemplates repository.InfraTemplateRepository
+	Databases      repository.DatabaseRepository
+	Domains        repository.DomainRepository
 }
 
 // OrchestratorServices are the use cases the orchestrator's tools drive.
 type OrchestratorServices struct {
-	Instance   *InstanceUsecase
-	App        *AppUsecase
-	Automation *AutomationUsecase
-	OpenClaw   *OpenClawUsecase
-	Storage    *StorageUsecase
-	GameServer *GameServerUsecase
-	Android    *AndroidUsecase
-	Quota      *QuotaUsecase
-	Audit      *AuditUsecase
+	Instance      *InstanceUsecase
+	App           *AppUsecase
+	Automation    *AutomationUsecase
+	OpenClaw      *OpenClawUsecase
+	Storage       *StorageUsecase
+	GameServer    *GameServerUsecase
+	Android       *AndroidUsecase
+	Database      *DatabaseUsecase
+	Domain        *DomainUsecase
+	Quota         *QuotaUsecase
+	Audit         *AuditUsecase
+	Notifications *NotificationUsecase
+	Policies      *AutomationPolicyUsecase
 }
 
 // OrchestratorUsecase is the approval manager and the API of the AI
@@ -279,10 +286,12 @@ type PatchPlanInput struct {
 }
 
 // RecoveryResult is the reply of POST /ai/executions/:id/recovery: an
-// execution (retry_failed, keep) or the new plan (delete_created).
+// execution (retry_failed, keep), the new plan (delete_created, compensate)
+// or diagnostics (diagnose).
 type RecoveryResult struct {
-	Execution *ExecutionView
-	PlanID    *uuid.UUID
+	Execution   *ExecutionView
+	PlanID      *uuid.UUID
+	Diagnostics []*orchestrator.DiagnosticResult
 }
 
 // ListTools returns the registry (GET /ai/tools, MCP tools/list).
@@ -1456,18 +1465,25 @@ func (s *OrchestratorUsecase) Recover(ctx context.Context, execID, userID uuid.U
 			return nil, err
 		}
 		return &RecoveryResult{Execution: view}, nil
-	case orchestrator.RecoveryDeleteCreated:
+	case orchestrator.RecoveryDeleteCreated, orchestrator.RecoveryCompensate:
 		if exec.Status != models.ExecPartiallyCompleted && exec.Status != models.ExecFailed {
-			return nil, newError(KindConflict, "RECOVERY_NOT_AVAILABLE", "delete_created is only available on a failed or partially completed execution")
+			return nil, newError(KindConflict, "RECOVERY_NOT_AVAILABLE", "delete_created and compensate are only available on a failed or partially completed execution")
 		}
-		planID, err := s.deleteCreatedPlan(ctx, exec, isAdmin)
+		compensate := action == orchestrator.RecoveryCompensate
+		planID, err := s.deleteCreatedPlan(ctx, exec, isAdmin, compensate)
 		if err != nil {
 			return nil, err
 		}
-		s.svc.Audit.Log(ctx, &userID, "ai.execution.delete_created", "ai_execution", &execID, "success", clientIP, map[string]any{"plan_id": planID})
+		auditAction := "ai.execution.delete_created"
+		if compensate {
+			auditAction = "ai.execution.compensate"
+		}
+		s.svc.Audit.Log(ctx, &userID, auditAction, "ai_execution", &execID, "success", clientIP, map[string]any{"plan_id": planID})
 		return &RecoveryResult{PlanID: &planID}, nil
+	case orchestrator.RecoveryDiagnose:
+		return &RecoveryResult{Diagnostics: s.diagnoseExecution(ctx, exec)}, nil
 	}
-	return nil, ValidationError("action", "action must be retry_failed, keep or delete_created")
+	return nil, ValidationError("action", "action must be retry_failed, keep, diagnose, delete_created or compensate")
 }
 
 // deletableCreated lists the resources the execution created ("created"
@@ -1508,11 +1524,54 @@ func (s *OrchestratorUsecase) deletableCreated(ctx context.Context, exec *models
 			}
 			resources = append(resources, orchestrator.ResourceSpec{Key: b.Name, Type: orchestrator.TypeBucket, Action: orchestrator.ActionDelete,
 				Config: map[string]any{"bucket_id": b.ID.String(), "name": b.Name}})
+		case orchestrator.TypeApp:
+			if a, err := s.svc.App.Get(ctx, r.ResourceID, exec.UserID, false); err == nil {
+				resources = append(resources, serviceDeleteSpec(orchestrator.TypeApp, a.Name, a.ID))
+			}
+		case orchestrator.TypeN8n:
+			if a, err := s.svc.Automation.Get(ctx, r.ResourceID, exec.UserID, false); err == nil {
+				resources = append(resources, serviceDeleteSpec(orchestrator.TypeN8n, a.Name, a.ID))
+			}
+		case orchestrator.TypeOpenClaw:
+			if a, err := s.svc.OpenClaw.Get(ctx, r.ResourceID, exec.UserID, false); err == nil {
+				resources = append(resources, serviceDeleteSpec(orchestrator.TypeOpenClaw, a.Name, a.ID))
+			}
+		case orchestrator.TypeGameServer:
+			if a, err := s.svc.GameServer.Get(ctx, r.ResourceID, exec.UserID, false); err == nil {
+				resources = append(resources, serviceDeleteSpec(orchestrator.TypeGameServer, a.Name, a.ID))
+			}
+		case orchestrator.TypeAndroid:
+			if a, err := s.svc.Android.Get(ctx, r.ResourceID, exec.UserID, false); err == nil {
+				resources = append(resources, serviceDeleteSpec(orchestrator.TypeAndroid, a.Name, a.ID))
+			}
+		case orchestrator.TypeDatabase:
+			if s.svc.Database != nil {
+				if a, err := s.svc.Database.Get(ctx, r.ResourceID, exec.UserID); err == nil {
+					resources = append(resources, serviceDeleteSpec(orchestrator.TypeDatabase, a.Name, a.ID))
+				}
+			}
+		case orchestrator.TypeDomain:
+			if s.svc.Domain != nil && s.svc.Domain.Enabled() {
+				if list, err := s.svc.Domain.List(ctx, exec.UserID); err == nil {
+					for _, d := range list {
+						if d.Domain.ID == r.ResourceID {
+							resources = append(resources, orchestrator.ResourceSpec{Key: d.Domain.Hostname, Type: orchestrator.TypeDomain, Action: orchestrator.ActionDelete,
+								Config: map[string]any{"domain_id": d.Domain.ID.String(), "name": d.Domain.Hostname}})
+							break
+						}
+					}
+				}
+			}
 		default:
 			skipped = append(skipped, fmt.Sprintf("%s %s", r.ResourceType, r.ResourceName))
 		}
 	}
 	return resources, skipped, nil
+}
+
+func serviceDeleteSpec(typ, name string, id uuid.UUID) orchestrator.ResourceSpec {
+	return orchestrator.ResourceSpec{Key: name, Type: typ, Action: orchestrator.ActionDelete,
+		Config: map[string]any{"resource_id": id.String(), "name": name}}
 }
 
 // CanDeleteCreated implements orchestrator.Hooks: delete_created is only
@@ -1539,8 +1598,9 @@ func (s *OrchestratorUsecase) recoveryOptions(ctx context.Context, e *models.AIE
 }
 
 // deleteCreatedPlan proposes a destructive plan removing what the execution
-// created and that still exists.
-func (s *OrchestratorUsecase) deleteCreatedPlan(ctx context.Context, exec *models.AIExecution, isAdmin bool) (uuid.UUID, error) {
+// created and that still exists. compensate is the compensation variant of
+// the same safe mechanism: it still requires its own approval.
+func (s *OrchestratorUsecase) deleteCreatedPlan(ctx context.Context, exec *models.AIExecution, isAdmin bool, compensate bool) (uuid.UUID, error) {
 	resources, skipped, err := s.deletableCreated(ctx, exec)
 	if err != nil {
 		return uuid.Nil, err
@@ -1548,25 +1608,61 @@ func (s *OrchestratorUsecase) deleteCreatedPlan(ctx context.Context, exec *model
 	if len(resources) == 0 {
 		return uuid.Nil, newError(KindConflict, "RECOVERY_NOT_AVAILABLE", "this execution created no resources that can be deleted by a plan")
 	}
+	intent, title := "delete_created", "Delete resources created by a failed execution"
+	if compensate {
+		intent, title = "compensate", "Compensate for a failed execution"
+	}
 	description := "Delete the resources created by execution " + exec.ID.String()
+	if compensate {
+		description = "Compensation for execution " + exec.ID.String() + ": delete the resources it created and keep everything else"
+	}
 	if len(skipped) > 0 {
-		description += ". Not included (no delete tool in Phase 1; remove them from their pages): " + strings.Join(skipped, ", ")
+		description += ". Not included (no delete tool for them): " + strings.Join(skipped, ", ")
 	}
 	plan, _, err := s.CreatePlan(ctx, PlanDraft{
 		ConversationID: exec.ConversationID, UserID: exec.UserID, IsAdmin: isAdmin,
-		Intent: "delete_created", Title: "Delete resources created by a failed execution",
-		Description: description,
-		Spec:        orchestrator.Specification{Intent: "delete_created", Resources: resources},
+		Intent: intent, Title: title, Description: description,
+		Spec: orchestrator.Specification{Intent: intent, Resources: resources},
 	})
 	if err != nil {
 		return uuid.Nil, err
 	}
+	label := "destructive plan"
+	if compensate {
+		label = "compensation plan"
+	}
 	_ = s.repos.Agent.CreateMessage(ctx, &models.AIMessage{
 		ConversationID: exec.ConversationID, UserID: exec.UserID, Role: "assistant",
-		Content:   fmt.Sprintf("I prepared a **destructive plan** to delete %d resource(s) created by the failed execution. Review it, type the resource names to confirm, and approve it to proceed. Nothing has been deleted yet.", len(resources)),
+		Content:   fmt.Sprintf("I prepared a **%s** to remove %d resource(s) created by the failed execution. Review it, type the resource names to confirm, and approve it to proceed. Nothing has been deleted yet.", label, len(resources)),
 		CreatedAt: time.Now(),
 	})
 	return plan.ID, nil
+}
+
+// diagnoseExecution collects diagnostics for the resources the execution
+// created or modified. It is read-only and never changes infrastructure.
+func (s *OrchestratorUsecase) diagnoseExecution(ctx context.Context, exec *models.AIExecution) []*orchestrator.DiagnosticResult {
+	rels, err := s.repos.Orch.ListRelationships(ctx, exec.ID)
+	if err != nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := []*orchestrator.DiagnosticResult{}
+	for _, rel := range rels {
+		if rel.Relation == models.RelationDeleted || rel.Relation == models.RelationUses || rel.Relation == models.RelationHosts {
+			continue
+		}
+		key := rel.ResourceType + ":" + rel.ResourceID.String()
+		if seen[key] || len(out) >= 5 {
+			continue
+		}
+		seen[key] = true
+		res, err := s.Diagnose(ctx, exec.UserID, rel.ResourceType, rel.ResourceID)
+		if err == nil {
+			out = append(out, res)
+		}
+	}
+	return out
 }
 
 // MCP and other planners
@@ -1650,6 +1746,23 @@ func (s *OrchestratorUsecase) CallTool(ctx context.Context, userID uuid.UUID, is
 	generic, err := genericMap(args)
 	if err != nil {
 		return nil, err
+	}
+	// Deploying a template produces a plan from the stored specification,
+	// which cannot be expressed as a single tool input.
+	if def.ID == orchestrator.ToolTemplateDeploy {
+		templateID, err := uuid.Parse(orchestrator.String(generic, "template_id"))
+		if err != nil {
+			return nil, fmt.Errorf("template_id must be a UUID")
+		}
+		params, _ := generic["parameters"].(map[string]any)
+		plan, err := s.DeployTemplate(ctx, userID, isAdmin, templateID, params)
+		if err != nil {
+			return nil, err
+		}
+		return &ToolCallResult{
+			Risk: def.Risk, PlanID: plan.ID, Version: plan.Version, PlanStatus: plan.Status,
+			ConversationID: plan.ConversationID, URL: PlanURL(plan.ConversationID, plan.ID),
+		}, nil
 	}
 	if !orchestrator.IsWrite(def.Risk) {
 		if te := s.policy.CheckTask(ctx, userID, toolID, generic); te != nil {

@@ -18,6 +18,7 @@ type ResourceCounts struct {
 	Apps             int `json:"apps"`
 	Automations      int `json:"automations"`
 	Buckets          int `json:"buckets"`
+	Databases        int `json:"databases"`
 	GameServers      int `json:"game_servers"`
 	Total            int `json:"total"`
 	VPS              int `json:"vps"`
@@ -31,6 +32,7 @@ func NewResourceList(s *usecase.ResourceSummary) ResourceList {
 			Apps:             s.Counts.Apps,
 			Automations:      s.Counts.Automations,
 			Buckets:          s.Counts.Buckets,
+			Databases:        s.Counts.Databases,
 			GameServers:      s.Counts.GameServers,
 			Total:            len(s.Items),
 			VPS:              s.Counts.VPS,

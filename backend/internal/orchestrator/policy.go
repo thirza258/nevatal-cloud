@@ -27,6 +27,41 @@ type BucketRef struct {
 	Objects int64
 }
 
+// ServiceResourceRef is what the policy engine knows about an app, n8n
+// instance, OpenClaw agent, game server, Android instance or managed
+// database.
+type ServiceResourceRef struct {
+	ID     uuid.UUID
+	Type   string
+	Name   string
+	Status string
+}
+
+// BucketObjectRef is what the policy engine knows about a bucket object.
+type BucketObjectRef struct {
+	ID    uuid.UUID
+	Key   string
+	IsDir bool
+}
+
+// DomainRef is what the policy engine knows about a tenant domain.
+type DomainRef struct {
+	ID       uuid.UUID
+	Hostname string
+	Instance uuid.UUID
+}
+
+// TemplateRef is what the policy engine knows about an infrastructure
+// template.
+type TemplateRef struct {
+	ID            uuid.UUID
+	OwnerID       uuid.UUID
+	Name          string
+	IsPublic      bool
+	Valid         bool
+	Specification string
+}
+
 // QuotaSnapshot is a user's quota and current usage (instances plus active
 // reservations).
 type QuotaSnapshot struct {
@@ -61,6 +96,13 @@ type Env interface {
 	SnapshotExists(ctx context.Context, instanceID uuid.UUID, name string) (bool, error)
 	Bucket(ctx context.Context, userID, id uuid.UUID) (*BucketRef, error)
 	BucketNameTaken(ctx context.Context, name string) (bool, error)
+	BucketObject(ctx context.Context, userID, bucketID, objectID uuid.UUID) (*BucketObjectRef, error)
+	ServiceResource(ctx context.Context, userID uuid.UUID, resourceType string, id uuid.UUID) (*ServiceResourceRef, error)
+	DatabaseNameTaken(ctx context.Context, userID uuid.UUID, name string) (bool, error)
+	Template(ctx context.Context, userID, id uuid.UUID) (*TemplateRef, error)
+	Domain(ctx context.Context, userID, id uuid.UUID) (*DomainRef, error)
+	DomainsEnabled() bool
+	SubdomainAvailable(ctx context.Context, userID uuid.UUID, subdomain string) (bool, error)
 	AndroidImagePublished(ctx context.Context, id uuid.UUID) (bool, error)
 	Quota(ctx context.Context, userID uuid.UUID) (*QuotaSnapshot, error)
 	Capacity(ctx context.Context) (*CapacitySnapshot, error)
@@ -345,6 +387,175 @@ func (p *Policy) checkSemantics(ctx context.Context, userID uuid.UUID, t TaskSpe
 				is.err("IMAGE_INVALID", "selected Android image is unavailable or unpublished", t.Key)
 			}
 		}
+	case ToolServiceList, ToolTemplateList, ToolDomainList, ToolAdvisorOptimize, ToolTopology:
+		// No resource input.
+	case ToolServiceGet, ToolServiceLogs, ToolDiagnosticsResource, ToolServicePower,
+		ToolServiceDelete, ToolServiceBackupCreate, ToolServiceBackupRestore:
+		p.checkServiceResource(ctx, userID, t, input, is, expected)
+	case ToolDatabaseCreate:
+		name := strings.ToLower(String(input, "name"))
+		if taken, err := p.env.DatabaseNameTaken(ctx, userID, name); err == nil && taken {
+			is.err("NAME_TAKEN", fmt.Sprintf("database name %q is already taken", name), t.Key)
+		}
+		switch String(input, "engine") {
+		case DatabaseEnginePostgres, DatabaseEngineMySQL, DatabaseEngineRedis, DatabaseEngineMongo:
+		default:
+			is.err("ENGINE_INVALID", "unsupported database engine", t.Key)
+		}
+	case ToolAppDeploy:
+		id, ok := UUID(input, "app_id")
+		if !ok {
+			is.err("INPUT_INVALID", "app_id: must be a UUID", t.Key)
+			return
+		}
+		if inst := p.service(ctx, userID, TypeApp, id, t.Key, is); inst != nil && inst.Status == "stopped" {
+			is.warn("APP_STOPPED", fmt.Sprintf("%s is stopped; the deployment may not run until it is started", inst.Name), t.Key)
+		}
+	case ToolBucketUpdate, ToolBucketObjectList, ToolBucketObjectDelete:
+		p.checkBucket(ctx, userID, t, input, is, expected)
+	case ToolDomainClaim:
+		if !p.env.DomainsEnabled() {
+			is.err("DOMAINS_DISABLED", "tenant domains are disabled on this deployment", t.Key)
+			return
+		}
+		if id, ok := UUID(input, "instance_id"); !ok {
+			is.err("INPUT_INVALID", "instance_id: must be a UUID", t.Key)
+		} else if inst := p.instance(ctx, userID, map[string]any{"instance_id": id.String()}, t.Key, is); inst != nil {
+			if inst.Status != "running" {
+				is.warn("INSTANCE_NOT_RUNNING", fmt.Sprintf("%s is %s: the domain will return 503 until it runs", inst.Name, inst.Status), t.Key)
+			}
+			if String(input, "target_port") == "" {
+				is.err("INPUT_INVALID", "target_port: is required", t.Key)
+			}
+		}
+		if sub := strings.ToLower(String(input, "subdomain")); sub != "" {
+			if available, err := p.env.SubdomainAvailable(ctx, userID, sub); err == nil && !available {
+				is.err("SUBDOMAIN_TAKEN", fmt.Sprintf("subdomain %q is not available", sub), t.Key)
+			}
+		}
+	case ToolDomainRelease:
+		id, ok := UUID(input, "domain_id")
+		if !ok {
+			is.err("INPUT_INVALID", "domain_id: must be a UUID", t.Key)
+			return
+		}
+		d, err := p.env.Domain(ctx, userID, id)
+		switch {
+		case err != nil:
+			is.err("LOOKUP_FAILED", "could not look up the domain: "+err.Error(), t.Key)
+		case d == nil:
+			is.err("RESOURCE_NOT_FOUND", "domain not found or access denied", t.Key)
+		}
+	case ToolTemplateGet:
+		id, ok := UUID(input, "template_id")
+		if !ok {
+			is.err("INPUT_INVALID", "template_id: must be a UUID", t.Key)
+			return
+		}
+		if tpl, err := p.env.Template(ctx, userID, id); err != nil || tpl == nil {
+			is.err("TEMPLATE_NOT_FOUND", "template not found or access denied", t.Key)
+		}
+	case ToolTemplateDeploy:
+		id, ok := UUID(input, "template_id")
+		if !ok {
+			is.err("INPUT_INVALID", "template_id: must be a UUID", t.Key)
+			return
+		}
+		tpl, err := p.env.Template(ctx, userID, id)
+		switch {
+		case err != nil || tpl == nil:
+			is.err("TEMPLATE_NOT_FOUND", "template not found or access denied", t.Key)
+		case !tpl.Valid:
+			is.err("TEMPLATE_INVALID", "the template failed validation and cannot be deployed", t.Key)
+		}
+	}
+}
+
+// service looks a service resource up and records a not-found/access error.
+func (p *Policy) service(ctx context.Context, userID uuid.UUID, typ string, id uuid.UUID, task string, is *issues) *ServiceResourceRef {
+	ref, err := p.env.ServiceResource(ctx, userID, typ, id)
+	if err != nil {
+		is.err("LOOKUP_FAILED", "could not look up the resource: "+err.Error(), task)
+		return nil
+	}
+	if ref == nil {
+		is.err("RESOURCE_NOT_FOUND", "resource not found or access denied", task)
+		return nil
+	}
+	return ref
+}
+
+func (p *Policy) checkServiceResource(ctx context.Context, userID uuid.UUID, t TaskSpec, input map[string]any, is *issues, expected *[]string) {
+	typ := String(input, "resource_type")
+	id, ok := UUID(input, "resource_id")
+	if !ok {
+		is.err("INPUT_INVALID", "resource_id: must be a UUID", t.Key)
+		return
+	}
+	ref := p.service(ctx, userID, typ, id, t.Key, is)
+	if ref == nil {
+		return
+	}
+	switch t.Tool {
+	case ToolServicePower:
+		switch String(input, "action") {
+		case ActionStart:
+			if ref.Status == "running" {
+				is.warn("ALREADY_RUNNING", fmt.Sprintf("%s is already running", ref.Name), t.Key)
+			}
+		case ActionStop:
+			if ref.Status == "stopped" {
+				is.warn("NOT_RUNNING", fmt.Sprintf("%s is already stopped", ref.Name), t.Key)
+			}
+		case ActionRestart:
+			if ref.Status == "stopped" {
+				is.err("INVALID_STATE", fmt.Sprintf("%s must be running to restart (it is stopped)", ref.Name), t.Key)
+			}
+		}
+		if ref.Status == "deleting" {
+			is.err("INVALID_STATE", fmt.Sprintf("%s is being deleted", ref.Name), t.Key)
+		}
+	case ToolServiceDelete:
+		if ref.Status == "deleting" {
+			is.err("INVALID_STATE", fmt.Sprintf("%s is already being deleted", ref.Name), t.Key)
+		}
+		*expected = append(*expected, ref.Name)
+	case ToolServiceBackupCreate:
+		switch ref.Status {
+		case "provisioning", "building", "deploying", "installing":
+			is.err("INVALID_STATE", fmt.Sprintf("%s is %s; wait until it is ready before backing it up", ref.Name, ref.Status), t.Key)
+		}
+	case ToolServiceBackupRestore:
+		*expected = append(*expected, ref.Name)
+	case ToolServiceLogs, ToolServiceGet:
+		// Existence is the only check.
+	}
+}
+
+func (p *Policy) checkBucket(ctx context.Context, userID uuid.UUID, t TaskSpec, input map[string]any, is *issues, expected *[]string) {
+	id, ok := UUID(input, "bucket_id")
+	if !ok {
+		is.err("INPUT_INVALID", "bucket_id: must be a UUID", t.Key)
+		return
+	}
+	b, err := p.env.Bucket(ctx, userID, id)
+	switch {
+	case err != nil:
+		is.err("LOOKUP_FAILED", "could not look up the bucket: "+err.Error(), t.Key)
+	case b == nil:
+		is.err("RESOURCE_NOT_FOUND", "bucket not found or access denied", t.Key)
+	case t.Tool == ToolBucketObjectDelete:
+		objID, ok := UUID(input, "object_id")
+		if !ok {
+			is.err("INPUT_INVALID", "object_id: must be a UUID", t.Key)
+			return
+		}
+		obj, err := p.env.BucketObject(ctx, userID, id, objID)
+		if err != nil || obj == nil {
+			is.err("RESOURCE_NOT_FOUND", "object not found or access denied", t.Key)
+			return
+		}
+		*expected = append(*expected, obj.Key)
 	}
 }
 
@@ -441,6 +652,48 @@ func (p *Policy) CheckTask(ctx context.Context, userID uuid.UUID, tool string, i
 		}
 		if b == nil {
 			return Permanent("RESOURCE_NOT_FOUND", "bucket not found or access denied")
+		}
+	}
+	if typ := String(input, "resource_type"); typ != "" {
+		if id, ok := UUID(input, "resource_id"); ok && tool != ToolServiceDelete {
+			ref, err := p.env.ServiceResource(ctx, userID, typ, id)
+			if err != nil {
+				return Retryable("LOOKUP_FAILED", "could not look up the resource")
+			}
+			if ref == nil {
+				return Permanent("RESOURCE_NOT_FOUND", "resource not found or access denied")
+			}
+		}
+	}
+	if id, ok := UUID(input, "app_id"); ok {
+		ref, err := p.env.ServiceResource(ctx, userID, TypeApp, id)
+		if err != nil {
+			return Retryable("LOOKUP_FAILED", "could not look up the application")
+		}
+		if ref == nil {
+			return Permanent("RESOURCE_NOT_FOUND", "application not found or access denied")
+		}
+	}
+	if id, ok := UUID(input, "domain_id"); ok && tool != ToolDomainRelease {
+		d, err := p.env.Domain(ctx, userID, id)
+		if err != nil {
+			return Retryable("LOOKUP_FAILED", "could not look up the domain")
+		}
+		if d == nil {
+			return Permanent("RESOURCE_NOT_FOUND", "domain not found or access denied")
+		}
+	}
+	// Only the template tools take an infrastructure template id. vps.create,
+	// game_server.create and android.create also carry a template_id, but it
+	// names an OS template from the catalog, which the tool resolves itself.
+	if id, ok := UUID(input, "template_id"); ok &&
+		(tool == ToolTemplateDeploy || tool == ToolTemplateGet) {
+		tpl, err := p.env.Template(ctx, userID, id)
+		if err != nil {
+			return Retryable("LOOKUP_FAILED", "could not look up the template")
+		}
+		if tpl == nil {
+			return Permanent("RESOURCE_NOT_FOUND", "template not found or access denied")
 		}
 	}
 	return nil

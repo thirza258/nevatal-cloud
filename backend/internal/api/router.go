@@ -17,29 +17,33 @@ import (
 type RouterParams struct {
 	Cfg *config.Config
 
-	Auth        *usecase.AuthUsecase
-	Quota       *usecase.QuotaUsecase
-	SSHKey      *usecase.SSHKeyUsecase
-	Audit       *usecase.AuditUsecase
-	Catalog     *usecase.CatalogUsecase
-	Dashboard   *usecase.DashboardUsecase
-	Job         *usecase.JobUsecase
-	Instance    *usecase.InstanceUsecase
-	Docker      *usecase.DockerUsecase
-	App         *usecase.AppUsecase
-	Automation  *usecase.AutomationUsecase
-	OpenClaw    *usecase.OpenClawUsecase
-	ISO         *usecase.ISOUsecase
-	Storage     *usecase.StorageUsecase
-	GameServer  *usecase.GameServerUsecase
-	Android     *usecase.AndroidUsecase
-	AIAssistant *usecase.AIAssistantUsecase
-	MCP         *usecase.MCPUsecase
-	AIAgent     *usecase.AIAgentUsecase
-	Resource    *usecase.ResourceUsecase
-	WordPress   *usecase.WordPressUsecase
-	Admin       *usecase.AdminUsecase
-	Domain      *usecase.DomainUsecase
+	Auth         *usecase.AuthUsecase
+	Quota        *usecase.QuotaUsecase
+	SSHKey       *usecase.SSHKeyUsecase
+	Audit        *usecase.AuditUsecase
+	Catalog      *usecase.CatalogUsecase
+	Dashboard    *usecase.DashboardUsecase
+	Job          *usecase.JobUsecase
+	Instance     *usecase.InstanceUsecase
+	Docker       *usecase.DockerUsecase
+	App          *usecase.AppUsecase
+	Automation   *usecase.AutomationUsecase
+	OpenClaw     *usecase.OpenClawUsecase
+	ISO          *usecase.ISOUsecase
+	Storage      *usecase.StorageUsecase
+	GameServer   *usecase.GameServerUsecase
+	Android      *usecase.AndroidUsecase
+	AIAssistant  *usecase.AIAssistantUsecase
+	MCP          *usecase.MCPUsecase
+	AIAgent      *usecase.AIAgentUsecase
+	Resource     *usecase.ResourceUsecase
+	WordPress    *usecase.WordPressUsecase
+	Admin        *usecase.AdminUsecase
+	Domain       *usecase.DomainUsecase
+	Database     *usecase.DatabaseUsecase
+	Notification *usecase.NotificationUsecase
+	Monitoring   *usecase.MonitoringUsecase
+	Policies     *usecase.AutomationPolicyUsecase
 
 	// Orchestrator serves plans, approvals and executions (/ai/plans,
 	// /ai/executions, /ai/tools).
@@ -95,6 +99,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 	resourceHandler := handler.NewResourceHandler(p.Resource)
 	domainHandler := handler.NewDomainHandler(p.Domain)
 	orchHandler := handler.NewOrchestratorHandler(p.Orchestrator, p.Streams)
+	opsHandler := handler.NewOperationsHandler(p.Database, p.Notification, p.Monitoring, p.Policies, p.Orchestrator)
 
 	// API v1 group
 	v1 := router.Group("/api/v1")
@@ -271,6 +276,33 @@ func SetupRouter(p RouterParams) *gin.Engine {
 				// Tool registry (also MCP tools/list)
 				ai.GET("/tools", orchHandler.ListTools)
 
+				// Phase 2: reusable templates, topology and logical agent roles
+				ai.GET("/templates", opsHandler.ListTemplates)
+				ai.POST("/templates", opsHandler.CreateTemplate)
+				ai.GET("/templates/:id", opsHandler.GetTemplate)
+				ai.PATCH("/templates/:id", opsHandler.UpdateTemplate)
+				ai.DELETE("/templates/:id", opsHandler.DeleteTemplate)
+				ai.POST("/templates/:id/deploy", opsHandler.DeployTemplate)
+				ai.GET("/topology", opsHandler.Topology)
+				ai.GET("/agents", opsHandler.AgentRoles)
+
+				// Phase 3: diagnostics, scheduled checks and automation policies
+				ai.GET("/diagnostics/:resourceType/:id", opsHandler.Diagnose)
+				ai.POST("/diagnostics/:resourceType/:id/remediate", opsHandler.Remediate)
+				ai.GET("/checks", opsHandler.ListChecks)
+				ai.POST("/checks", opsHandler.CreateCheck)
+				ai.PATCH("/checks/:id", opsHandler.UpdateCheck)
+				ai.DELETE("/checks/:id", opsHandler.DeleteCheck)
+				ai.POST("/checks/:id/run", opsHandler.RunCheck)
+				ai.GET("/policies", opsHandler.ListPolicies)
+				ai.POST("/policies", opsHandler.CreatePolicy)
+				ai.PATCH("/policies/:id", opsHandler.UpdatePolicy)
+				ai.DELETE("/policies/:id", opsHandler.DeletePolicy)
+
+				// Phase 4: optimization advisor and cost estimate
+				ai.GET("/advisor", opsHandler.Optimize)
+				ai.GET("/advisor/costs", opsHandler.Costs)
+
 				// Agent Runs
 				ai.GET("/runs/:id", aiAgentHandler.GetRun)
 				ai.GET("/runs/:id/events", aiAgentHandler.GetRunEvents)
@@ -287,6 +319,33 @@ func SetupRouter(p RouterParams) *gin.Engine {
 				mcp.GET("/connections/:id/tools", mcpHandler.GetConnectionTools)
 				mcp.PATCH("/connections/:id/permissions", mcpHandler.UpdatePermission)
 				mcp.GET("/audit-logs", mcpHandler.ListAuditLogs)
+			}
+
+			// In-app notifications
+			notifications := protected.Group("/notifications")
+			{
+				notifications.GET("", opsHandler.ListNotifications)
+				notifications.GET("/unread-count", opsHandler.NotificationUnreadCount)
+				notifications.POST("/read-all", opsHandler.MarkAllNotificationsRead)
+				notifications.POST("/:id/read", opsHandler.MarkNotificationRead)
+			}
+
+			// Managed databases
+			databases := protected.Group("/databases")
+			{
+				databases.GET("", opsHandler.ListDatabases)
+				databases.GET("/plans", opsHandler.DatabasePlans)
+				databases.POST("", opsHandler.CreateDatabase)
+				databases.GET("/:id", opsHandler.GetDatabase)
+				databases.DELETE("/:id", opsHandler.DeleteDatabase)
+				databases.POST("/:id/power/:action", opsHandler.DatabasePower)
+				databases.GET("/:id/credentials", opsHandler.DatabaseCredentials)
+				databases.GET("/:id/backups", opsHandler.DatabaseBackups)
+				databases.POST("/:id/backups", opsHandler.CreateDatabaseBackup)
+				databases.POST("/:id/backups/:backupId/restore", opsHandler.RestoreDatabaseBackup)
+				databases.DELETE("/:id/backups/:backupId", opsHandler.DeleteDatabaseBackup)
+				databases.GET("/:id/logs", opsHandler.DatabaseLogs)
+				databases.GET("/:id/metrics", opsHandler.DatabaseMetrics)
 			}
 
 			// Game Servers routes per PRD Section 59

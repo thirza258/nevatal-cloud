@@ -30,6 +30,7 @@ type ResourceCounts struct {
 	Buckets          int
 	GameServers      int
 	AndroidInstances int
+	Databases        int
 }
 
 // ResourceSummary is everything a customer runs on the platform plus quota
@@ -49,6 +50,7 @@ type ResourceUsecase struct {
 	storageService    *StorageUsecase
 	gameServerService *GameServerUsecase
 	androidService    *AndroidUsecase
+	databaseService   *DatabaseUsecase
 	quotaService      *QuotaUsecase
 }
 
@@ -60,6 +62,7 @@ func NewResourceUsecase(
 	storageService *StorageUsecase,
 	gameServerService *GameServerUsecase,
 	androidService *AndroidUsecase,
+	databaseService *DatabaseUsecase,
 	quotaService *QuotaUsecase,
 ) *ResourceUsecase {
 	return &ResourceUsecase{
@@ -70,6 +73,7 @@ func NewResourceUsecase(
 		storageService:    storageService,
 		gameServerService: gameServerService,
 		androidService:    androidService,
+		databaseService:   databaseService,
 		quotaService:      quotaService,
 	}
 }
@@ -222,6 +226,33 @@ func (s *ResourceUsecase) ListAll(ctx context.Context, userID uuid.UUID) *Resour
 		}
 	}
 
+	// 8. Managed databases (PostgreSQL, MySQL, Redis, MongoDB)
+	var databases []models.ManagedDatabase
+	if s.databaseService != nil {
+		databases, _ = s.databaseService.List(ctx, userID)
+	}
+	for _, db := range databases {
+		items = append(items, UnifiedResourceItem{
+			ID:        db.ID.String(),
+			Type:      "database",
+			Name:      db.Name,
+			Status:    db.Status,
+			Endpoint:  fmt.Sprintf("%s:%d", db.Host, db.Port),
+			Specs:     fmt.Sprintf("%s %s (%s)", db.Engine, db.EngineVersion, db.PlanName),
+			CreatedAt: db.CreatedAt.Format("2006-01-02 15:04"),
+			Details: map[string]interface{}{
+				"engine":       db.Engine,
+				"vcpus":        db.VCPUs,
+				"memory_mb":    db.MemoryMB,
+				"storage_gb":   db.StorageGB,
+				"database":     db.DatabaseName,
+				"auto_backup":  db.AutoBackup,
+				"last_backup":  db.LastBackupAt,
+				"health_check": db.LastHealthCheckAt,
+			},
+		})
+	}
+
 	usage, _ := s.quotaService.GetUsage(ctx, userID)
 
 	return &ResourceSummary{
@@ -234,6 +265,7 @@ func (s *ResourceUsecase) ListAll(ctx context.Context, userID uuid.UUID) *Resour
 			Buckets:          len(buckets),
 			GameServers:      len(gameServers),
 			AndroidInstances: len(androidList),
+			Databases:        len(databases),
 		},
 		Usage: usage,
 	}

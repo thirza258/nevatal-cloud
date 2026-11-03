@@ -1,20 +1,25 @@
-# AI Infrastructure Orchestrator (Phase 1)
+# AI Infrastructure Orchestrator (Phases 1–4)
 
 The AI Infrastructure Orchestrator is the engine behind the **AI Cloud Agent**.
 You describe the infrastructure you want in plain language. The platform turns
 it into a versioned plan, checks it, waits for **your** approval of exactly
 that plan, executes it as durable tasks, verifies the result on the hypervisor
-and reports what it built.
+and reports what it built. Around that core, the Operations Center adds
+reusable templates, managed databases, diagnostics, scheduled checks,
+notifications, deterministic automation policies, cost advice, topology and
+logical agent roles.
 
-This guide describes Phase 1 as implemented, together with its frozen API
-contract, [ORCHESTRATOR_API.md](ORCHESTRATOR_API.md) (2026-11-02). Timings,
-retries, checks and limits were confirmed against the code on 2026-11-02.
+This guide describes Phases 1–4 as implemented. The Phase 1 API contract is
+frozen in [ORCHESTRATOR_API.md](ORCHESTRATOR_API.md) (2026-11-02); the Phase
+2–4 endpoints are documented in
+[ORCHESTRATOR_PHASES_API.md](ORCHESTRATOR_PHASES_API.md). Timings, retries,
+checks and limits were confirmed against the code on 2026-11-03.
 
 | You are | Read |
 |---|---|
 | A user (dashboard or MCP client) | sections 1, 2 and 3 |
 | The operator of a Nevatal installation | sections 3 and 4; the installation itself is in [PROXMOX_INSTALL.md](PROXMOX_INSTALL.md) |
-| Writing your own client | section 5 and the contract |
+| Writing your own client | section 5 and the two API documents |
 
 ## Contents
 
@@ -29,6 +34,12 @@ retries, checks and limits were confirmed against the code on 2026-11-02.
    - [2.7 Partial failures and recovery](#27-partial-failures-and-recovery)
    - [2.8 Leaving and coming back](#28-leaving-and-coming-back)
    - [2.9 MCP clients (Claude Desktop, Cursor)](#29-mcp-clients-claude-desktop-cursor)
+   - [2.10 Operations Center](#210-operations-center)
+   - [2.11 Infrastructure templates](#211-infrastructure-templates)
+   - [2.12 Managed databases](#212-managed-databases)
+   - [2.13 Diagnostics and remediation](#213-diagnostics-and-remediation)
+   - [2.14 Checks, notifications and automation policies](#214-checks-notifications-and-automation-policies)
+   - [2.15 Advisor, costs, topology and agent roles](#215-advisor-costs-topology-and-agent-roles)
 3. [Security model](#3-security-model)
 4. [For operators](#4-for-operators)
    - [4.1 Where it runs](#41-where-it-runs)
@@ -40,6 +51,7 @@ retries, checks and limits were confirmed against the code on 2026-11-02.
    - [4.7 Live events through proxies (SSE)](#47-live-events-through-proxies-sse)
    - [4.8 Monitoring](#48-monitoring)
    - [4.9 Troubleshooting](#49-troubleshooting)
+   - [4.10 Phase 2–4 scheduling and settings](#410-phase-24-scheduling-and-settings)
 5. [API quick reference](#5-api-quick-reference)
 6. [Roadmap](#6-roadmap)
 
@@ -89,14 +101,22 @@ The model is never the authority.**
 Where you meet it:
 
 - **Dashboard:** *AI Cloud Agent* in the sidebar (`/dashboard/ai`): chat,
-  plan and approval panel, live execution timeline.
-- **REST API:** `/api/v1/ai/*` (section 5).
+  plan and approval panel, live execution timeline. *Operations* in the
+  sidebar (`/dashboard/operations`): databases, templates, checks, policies,
+  advisor, topology, agent roles and diagnostics (section 2.10).
+- **Notifications:** the bell in the top bar shows execution, check and
+  policy findings (section 2.14).
+- **REST API:** `/api/v1/ai/*`, `/api/v1/databases/*` and
+  `/api/v1/notifications/*` (section 5).
 - **MCP:** `POST /api/v1/mcp/rpc` for Claude Desktop, Cursor and other MCP
   clients (section 2.9).
 
-Not in Phase 1 (section 6): templates of several services that depend on each
-other, diagnostics, monitoring and notifications, optimization advice,
-backups.
+Not in these phases (section 6): automatic cleanup/compensation after a
+partial failure, real managed-database runtime provisioning and live
+connection probes, and the platform-wide backup scheduler (a separate P2
+feature). The managed database service is logical: it owns lifecycle,
+credentials, backups and health records, while the execution engine verifies
+the records and marks the runtime probe as skipped.
 
 ---
 
@@ -126,11 +146,26 @@ asks before it proposes a plan.
 | Game server | *Create a Minecraft Java server called survival with 10 player slots* | `game_server.create` | medium |
 | Android | *Create an Android instance called qa-phone* | `android.create` | medium |
 
-The Phase 1 chat agent recognizes requests by keywords. It turns the create
-requests above and VPS deletion into plans. When you delete a VPS, call it a
-VPS or VM (*Delete the VPS web-01*). The rows marked *MCP only* have no chat
-intent yet: ask for them from an MCP client (section 2.9). The result is the
-same kind of plan, and you approve it in the dashboard.
+The chat agent recognizes requests by keywords. It turns the create requests
+above, VPS deletion, managed-database creation and template deployment into
+plans. When you delete a VPS, call it a VPS or VM (*Delete the VPS web-01*).
+The rows marked *MCP only* have no chat intent: ask for them from an MCP client
+(section 2.9) or use the resource's own page. The result is the same kind of
+plan, and you approve it in the dashboard.
+
+Phases 2–4 add these chat workflows:
+
+| Request | Example | What happens |
+|---|---|---|
+| Managed database | *Create a PostgreSQL database called app-db with the standard plan* | Asks for a missing engine or plan, then files a `create_database` plan. The password is generated during execution and shown once in *Operations · Databases*. |
+| Template | *Deploy the web-stack template with domain=shop* | Looks up a visible template by name, asks for missing typed parameters, then files a plan in this conversation. |
+| Diagnostics | *Why is web-01 slow?* / *Health check all resources* | Read-only: collects facts, ranks likely causes and lists remediation options. It never plans or changes anything. |
+| Advisor | *Optimize my costs* / *What is my monthly spend?* | Read-only deterministic cost and optimization report. |
+
+Diagnostics and advisor are per-turn read-only answers: they leave an open plan
+in the conversation untouched. A database or template request is an explicit
+new operation, so it starts a new active plan. *Save template* is not a chat
+operation: create templates in *Operations · Templates*.
 
 Read-only tools never need an approval. An MCP client runs them at once
 (section 2.9):
@@ -138,8 +173,14 @@ Read-only tools never need an approval. An MCP client runs them at once
 | Question | Tools |
 |---|---|
 | *List my servers* / *Is web-01 running?* | `vps.list`, `vps.get`, `vps.status` |
+| *List my applications, databases, domains...* | `service.list`, `service.get` |
+| *Show the logs of app-01* | `service.logs` |
 | *How much quota do I have left?* | `quota.check` |
 | *Which OS templates and plans can I use?* | `catalog.templates`, `catalog.plans` |
+| *Why is web-01 failing?* | `diagnostics.resource` |
+| *What can I save?* | `advisor.optimize` |
+| *What is connected to what?* | `infra.topology` |
+| *Which templates can I deploy?* | `template.list`, `template.get` |
 
 The dashboard chat answers such questions with the same read tools: *List
 my servers*, *Show my VPS* or *What is the status of web-01* run `vps.list`
@@ -163,11 +204,17 @@ Good to know:
 - **Snapshot restore** rolls the VM back and discards everything written
   after the snapshot. That is why it is `destructive`.
 - **Several resources** can be part of one plan; each gets its own resource
-  entry and tasks. In Phase 1 the chat agent and MCP calls propose one
-  resource per plan: add more by editing the plan's specification
+  entry and tasks. The chat agent and MCP calls still propose one resource per
+  plan, but a template can hold several and an edited specification can too
   (section 2.4). A *Delete created* recovery plan (section 2.7) can hold
-  several. Services wired to each other (an app plus the VPS and domain it
-  runs on) come in Phase 2.
+  several.
+- **Wiring resources in one plan.** A resource can name another resource of
+  the same specification in `depends_on`. `app.create` also understands
+  `vps_key`, `database_key` and `bucket_keys`, and `database.create` /
+  `n8n.create` / service creates understand `vps_key`; the policy engine adds
+  the dependency automatically. The app is therefore created after its
+  database, buckets and VPS, and the topology records `hosts`, `uses` and
+  `routes_to` edges. A dependency cycle is refused at validation.
 - **Never paste API keys or passwords into the chat.** Chat messages are kept
   in the conversation history. Plans, events and reports never contain
   secrets (section 3). `openclaw.create` takes only the name, the provider
@@ -234,13 +281,13 @@ and also an execution that is already running.
 Every tool has a fixed risk level. A plan's risk is the highest risk of its
 tasks: a plan that creates one VPS and stops another is `high`.
 
-| Risk | Phase 1 tools | To approve, you... | Approval valid for |
+| Risk | Tools | To approve, you... | Approval valid for |
 |---|---|---|---|
-| `read` | `vps.list`, `vps.get`, `vps.status`, `quota.check`, `catalog.templates`, `catalog.plans`, `vps.wait_ready`, `vps.verify` | nothing: no approval needed | - |
-| `low` | none (planning itself, inspecting configuration) | nothing | - |
-| `medium` | `vps.create`, `vps.start`, `vps.restart`, `vps.snapshot.create`, `bucket.create`, `app.create`, `n8n.create`, `openclaw.create`, `game_server.create`, `android.create` | **approve** the revision you see | 60 min |
-| `high` | `vps.stop`, `vps.resize` | approve **and acknowledge the risks** | 60 min |
-| `destructive` | `vps.delete`, `vps.snapshot.restore`, `bucket.delete` | approve, acknowledge the risks **and type the exact name(s)** of the target(s) | 15 min |
+| `read` | `vps.list`, `vps.get`, `vps.status`, `quota.check`, `catalog.templates`, `catalog.plans`, `vps.wait_ready`, `vps.verify`, `service.list`, `service.get`, `service.logs`, `bucket.object.list`, `domain.list`, `template.list`, `template.get`, `diagnostics.resource`, `advisor.optimize`, `infra.topology` | nothing: no approval needed | - |
+| `low` | `template.save` (stores a template, never infrastructure) | nothing | - |
+| `medium` | `vps.create`, `vps.start`, `vps.restart`, `vps.snapshot.create`, `bucket.create`, `app.create`, `n8n.create`, `openclaw.create`, `game_server.create`, `android.create`, `database.create`, `template.deploy`, `service.backup.create`, `app.deploy`, `bucket.update`, `domain.claim` | **approve** the revision you see | 60 min |
+| `high` | `vps.stop`, `vps.resize`, `service.power`, `domain.release` | approve **and acknowledge the risks** | 60 min |
+| `destructive` | `vps.delete`, `vps.snapshot.restore`, `bucket.delete`, `service.delete`, `service.backup.restore`, `bucket.object.delete` | approve, acknowledge the risks **and type the exact name(s)** of the target(s) | 15 min |
 
 - **Version-bound.** Approving sends the revision number and its `spec_hash`
   (a fingerprint of the plan's content). If the plan changed since you opened
@@ -255,7 +302,7 @@ tasks: a plan that creates one VPS and stops another is `high`.
   expires. An expired approval cannot start anything: approve again.
 - **Admin-only tools** need the `admin` role even in an approved plan
   (`403 ADMIN_REQUIRED`). `GET /api/v1/ai/tools` shows them
-  (`requires_admin`). In Phase 1 no tool is admin-only. The check runs at
+  (`requires_admin`). No Phase 1–4 tool is admin-only. The check runs at
   approval, at `/execute` and again before each task, ready for later tools.
 
 What the dashboard sends when you approve the deletion of `web-01`:
@@ -344,24 +391,26 @@ tool that is not idempotent).
   job's error code (for example `CLONE_FAILED` or `JOB_STALE`).
 - **Timeouts:** `TOOL_TIMEOUT` is retried for every idempotent tool.
 - **Tools that are not idempotent** (`idempotent: false` in the registry:
-  `vps.snapshot.restore`): no automatic retry for any error, including
+  `vps.snapshot.restore`, `app.deploy`, `service.backup.create` and
+  `service.backup.restore`): no automatic retry for any error, including
   `TOOL_TIMEOUT` and `TOOL_ERROR`. When a replica dies or stops while such a
   task runs, the re-claimed attempt is not run again: the task fails with
   `INTERRUPTED_NOT_IDEMPOTENT`, because the interrupted run may already have
-  rolled the VM back. Check the VM, then retry the task yourself if needed.
+  rolled the VM back, deployed the commit or written the backup. Check the
+  resource, then retry the task yourself if needed.
 
 The timeout of one attempt depends on the tool (`timeout_seconds` in
 `GET /api/v1/ai/tools`):
 
 | Timeout | Tools |
 |---|---|
-| 900 s | `vps.create` |
-| 600 s | `vps.wait_ready` |
-| 300 s | `vps.start`, `vps.restart`, `vps.stop`, `vps.delete`, `vps.snapshot.create`, `vps.snapshot.restore` |
+| 900 s | `vps.create`, `database.create`, `service.backup.restore` |
+| 600 s | `vps.wait_ready`, `service.backup.create`, `service.delete` |
+| 300 s | `vps.start`, `vps.restart`, `vps.stop`, `vps.delete`, `vps.snapshot.create`, `vps.snapshot.restore`, `service.power`, `app.deploy` |
 | 180 s | `vps.resize` |
-| 120 s | `game_server.create`, `android.create` |
-| 60 s | `app.create`, `n8n.create`, `openclaw.create`, `bucket.create`, `bucket.delete`, `vps.verify` |
-| 30 s | `vps.list`, `vps.get`, `vps.status`, `quota.check`, `catalog.templates`, `catalog.plans` |
+| 120 s | `game_server.create`, `android.create`, `advisor.optimize` |
+| 60 s | `app.create`, `n8n.create`, `openclaw.create`, `bucket.create`, `bucket.delete`, `vps.verify`, `service.logs`, `bucket.object.list`, `domain.list`, `domain.claim`, `domain.release`, `template.list`, `template.get`, `template.save`, `template.deploy`, `diagnostics.resource`, `infra.topology`, `bucket.update`, `bucket.object.delete` |
+| 30 s | `vps.list`, `vps.get`, `vps.status`, `quota.check`, `catalog.templates`, `catalog.plans`, `service.list`, `service.get` |
 
 Each attempt has its own idempotency key, so a retry never creates a second
 copy of a resource (section 4.4).
@@ -399,9 +448,17 @@ details. Only write tasks that succeeded are verified; `read` tasks such as
 | `vps.delete` | Record deleted; the VM no longer exists on the hypervisor | Yes |
 | `vps.snapshot.create` | Snapshot recorded; snapshot listed by the hypervisor | Yes |
 | `bucket.create`, `bucket.delete` | Bucket record and its directory on the storage volume present (create) or gone (delete) | Yes |
-| `vps.resize` | Recorded size equals the plan. The hypervisor configuration is not compared in Phase 1 (`skip`) | No, always `unverified` |
+| `vps.resize` | Recorded size equals the plan. The hypervisor configuration is not compared (`skip`) | No, always `unverified` |
 | `vps.snapshot.restore` | The instance exists. A rollback cannot be observed afterwards (`skip`) | No, always `unverified` |
-| `app.create`, `n8n.create`, `openclaw.create`, `game_server.create`, `android.create` | The record exists with an expected status (for example `provisioning` or `running`). No runtime probe in Phase 1 (`skip`) | No, always `unverified` |
+| `app.create`, `n8n.create`, `openclaw.create`, `game_server.create`, `android.create` | The record exists with an expected status (for example `provisioning` or `running`). No runtime probe (`skip`) | No, always `unverified` |
+| `database.create` | The database record exists and is `running` (or still `provisioning`). No live connection probe (`skip`) | No, always `unverified` |
+| `service.power` | The service record has the requested power state | Yes for VPS; otherwise `unverified` through the simulated/runtime skip |
+| `service.delete` | The service record is gone (VPS also checked on the hypervisor) | Yes for VPS; otherwise `unverified` |
+| `service.backup.create`, `service.backup.restore` | A backup id was recorded; backup contents / restore result cannot be observed (`skip`) | No, always `unverified` |
+| `app.deploy` | The latest deployment exists and is not `failed`; runtime health is not probed (`skip`) | No, always `unverified` |
+| `domain.claim`, `domain.release` | The domain record exists; edge routing is not checked (`skip`) | No, always `unverified` |
+| `bucket.update` | The recorded visibility matches the plan | Yes |
+| `bucket.object.delete` | The object record is gone | Yes |
 
 A check that cannot reach its target (hypervisor or guest agent not
 answering) is `skip`, never `pass`.
@@ -409,7 +466,7 @@ answering) is `skip`, never `pass`.
 | Result | Meaning | What to do |
 |---|---|---|
 | `verified` | Every check passed against the real hypervisor. | Nothing. |
-| `unverified` | At least one check was skipped: the platform runs the simulated hypervisor, the tool has a check Phase 1 always skips (table above), or a check could not reach its target (for example, the guest agent does not answer). | The resource may well be fine: check it yourself (VM page, SSH). For a VPS create, start, restart, stop or delete in production, it points to a setup problem (section 4.9). |
+| `unverified` | At least one check was skipped: the platform runs the simulated hypervisor, the tool has a check that is always skipped (table above), or a check could not reach its target (for example, the guest agent does not answer). | The resource may well be fine: check it yourself (VM page, SSH). For a VPS create, start, restart, stop or delete in production, it points to a setup problem (section 4.9). |
 | `failed` | A check found a difference, for example the VM is not running or has no IP address. | Read the failed check. Fix the resource (for example start the VM), or delete it with *Delete created* or a new plan. |
 
 **The simulated hypervisor never shows `verified`.** In demo mode and with
@@ -441,24 +498,27 @@ Plan v1: create VPS web-01 and web-02              execution: partially_complete
   vps.create:web-02       failed      error code + message, no attempts left
   vps.wait_ready:web-02   skipped     (waits for vps.create:web-02)
 
-Recovery:   Retry failed  |  Keep  |  Delete created
+Recovery:   Retry failed  |  Diagnose  |  Keep  |  Delete created  |  Compensate
 ```
 
 | Option | `action` | What happens |
 |---|---|---|
 | Retry failed | `retry_failed` | Re-queues the failed tasks and the tasks skipped because of them. Same as retrying each failed task (`POST /api/v1/ai/executions/:id/tasks/:taskId/retry`; only `failed` tasks, otherwise `409 TASK_NOT_RETRYABLE`). |
+| Diagnose | `diagnose` | Read-only diagnostics of the resources the failed execution created or modified (up to five). Changes nothing and creates no plan. |
 | Keep | `keep` | Accepts the partial result. The execution stays `partially_completed`; the created resources stay and count against your quota. |
 | Delete created | `delete_created` | Offered only when the execution **created** a VPS or bucket that still exists (resources it only modified, such as a restarted VPS, do not count; once the created resources are gone the option disappears). Creates a **new destructive plan** that removes the VPS and buckets this execution created and that still exist. Phase 1 has no delete tool for apps, n8n, OpenClaw, game servers and Android: the plan's description names them, and you remove them from their own pages. You review and approve the plan like any destructive plan (typed names, 15 min). Nothing is deleted before that. |
+| Compensate | `compensate` | The same approval-bound destructive plan as *Delete created*, labelled as compensation: remove what this execution created and keep everything else. Nothing is deleted before you approve it. |
 
 Each option says whether it needs a new approval (`requires_approval`).
-Options appear on `failed` and `partially_completed` executions (*Keep* only
-on `partially_completed`). Completed and cancelled executions have none.
+Options appear on `failed` and `partially_completed` executions (*Diagnose*
+only when a task failed, *Keep* only on `partially_completed`). Completed and
+cancelled executions have none.
 *Keep* or *Delete created* where they do not apply, or *Delete created* when
 nothing can be deleted by a plan, answer `409 RECOVERY_NOT_AVAILABLE`.
 *Retry failed* without a failed task answers `409 TASK_NOT_RETRYABLE`. API
-replies: `retry_failed`
-answers `202` with the execution, `keep` `200` with the execution, and
-`delete_created` `201` with the `plan_id` of the new plan.
+replies: `retry_failed` answers `202` with the execution, `keep` `200` with
+the execution, `diagnose` `200` with its `diagnostics`, and `delete_created`
+or `compensate` `201` with the `plan_id` of the new plan.
 
 Every finished execution has a **report**: a summary, the resources (type,
 id, name, status and access, such as `ssh ubuntu@10.0.0.5`), warnings and
@@ -485,8 +545,9 @@ The same tool registry is served over MCP at `POST /api/v1/mcp/rpc`
 
 | Tool risk | What `tools/call` does |
 |---|---|
-| `read` (`vps.list`, `vps.get`, `vps.status`, `quota.check`, `catalog.templates`, `catalog.plans`, `vps.wait_ready`, `vps.verify`) | Runs at once and returns the result. |
-| `medium`, `high`, `destructive` (every other tool) | **Never executes.** Creates a plan and returns it for approval in the Nevatal dashboard. |
+| `read` (`vps.list`, `vps.get`, `vps.status`, `quota.check`, `catalog.templates`, `catalog.plans`, `vps.wait_ready`, `vps.verify`, `service.list`, `service.get`, `service.logs`, `bucket.object.list`, `domain.list`, `template.list`, `template.get`, `diagnostics.resource`, `advisor.optimize`, `infra.topology`) | Runs at once and returns the result. |
+| `low` (`template.save`) | Runs at once and stores a reusable template. It changes no infrastructure; the template is still validated and secrets are rejected. |
+| `medium`, `high`, `destructive` (every other write tool) | **Never executes.** Creates a plan and returns it for approval in the Nevatal dashboard. |
 
 The answer to a write call:
 
@@ -551,6 +612,338 @@ curl -s -X POST "$API/mcp/rpc" -H "Authorization: Bearer $TOKEN" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq -r '.result.tools[].name'
 ```
 
+### 2.10 Operations Center
+
+*Operations* (`/dashboard/operations`) groups the Phase 2–4 surfaces in eight
+tabs. It is a UI over the same REST API; the *AI Cloud Agent* remains the place
+where plans are reviewed and approved.
+
+| Tab | What you do there |
+|---|---|
+| **Databases** | Create, power, inspect, back up, restore and delete managed databases; show credentials once. |
+| **Templates** | Save, edit, version and deploy reusable infrastructure specifications. |
+| **Checks** | Configure recurring health, backup-freshness and quota checks; run one now. |
+| **Policies** | Turn platform events into notifications or approval-bound plan proposals. |
+| **Advisor** | See the estimated monthly cost, quota use and deterministic optimization advice. |
+| **Topology** | See resources and the relationships recorded between them. |
+| **Agent roles** | See the logical roles and the registry tools each one covers. |
+| **Diagnostics** | Inspect one resource's facts and likely causes, and propose a remediation plan. |
+
+Actions you take yourself in *Operations* are ordinary owner actions: they are
+authenticated by your session and are not an AI decision. For example,
+creating or powering a database, recording a backup, editing a template, or
+saving a check or policy does not produce a plan. Two Operations actions do
+produce plans, because they change infrastructure or compute: **deploying a
+template** and **creating a remediation plan** from diagnostics. Those plans
+wait for your approval like every other plan.
+
+The bell in the top bar opens notifications (section 2.14). The unread count is
+refreshed every 30 s. Clicking a notification marks it read and follows its
+`action_url`: an execution goes to its conversation, a failed check goes to
+*Operations · Checks*, and a policy-proposed plan goes to the plan in the AI
+workspace.
+
+Diagnostics can be opened directly. From a resource row or another Operations
+tab the dashboard uses:
+
+```
+/dashboard/operations?tab=diagnostics&type=vps&id=<resource-id>&name=<name>
+```
+
+`type` is the resource type (`vps`, `app`, `n8n`, `openclaw`, `game_server`,
+`android`, `database`, `bucket` or `domain`). The page ignores an unknown tab
+and falls back to *Databases*.
+
+### 2.11 Infrastructure templates
+
+A template is a saved, parameterized version of the same specification a plan
+uses: resources, actions, configuration, tasks and dependencies. Create one in
+*Operations · Templates* (or call `POST /api/v1/ai/templates`). You give it:
+
+- a **name** (2–120 characters) and an optional description;
+- a **specification** with resources such as `vps`, `app`, `database`,
+  `bucket`, `n8n`, `openclaw`, `game_server`, `android` or `domain`;
+- optional **parameters**, each with a key, label, type (`string`, `integer`,
+  `boolean` or `enum`), `required`, default, enum values and min/max; and
+- **public** visibility, off by default.
+
+Use a parameter as a whole value or inside a string:
+
+```json
+{"name": "{{name}}", "plan": "{{plan}}", "domain": "{{name}}.example.com"}
+```
+
+A whole-value placeholder keeps the parameter type (an integer stays an
+integer); an embedded placeholder becomes text. Deploying asks for missing
+required parameters and refuses unknown ones. Every edited template increments
+its `version`; `usage_count` counts successful deployments.
+
+Templates are deliberately not a way to store secrets. The API rejects
+secret-looking configuration keys (`password`, `token`, `api_key`,
+`private_key`, `credential`, ...) and values that embed credentials. Generate
+or enter secrets after deployment; a template that needs one must take a
+non-secret parameter or leave the field for later configuration.
+
+Deploying a template creates a normal plan from the resolved specification. It
+is validated by the same policy engine and **nothing runs until you approve
+it**. From the UI or `POST /ai/templates/:id/deploy`, the plan is filed in the
+*Infrastructure templates* conversation. From chat it stays in the active
+conversation, so the approval card appears where you asked for it. A public
+template is readable and deployable by every user, but remains owned by its
+author; only the owner can edit or delete it.
+
+The rendered specification must still use supported resource/action pairs and
+must not contain unresolved `{{...}}` placeholders. Templates only save typing
+and make multi-resource plans reusable; they do not bypass validation,
+approval or execution (section 2.2).
+
+### 2.12 Managed databases
+
+*Operations · Databases* creates logical managed databases for PostgreSQL,
+MySQL, Redis and MongoDB. Supported sizing presets are `starter` (1 vCPU,
+1 GB RAM, 10 GB), `standard` (2 vCPU, 4 GB, 50 GB) and `power` (4 vCPU,
+8 GB, 200 GB); `custom` accepts up to 16 vCPU, 64 GB RAM and 1 TB. Engine
+versions default to PostgreSQL 16, MySQL 8.4, Redis 7.4 or MongoDB 7.0.
+
+The control plane owns the lifecycle, credentials, backups and health records.
+Creation checks your quota (vCPU, memory, storage and instance count) and the
+unique name, generates a random password, encrypts it with AES-256-GCM and
+stores only the ciphertext. The password is returned **once** in the create
+response. The owner can read it again with *Show credentials*
+(`GET /databases/:id/credentials`), which is audited; it is never written to a
+plan, execution event, report or log. The derived host is
+`db-<name>.nevatal.internal`; treat it as a control-plane identifier, not proof
+that a real database server is reachable.
+
+| Action | Endpoint | Notes |
+|---|---|---|
+| List / read | `GET /databases`, `GET /databases/:id` | Owner only; other users get `404 DATABASE_NOT_FOUND`. |
+| Plans | `GET /databases/plans` | The three presets. |
+| Create | `POST /databases` | Returns `{database, password}`. `auto_backup` defaults to `true`. |
+| Start / stop / restart | `POST /databases/:id/power/:action` | `start`, `stop` or `restart`. |
+| Credentials | `GET /databases/:id/credentials` | Audited; may answer `503 CREDENTIALS_UNAVAILABLE`. |
+| Back up / list / restore / delete backup | `POST /databases/:id/backups`, `GET /databases/:id/backups`, `POST /databases/:id/backups/:backupId/restore`, `DELETE /databases/:id/backups/:backupId` | Logical backup records; restore marks the database running. |
+| Logs / metrics | `GET /databases/:id/logs?lines=`, `GET /databases/:id/metrics` | Simulated/deterministic log lines and usage values; no credentials. |
+| Delete | `DELETE /databases/:id` | Soft-deletes the control-plane record. |
+
+Statuses are `provisioning`, `running`, `stopped`, `failed` and `deleting`.
+Creation currently records `running` immediately; there is no live runtime
+probe. In the same way, a backup is a control-plane record with a
+`backup_reference` and size, not a dump copied from a database server, and
+restore is logical. Metrics are deterministic from the database name when the
+platform is simulated or no measurements were recorded; logs are illustrative
+and never contain credentials.
+
+**Automatic backups are scheduled.** `auto_backup` defaults to `true` and an
+explicit `false` is honored. A running database with it enabled gets a
+logical backup every `ORCH_DB_BACKUP_INTERVAL_SECONDS` (default 24 h, minimum
+60 s). Every API replica runs the scheduler and claims due databases with
+`FOR UPDATE SKIP LOCKED`, advancing `next_backup_at`, so a backup is taken
+once, not once per replica. A newly created database first backs up one
+interval after creation. A `backup.freshness` check still reports its age
+truthfully, and the manual backup button remains available.
+
+Credentials are encrypted with a key derived from the deployment's
+`JWT_SECRET`. Rotating that secret makes existing database passwords
+undecryptable (`503 CREDENTIALS_UNAVAILABLE`); reset them or recreate the
+database. This is a current limitation, not a recovery procedure.
+
+The same lifecycle is exposed to the AI agent as `database.create`,
+`service.power`, `service.delete`, `service.backup.create` and
+`service.backup.restore` (section 2.1). Those tool calls become plans when
+driven by the model; the Operations UI and REST calls above act directly for
+the authenticated owner.
+
+### 2.13 Diagnostics and remediation
+
+Diagnostics turn recorded state into evidence. For one resource, `GET
+/api/v1/ai/diagnostics/:resourceType/:id` returns:
+
+- **facts** — status, metrics, addresses and last-backup age, each marked
+  `ok`, `warning`, `critical` or `info`;
+- **hypotheses** — ranked possible causes (`high`, `medium`, `low`) with the
+  evidence that supports them; and
+- **recommendations** — actions such as start, restart, resize, inspect logs,
+  back up or delete, each with its risk, whether approval is required and the
+  registry `tool`/`input` it maps to.
+
+Supported types are `vps`, `app`, `n8n`, `openclaw`, `game_server`, `android`,
+`database`, `bucket` and `domain`. The rules are deterministic:
+
+- a stopped, failed or error resource is critical; a resource that is still
+  provisioning has an informational transition fact;
+- CPU at or above 75% is a warning, at or above 90% critical; memory at or
+  above 80% is a warning (92% is high-confidence pressure); disk at or above
+  80% is a warning (90% critical when reported as a threshold fact);
+- a running VPS with no private IP gets a warning, and a database, game server
+  or Android instance with no backup gets a backup warning;
+- missing metrics are stated as `not observable`, not guessed.
+
+The verdict is `healthy`, `degraded`, `critical` or `unknown`. Diagnostics only
+read; the model may explain the result, but it cannot invent facts or execute a
+recommendation.
+
+To act, choose a recommendation in the panel or call `POST
+/api/v1/ai/diagnostics/:resourceType/:id/remediate` with an `action`
+(`start`, `stop`, `restart`, `backup_create`, `delete`, `deploy` or `resize`)
+and, for resize, `vcpus`, `memory_mb` and/or `disk_gb`. This creates a plan in
+the *AI diagnostics* conversation; it does not run anything. Review and approve
+it like any other plan. `free_space` and other cleanup advice is advice only:
+there is no cleanup tool, so grow the volume or clean the resource yourself.
+Diagnostics never auto-remediate, and a policy cannot turn a recommendation
+into an execution.
+
+### 2.14 Checks, notifications and automation policies
+
+#### Scheduled checks
+
+*Operations · Checks* configures recurring read-only observations. The check
+type decides the valid resource type:
+
+| `check_type` | `resource_type` | What it observes |
+|---|---|---|
+| `instance.health` | `vps` | Recorded status, then CPU/memory/disk when metrics are available. |
+| `app.health` | `app` | Recorded status and, outside simulation, an HTTPS probe of the app's health path. |
+| `game_server.health` | `game_server` | Status and metrics. |
+| `android.health` | `android` | Status and metrics. |
+| `database.health` | `database` | Status and database metrics. |
+| `backup.freshness` | `game_server`, `android`, `database` | Age of the last backup (warning after 7 days or when none exists). |
+| `quota.usage` | `account` | vCPU, memory, storage and instance percentages. |
+
+Create with `POST /ai/checks` (`name`, `resource_type`, `resource_id`,
+`check_type`, `interval_seconds`, `enabled`). The interval is 60–86400 seconds
+and defaults to 300; a check is enabled by default. There is one check per
+owner, type and resource (`409 CHECK_EXISTS` for a duplicate). `PATCH
+/ai/checks/:id` changes the name, interval or enabled flag; `POST
+/ai/checks/:id/run` runs it immediately. `DELETE` removes it.
+
+The monitor loop in every API replica claims due checks from PostgreSQL
+(`FOR UPDATE SKIP LOCKED`), so replicas do not duplicate a run. It looks for
+work every `MONITOR_INTERVAL_SECONDS` (default 30, minimum 5). Results are
+`ok`, `warning`, `critical` or `unknown`; `last_result` carries the facts and
+message, and `consecutive_failures` tracks consecutive bad runs.
+
+A warning or critical result creates an in-app notification only when the
+status changes from the previous run (deduplicated per check and status), and
+evaluates enabled `check.failed` policies on every bad result. Thresholds:
+CPU 80% warning / 90% critical, memory 85% / 92%, disk 85% / 95%. The app
+probe only follows an HTTPS URL ending in `.apps.nevatal.id`, refuses IPs and
+cross-host redirects, and is reported as simulated in mock mode. Checks never
+start, stop or change a resource.
+
+#### Notifications
+
+Notifications are per user and are read at `GET /api/v1/notifications`
+(`?unread=true&limit=50`, newest first), with the unread count in
+`unread_count`. `GET /notifications/unread-count` is the light poll;
+`POST /notifications/:id/read` and `POST /notifications/read-all` mark them
+read. Read operations are idempotent where it matters: marking an already-read
+notification again is not an error.
+
+| Emitted type | When |
+|---|---|
+| `execution` | An execution reaches a terminal state: completed, failed, partially completed or cancelled. |
+| `check` | A check changes to warning or critical. |
+| `system` | A policy produced a notification, a policy-proposed plan, or a policy failed to create its plan. |
+| `advisor` | Reserved; the advisor is read-only and does not currently emit notifications. |
+
+Every notification can carry `resource_type`, `resource_id`, `action_url` and
+severity (`info`, `warning`, `critical`). One user can never read another
+user's notification (`404 NOTIFICATION_NOT_FOUND`).
+
+#### Automation policies
+
+A policy is a deterministic rule evaluated after an event. It can notify or
+propose a plan; it can never execute infrastructure, approve a plan or call an
+arbitrary tool. Create policies in *Operations · Policies* or with
+`POST /api/v1/ai/policies`.
+
+| Field | Values |
+|---|---|
+| `trigger` | `execution.failed`, `execution.completed`, `check.failed`, `advisor.recommendation` |
+| `conditions` | Optional exact matches (or comma-separated alternatives) on `severity`, `action`, `resource_type`, `category`, `check_type`, `risk`; empty or `*` matches anything. Unknown condition keys never match. |
+| `action` | `notify` or `create_plan` |
+| `action_config` | For `notify`: optional `title`, `message`. For `create_plan`: required `template_id` and optional `parameters`. |
+| `enabled` | Default `true`; disable instead of deleting to keep history. |
+
+`execution.failed` fires for failed and partially completed executions;
+`execution.completed` fires for the other terminal states, including
+cancelled. `check.failed` fires for warning or critical check results, with
+`action` set to `failed`. `advisor.recommendation` fires once for each
+recommendation in an advisor report, with `action` set to `recommend`,
+`category` (`waste`, `capacity`, `rightsize` or `reliability`), `risk` and
+`resource_type` taken from the recommendation. It is evaluated whenever a
+report is generated: *Operations · Advisor*, a chat question such as *optimize
+my costs*, or the `advisor.optimize` MCP tool. Because the advisor only reads,
+a policy on this trigger can only `notify`; `create_plan` is refused at
+validation. Each recommendation notifies at most once, so re-running the
+report does not repeat it.
+
+`notify` creates a `system` notification. `create_plan` deploys the chosen
+template with the configured parameters and files the resulting plan in the
+*Infrastructure templates* conversation, then notifies you with a link. The
+plan still needs your approval; a policy never approves it. Trigger counts and
+`last_triggered_at` are recorded, and repeated findings are deduplicated. A
+policy error never breaks the execution or check that produced the event.
+
+### 2.15 Advisor, costs, topology and agent roles
+
+**Advisor.** `GET /api/v1/ai/advisor` returns a deterministic report:
+
+```json
+{
+  "generated_at": "2026-11-03T10:00:00Z",
+  "currency": "USD",
+  "monthly_total": 42.50,
+  "cost_resources": [{"resource_type":"vps","name":"web-01","monthly":12.5, "...":"..."}],
+  "optimizations": [{"category":"rightsize","title":"Consistently idle resource","risk":"high",
+                      "requires_approval":true,"tool":"vps.resize","input":{"instance_id":"..."}}],
+  "notes": ["Estimates use the platform rate card; they are not an invoice."],
+  "quota": {"used_vcpus":4,"max_vcpus":16,"...":"..."}
+}
+```
+
+`GET /api/v1/ai/advisor/costs` returns only `currency`, `monthly_total`,
+`resources` (each with `monthly`) and `notes`. The estimate covers VPS, apps,
+n8n, OpenClaw, game servers, Android instances, managed databases and buckets.
+Running compute pays vCPU + memory + disk; a stopped or suspended resource pays
+disk only; a bucket pays its stored size. Rates come from the operator's
+`ORCH_COST_*` settings and are monthly estimates, not invoices.
+
+Optimization rules are deterministic and ranked waste → capacity → rightsize
+→ reliability:
+
+| Category | Finding | Proposed action |
+|---|---|---|
+| `waste` | A resource stopped for at least 7 days | Take a final backup and delete it (destructive). |
+| `waste` | An empty bucket | Delete it (destructive). |
+| `capacity` | Memory or disk at 85%+ | Double the resource (high risk). |
+| `rightsize` | CPU below 10% and memory below 30% with over 1 GB RAM | Halve vCPU and memory (high risk). |
+| `reliability` | A failed or errored resource | Diagnose it, then redeploy or restart. |
+
+Each recommendation carries `risk`, `requires_approval`, `tool` and `input`.
+The advisor never acts on them: use *Open diagnostics* to inspect the resource
+and propose an approval-bound plan. A recommendation is advice, not an
+execution. Generating a report also evaluates your `advisor.recommendation`
+policies, which can notify you about a finding (section 2.14).
+
+**Topology.** `GET /api/v1/ai/topology` returns `{generated_at, nodes, edges}`.
+Nodes come from your live resources (VPS, app, n8n, OpenClaw, game server,
+Android, database, bucket, domain) with type, name, status and a small metadata
+map. Edges come from recorded `resource_relationships` rows: `created`,
+`modified`, `deleted`, `uses`, `hosts`, `depends_on` and `routes_to`. For
+example, an app `uses` a database and bucket, a service `hosts` on a VPS, and a
+domain `routes_to` a VPS. A relationship endpoint whose live resource is gone
+is shown as type `unknown` rather than silently dropped. The topology is
+descriptive: it does not prove reachability and does not change anything.
+
+**Agent roles.** `GET /api/v1/ai/agents` returns the ten logical roles —
+planner, infrastructure, application, database, network, security, diagnostic,
+monitoring, advisor and verification — with the registry tools covered by each.
+Roles classify work; they are **not permissions**. The policy engine, approval
+manager and execution engine remain the only authority, and no role grants a
+tool, bypasses a quota or approves a plan.
+
 ---
 
 ## 3. Security model
@@ -596,6 +989,36 @@ curl -s -X POST "$API/mcp/rpc" -H "Authorization: Bearer $TOKEN" \
    approve request is gone. Every change goes plan, approval, execution
    engine. Each approval is recorded in the execution's events
    (`approval.recorded`).
+10. **Secrets stay out of plans and templates.** Template specifications and
+    parameters reject secret-looking keys and credential-bearing values.
+    Managed database passwords are generated server-side, encrypted with
+    AES-256-GCM and returned only once at creation or by the audited
+    owner-only credentials endpoint. They are never stored in a plan, task,
+    event, report or notification. The encryption key is derived from
+    `JWT_SECRET`; rotating that secret makes old database passwords
+    undecryptable (section 2.12).
+11. **Checks cannot be used as a network scanner.** The app health probe only
+    targets an HTTPS hostname ending in `.apps.nevatal.id`, refuses IP
+    literals and cross-host redirects, and uses the app's stored health path.
+    Every other check reads recorded platform state. Checks never change a
+    resource.
+12. **Automation policies never execute.** A policy can only create a
+    notification or propose a plan from a saved template. The plan still
+    passes policy validation and requires your approval. Conditions are exact
+    deterministic matches; there is no expression language, script, webhook or
+    model call. `advisor.recommendation` policies can only notify: an
+    optimization is a tool suggestion, not a template deployment.
+13. **Operations actions are owner actions.** The Phase 2–4 Operations
+    endpoints authenticate your session and act for you (creating a database,
+    powering it, recording a backup, editing a template or check). They are not
+    model tools, cannot be invoked by chat text, and do not accept an approval.
+    Model-driven changes still go through plans and approvals. Template deploy
+    and diagnostics remediation also produce plans rather than executing
+    directly.
+14. **Diagnostics and notifications are tenant-scoped.** A resource of another
+    user answers `404 RESOURCE_NOT_FOUND` (or `DATABASE_NOT_FOUND`); a
+    notification of another user answers `404 NOTIFICATION_NOT_FOUND`.
+    Diagnostics returns only authorized facts and redacted messages.
 
 **What a prompt injection can do.** Instructions hidden in a web page, a
 repository README or a resource name can at worst make the planner *propose*
@@ -621,6 +1044,18 @@ its targets and makes you type them.
   approve those plans again. Plans that were `provisioning` during the upgrade
   become `failed`; old `draft` and `awaiting_confirmation` plans become
   `awaiting_approval`. Take a database backup first.
+- **Phase 2–4 schema.** Migration `000008_orchestrator_phases` is additive:
+  `infra_templates`, `managed_databases`, `managed_database_backups`,
+  `notifications`, `infra_checks` and `automation_policies`, plus the
+  `related_resource_*` columns and owner index on
+  `resource_relationships`. It seeds nothing and does not rewrite Phase 1
+  rows. Existing plans, approvals and executions keep working. The down
+  migration drops the new tables and the added relationship columns; export
+  templates, database records and policies first if you may need to roll
+  back. Migration `000009_managed_database_auto_backup` adds
+  `managed_databases.next_backup_at` and its due index, which the automatic
+  backup loop uses (section 4.10). A live database runtime is still not
+  provisioned (section 2.12).
 - **Demo mode** runs one API replica with the simulated hypervisor; every
   verification is `unverified`.
 - **Fixed by the contract:** 3 active executions per user, approval expiry
@@ -634,12 +1069,20 @@ its targets and makes you type them.
   | `ORCH_HEARTBEAT_SECONDS` | `10` | Lease renewal interval. At most half the lease; a larger value is replaced by lease / 3 and logged as a `Config warning` |
   | `ORCH_POLL_MS` | `1000` | How often a replica looks for runnable tasks |
   | `ORCH_RETRY_BASE_MS` | `2000` | Pause before the first automatic retry; it doubles per attempt (section 2.5) |
+  | `MONITOR_INTERVAL_SECONDS` | `30` | How often every replica looks for due checks; values below `5` are raised to `5` (section 2.14) |
+  | `ORCH_DB_BACKUP_INTERVAL_SECONDS` | `86400` | Automatic backup cadence of a running managed database; values below `60` become `60` (section 2.12) |
+  | `ORCH_NOTIFICATION_RETENTION_DAYS` | `30` | Notifications older than this are deleted hourly; `0` keeps every row (section 4.10) |
+  | `ORCH_COST_CURRENCY` | `USD` | Currency label of advisor estimates (section 2.15) |
+  | `ORCH_COST_VCPU_MONTH` | `5` | Monthly price per vCPU used by the advisor |
+  | `ORCH_COST_MEMORY_GB_MONTH` | `2.5` | Monthly price per GB of memory |
+  | `ORCH_COST_DISK_GB_MONTH` | `0.1` | Monthly price per GB of disk |
+  | `ORCH_COST_BUCKET_GB_MONTH` | `0.02` | Monthly price per GB stored in a bucket |
   | `JOB_HEARTBEAT_SECONDS` | `10` | Heartbeat interval of provisioning jobs (section 4.5) |
   | `JOB_STALE_AFTER_SECONDS` | `300` | Age of a job's last heartbeat after which the reaper fails it; at least 3 heartbeats |
 
-  With Docker Compose, set them in `.env`: `docker-compose.yml` passes all
-  seven to the backend (empty = the default above). On Kubernetes, add them
-  to the `nevatal-config` ConfigMap.
+  With Docker Compose, set them in `.env`: `docker-compose.yml` passes the
+  settings in this table to the backend (empty = the default above). On
+  Kubernetes, add them to the `nevatal-config` ConfigMap.
 - **Fixed in code:** 3 attempts per task (3 more per manual retry; 1 for
   tools that are not idempotent), retry
   pause cap 60 s, maintenance scan every 5 s, an attempt interrupted 5 times
@@ -992,9 +1435,74 @@ ORDER BY e.created_at;
 | Event stream reconnects every 60-100 s | A proxy holds back the 20 s heartbeat (buffering), so the connection looks idle and is closed | Turn off buffering; keep read timeouts above 20 s. |
 | Own client gets `401` on the event stream | No `Authorization: Bearer` header | Send the header; use `fetch` streaming, not `EventSource` (contract section 5). |
 
----
+### 4.10 Phase 2–4 scheduling and settings
 
-## 5. API quick reference
+**Checks.** Every API replica starts a monitor loop (log `Infrastructure
+checks: monitor loop every …`). On startup and every
+`MONITOR_INTERVAL_SECONDS`, each replica claims up to 20 due checks with
+`FOR UPDATE SKIP LOCKED`, then advances `next_run_at` by the check's
+`interval_seconds`. There is no leader election and no separate worker: run
+the same number of replicas as for Phase 1, and keep their clocks and database
+connection healthy. A replica that dies during a check leaves it due at its
+already-advanced `next_run_at`; another replica picks it up then. Check
+results keep only the latest observation and consecutive failure count, not a
+history table. `POST /ai/checks/:id/run` bypasses the schedule for one check.
+
+**Automatic database backups.** Every API replica starts the backup loop (log
+`Managed databases: automatic backup cadence …`). On startup and every minute
+it claims up to 20 due databases (`auto_backup = true`, status `running`,
+`next_backup_at` reached) with `FOR UPDATE SKIP LOCKED`, advances
+`next_backup_at` by the cadence and records a normal logical backup. A failed
+backup is logged and retried at the next cadence; it never changes the
+database status. No leader election is needed for the same reason as checks:
+the claim is atomic, so replicas do not duplicate a backup.
+
+**Notification retention.** With `ORCH_NOTIFICATION_RETENTION_DAYS` above zero
+(default 30), each replica deletes notifications older than the window at
+startup and then hourly. Pruning is best effort and removes only notification
+rows: execution events, plans and audit records are kept. A failed deletion is
+logged and retried on the next pass.
+
+**Notifications and policies.** Notifications are inserted with a partial
+unique index on `(user_id, dedupe_key)` where `dedupe_key <> ''`, so a repeated
+finding for the same check/status or execution/status is stored once. A check
+notifies on a status transition, while `check.failed` policies are evaluated
+on every warning or critical run. Policy evaluation and the terminal-execution
+notification run after the producing transaction commits, in a short-lived
+goroutine with a 20 s timeout; a failure there is logged by its effect only
+(it never changes the execution or check result). Policies cannot execute:
+`notify` stores a notification, and `create_plan` deploys a template into a
+plan that still needs approval. `advisor.recommendation` is evaluated when an
+advisor report is generated, and those policies are limited to `notify`.
+
+**Advisor rates.** The advisor is pure calculation over current records. Set
+`ORCH_COST_*` to your own monthly rate card; estimates use the configured
+currency label and are not invoices. Changing rates changes the next report,
+not any stored resource. Stopped or suspended compute is estimated at
+disk-only cost, and buckets by stored bytes. No recommendation executes by
+itself.
+
+**Secrets.** Managed database passwords are encrypted with AES-256-GCM using a
+key derived from `JWT_SECRET`. Keep that secret stable for the life of the
+database records. Rotating it (or restoring a database from a backup taken
+with another secret) makes existing passwords undecryptable; the credentials
+endpoint then answers `503 CREDENTIALS_UNAVAILABLE`. Creating a new database
+after rotation works. Template and plan inputs reject secret-looking values,
+so do not expect a template to carry a database password.
+
+**Known Phase 2–4 limits.** The managed database service is logical: no
+container or VM is provisioned for it, and there is no live connection, query
+or runtime probe. An automatic backup is a control-plane record with a
+`backup_reference`, not a dump copied from a server. Logs and zero/unmeasured
+database metrics are simulated and must not be used for capacity decisions.
+Advisor metrics are only as good as the platform's available metrics. The
+advisor notifies only when a report is generated; no loop watches
+recommendations in the background. Retention deletes old notification rows
+without archiving them, and check results keep only the latest observation
+(no history table). App health probing is limited to platform-assigned
+`*.apps.nevatal.id` names and is skipped in mock mode.
+
+
 
 Base `/api/v1`. Bearer token (the cookie works for GET only). Success
 `{"data": ...}`, errors `{"error": {"code", "message", "details"}}`. The
@@ -1014,7 +1522,7 @@ complete contract with all fields is [ORCHESTRATOR_API.md](ORCHESTRATOR_API.md).
 | Events (JSON or SSE) | `GET /ai/executions/:id/events?after=<seq>&limit=200` | [section 5](ORCHESTRATOR_API.md#5-events) |
 | Cancel an execution | `POST /ai/executions/:id/cancel` | section 3 |
 | Retry one failed task | `POST /ai/executions/:id/tasks/:taskId/retry` | section 3 |
-| Recovery | `POST /ai/executions/:id/recovery` `{action}`: `retry_failed` answers `202` with the execution, `keep` `200` with the execution, `delete_created` `201` with `{plan_id}` | section 3 |
+| Recovery | `POST /ai/executions/:id/recovery` `{action}`: `retry_failed` answers `202` with the execution, `diagnose` `200` with `{diagnostics}`, `keep` `200` with the execution, `delete_created` or `compensate` `201` with `{plan_id}` | section 3 |
 | Tool registry | `GET /ai/tools` | [section 6](ORCHESTRATOR_API.md#6-tools-registry-also-served-to-mcp-toolslist) |
 | MCP | `POST /mcp/rpc` (`initialize`, `ping`, `tools/list`, `tools/call`; setup in section 2.9) | section 6 |
 | Error codes | - | [section 7](ORCHESTRATOR_API.md#7-error-codes); the implementation adds `409 EXECUTION_NOT_ACTIVE` and `409 RECOVERY_NOT_AVAILABLE` (section 4.9) |

@@ -141,6 +141,9 @@ type OrchestratorRepository interface {
 	// RecordRelationship inserts a relationship once (duplicates ignored).
 	RecordRelationship(ctx context.Context, rel *models.ResourceRelationship) error
 	ListRelationships(ctx context.Context, executionID uuid.UUID) ([]models.ResourceRelationship, error)
+	// ListUserRelationships returns the topology relations of a user's
+	// resources (uses/hosts/depends_on), newest first.
+	ListUserRelationships(ctx context.Context, ownerID uuid.UUID, limit int) ([]models.ResourceRelationship, error)
 	// FindRelationship returns the relationship of a task with a resource
 	// type and relation, if any.
 	FindTaskRelationship(ctx context.Context, taskID uuid.UUID, relation, resourceType string) (*models.ResourceRelationship, error)
@@ -620,6 +623,17 @@ func (r *orchestratorRepository) RecordRelationship(ctx context.Context, rel *mo
 func (r *orchestratorRepository) ListRelationships(ctx context.Context, executionID uuid.UUID) ([]models.ResourceRelationship, error) {
 	var rels []models.ResourceRelationship
 	err := r.conn(ctx).Where("execution_id = ?", executionID).Order("created_at asc").Find(&rels).Error
+	return rels, err
+}
+
+func (r *orchestratorRepository) ListUserRelationships(ctx context.Context, ownerID uuid.UUID, limit int) ([]models.ResourceRelationship, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 500
+	}
+	var rels []models.ResourceRelationship
+	err := r.conn(ctx).
+		Where("owner_id = ? AND relation IN ?", ownerID, []string{models.RelationUses, models.RelationHosts, models.RelationDependsOn, models.RelationRoutesTo}).
+		Order("created_at desc").Limit(limit).Find(&rels).Error
 	return rels, err
 }
 

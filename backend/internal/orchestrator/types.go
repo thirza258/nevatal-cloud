@@ -84,12 +84,14 @@ type Specification struct {
 	Resources []ResourceSpec `json:"resources"`
 }
 
-// ResourceSpec is one resource of a specification.
+// ResourceSpec is one resource of a specification. DependsOn names other
+// resource keys of the same specification whose tasks must finish first.
 type ResourceSpec struct {
-	Key    string         `json:"key"`
-	Type   string         `json:"type"`
-	Action string         `json:"action"`
-	Config map[string]any `json:"config"`
+	Key       string         `json:"key"`
+	Type      string         `json:"type"`
+	Action    string         `json:"action"`
+	DependsOn []string       `json:"depends_on,omitempty"`
+	Config    map[string]any `json:"config"`
 }
 
 // TaskSpec is one node of a revision's task graph.
@@ -99,6 +101,7 @@ type TaskSpec struct {
 	Title     string         `json:"title"`
 	DependsOn []string       `json:"depends_on"`
 	Risk      string         `json:"risk"`
+	Role      string         `json:"role"`
 	Input     map[string]any `json:"input,omitempty"`
 }
 
@@ -225,6 +228,12 @@ const (
 	RecoveryRetryFailed   = "retry_failed"
 	RecoveryKeep          = "keep"
 	RecoveryDeleteCreated = "delete_created"
+	// RecoveryDiagnose returns diagnostics for the failed tasks' resources.
+	RecoveryDiagnose = "diagnose"
+	// RecoveryCompensate proposes a destructive compensation plan (the same
+	// safe mechanism as delete_created; it never runs without its own
+	// approval). It is only offered when the execution created resources.
+	RecoveryCompensate = "compensate"
 )
 
 // ErrCodeInterruptedNotIdempotent fails a re-claimed task whose tool is not

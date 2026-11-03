@@ -331,7 +331,7 @@ func TestPartialFailureSkipsDescendantsAndRetries(t *testing.T) {
 	for _, o := range data(body)["recovery_options"].([]any) {
 		actions = append(actions, o.(map[string]any)["action"].(string))
 	}
-	if len(actions) < 2 || actions[0] != "retry_failed" || actions[1] != "keep" {
+	if len(actions) < 3 || actions[0] != "retry_failed" || actions[1] != "diagnose" || actions[2] != "keep" {
 		t.Fatalf("recovery options = %v", actions)
 	}
 	if data(body)["report"] == nil {

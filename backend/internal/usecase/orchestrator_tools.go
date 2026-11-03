@@ -48,6 +48,7 @@ func (s *OrchestratorUsecase) bindTools() {
 	bind(orchestrator.ToolOpenClawCreate, s.toolOpenClawCreate)
 	bind(orchestrator.ToolGameServerCreate, s.toolGameServerCreate)
 	bind(orchestrator.ToolAndroidCreate, s.toolAndroidCreate)
+	s.bindToolsExt()
 }
 
 var (
@@ -534,6 +535,7 @@ func (s *OrchestratorUsecase) toolAppCreate(ctx context.Context, tc *orchestrato
 		return nil, classify(err)
 	}
 	tc.RecordResource(models.RelationCreated, orchestrator.TypeApp, app.ID, app.Name)
+	s.linkAppDependencies(bg, tc, app)
 	result := out(app)
 	if dep != nil {
 		result["deployment_id"] = dep.ID.String()
@@ -567,6 +569,7 @@ func (s *OrchestratorUsecase) toolN8nCreate(ctx context.Context, tc *orchestrato
 		return nil, classify(err)
 	}
 	tc.RecordResource(models.RelationCreated, orchestrator.TypeN8n, inst.ID, inst.Name)
+	s.linkHosted(tc, orchestrator.TypeN8n, inst.ID, inst.Name)
 	return out(inst), nil
 }
 
@@ -598,6 +601,7 @@ func (s *OrchestratorUsecase) toolOpenClawCreate(ctx context.Context, tc *orches
 		return nil, classify(err)
 	}
 	tc.RecordResource(models.RelationCreated, orchestrator.TypeOpenClaw, inst.ID, inst.Name)
+	s.linkHosted(tc, orchestrator.TypeOpenClaw, inst.ID, inst.Name)
 	return out(inst), nil
 }
 
@@ -633,6 +637,7 @@ func (s *OrchestratorUsecase) toolGameServerCreate(ctx context.Context, tc *orch
 		return nil, classify(err)
 	}
 	tc.RecordResource(models.RelationCreated, orchestrator.TypeGameServer, gs.ID, gs.Name)
+	s.linkHosted(tc, orchestrator.TypeGameServer, gs.ID, gs.Name)
 	return out(gs), nil
 }
 
@@ -668,6 +673,7 @@ func (s *OrchestratorUsecase) toolAndroidCreate(ctx context.Context, tc *orchest
 		return nil, classify(err)
 	}
 	tc.RecordResource(models.RelationCreated, orchestrator.TypeAndroid, inst.ID, inst.Name)
+	s.linkHosted(tc, orchestrator.TypeAndroid, inst.ID, inst.Name)
 	return out(inst), nil
 }
 

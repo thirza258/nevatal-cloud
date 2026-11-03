@@ -655,7 +655,7 @@ export interface MCPAuditLog {
 
 export interface UnifiedResourceItem {
   id: string;
-  type: 'vps' | 'app' | 'automation' | 'ai_agent' | 'bucket' | 'game_server' | 'android_instance';
+  type: 'vps' | 'app' | 'automation' | 'ai_agent' | 'bucket' | 'game_server' | 'android_instance' | 'database';
   name: string;
   status: string;
   endpoint?: string;
@@ -1362,3 +1362,356 @@ export interface ApprovePlanResult {
   status: string;
   message: string;
 }
+
+// --- AI Infrastructure Orchestrator, Phases 2-4 (contract: docs/ORCHESTRATOR_API.md) ---
+
+export type ManagedDatabaseEngine = 'postgresql' | 'mysql' | 'redis' | 'mongodb' | (string & {});
+export type ManagedDatabaseStatus = 'provisioning' | 'running' | 'stopped' | 'failed' | 'deleting' | (string & {});
+
+export interface ManagedDatabase {
+  id: string;
+  owner_id: string;
+  name: string;
+  engine: ManagedDatabaseEngine;
+  engine_version: string;
+  status: ManagedDatabaseStatus;
+  plan_name: string;
+  vcpus: number;
+  memory_mb: number;
+  storage_gb: number;
+  host: string;
+  port: number;
+  database_name: string;
+  username: string;
+  auto_backup: boolean;
+  last_backup_at?: string | null;
+  last_health_check_at?: string | null;
+  cpu_percent: number;
+  memory_usage_percent: number;
+  storage_usage_percent: number;
+  connection_count: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+}
+
+export interface DatabasePlan {
+  id: string;
+  name: string;
+  vcpus: number;
+  memory_mb: number;
+  storage_gb: number;
+}
+
+export interface DatabaseBackup {
+  id: string;
+  database_id: string;
+  name: string;
+  backup_reference: string;
+  size_bytes: number;
+  status: string;
+  created_at: string;
+}
+
+export interface DatabaseCredentials {
+  host: string;
+  port: number;
+  database_name: string;
+  username: string;
+  password: string;
+  uri: string;
+}
+
+export interface DatabaseMetrics {
+  cpu_percent: number;
+  memory_usage_percent: number;
+  storage_usage_percent: number;
+  connection_count: number;
+  status: string;
+  timestamp: string;
+}
+
+export interface CreateDatabaseInput {
+  name: string;
+  engine: ManagedDatabaseEngine;
+  engine_version?: string;
+  plan_name: string;
+  vcpus?: number;
+  memory_mb?: number;
+  storage_gb?: number;
+  database_name?: string;
+  auto_backup?: boolean;
+}
+
+export interface CreateDatabaseResult {
+  database: ManagedDatabase;
+  password: string;
+}
+
+export type TemplateParameterType = 'string' | 'integer' | 'boolean' | 'enum' | (string & {});
+
+export interface TemplateParameter {
+  key: string;
+  label: string;
+  description?: string;
+  type: TemplateParameterType;
+  required: boolean;
+  default?: unknown;
+  enum?: string[];
+  min?: number;
+  max?: number;
+}
+
+export interface InfraTemplate {
+  id: string;
+  owner_id: string;
+  name: string;
+  description: string;
+  intent: string;
+  version: number;
+  is_public: boolean;
+  usage_count: number;
+  validation_status: string;
+  specification: PlanSpecification;
+  parameters: TemplateParameter[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveTemplateInput {
+  name: string;
+  description: string;
+  specification: PlanSpecification;
+  parameters: TemplateParameter[];
+  is_public: boolean;
+}
+
+/** POST /ai/templates/:id/deploy: plans are created, never executed. */
+export interface DeployTemplateResult {
+  plan_id: string;
+  conversation_id: string;
+  status: OrchestratorPlanStatus;
+}
+
+export type NotificationType = 'execution' | 'check' | 'advisor' | 'system' | (string & {});
+export type NotificationSeverity = 'info' | 'warning' | 'critical' | (string & {});
+
+export interface NotificationItem {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  severity: NotificationSeverity;
+  title: string;
+  message: string;
+  resource_type: string;
+  resource_id?: string | null;
+  action_url: string;
+  read_at?: string | null;
+  created_at: string;
+}
+
+export interface NotificationList {
+  unread_count: number;
+  notifications: NotificationItem[];
+}
+
+export type InfraCheckType =
+  | 'instance.health'
+  | 'app.health'
+  | 'game_server.health'
+  | 'android.health'
+  | 'database.health'
+  | 'backup.freshness'
+  | 'quota.usage'
+  | (string & {});
+
+export type InfraCheckStatus = 'ok' | 'warning' | 'critical' | 'unknown' | (string & {});
+
+export interface InfraCheck {
+  id: string;
+  owner_id: string;
+  name: string;
+  resource_type: string;
+  resource_id: string;
+  check_type: InfraCheckType;
+  interval_seconds: number;
+  enabled: boolean;
+  status: InfraCheckStatus;
+  consecutive_failures: number;
+  last_run_at?: string | null;
+  next_run_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CheckView extends InfraCheck {
+  last_result: {
+    status?: string;
+    message?: string;
+    facts?: Record<string, unknown>;
+    observed_at?: string;
+    [key: string]: unknown;
+  };
+}
+
+export interface CreateCheckInput {
+  name: string;
+  resource_type: string;
+  resource_id: string;
+  check_type: InfraCheckType;
+  interval_seconds: number;
+  enabled?: boolean;
+}
+
+export type PolicyTrigger =
+  | 'execution.failed'
+  | 'execution.completed'
+  | 'check.failed'
+  | 'advisor.recommendation'
+  | (string & {});
+
+export type PolicyAction = 'notify' | 'create_plan' | (string & {});
+
+export interface AutomationPolicy {
+  id: string;
+  name: string;
+  trigger: PolicyTrigger;
+  conditions: Record<string, string>;
+  action: PolicyAction;
+  action_config: Record<string, unknown>;
+  enabled: boolean;
+  last_triggered_at?: string | null;
+  trigger_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavePolicyInput {
+  name: string;
+  trigger: PolicyTrigger;
+  conditions: Record<string, string>;
+  action: PolicyAction;
+  action_config: Record<string, unknown>;
+  enabled?: boolean;
+}
+
+export type DiagnosticHealth = 'healthy' | 'degraded' | 'critical' | 'unknown' | (string & {});
+export type DiagnosticFactStatus = 'ok' | 'warning' | 'critical' | 'info' | (string & {});
+
+export interface DiagnosticFact {
+  name: string;
+  value: string;
+  status: DiagnosticFactStatus;
+}
+
+export interface DiagnosticHypothesis {
+  cause: string;
+  confidence: 'high' | 'medium' | 'low' | (string & {});
+  evidence: string[];
+}
+
+export interface DiagnosticRecommendation {
+  action: string;
+  label: string;
+  risk: RiskLevel;
+  requires_approval: boolean;
+  tool: string;
+  input: Record<string, unknown>;
+}
+
+export interface DiagnosticResult {
+  resource_type: string;
+  resource_id: string;
+  name: string;
+  health: DiagnosticHealth;
+  observed_at: string;
+  facts: DiagnosticFact[];
+  hypotheses: DiagnosticHypothesis[];
+  recommendations: DiagnosticRecommendation[];
+}
+
+export interface RemediationInput {
+  action: string;
+  vcpus?: number;
+  memory_mb?: number;
+  disk_gb?: number;
+}
+
+export interface AdvisorCostItem {
+  resource_type: string;
+  id: string;
+  name: string;
+  vcpus: number;
+  memory_mb: number;
+  disk_gb: number;
+  size_bytes: number;
+  status: string;
+  monthly: number;
+}
+
+export interface CostReport {
+  currency: string;
+  monthly_total: number;
+  resources: AdvisorCostItem[];
+  notes: string[];
+}
+
+export interface Optimization {
+  id: string;
+  category: 'waste' | 'capacity' | 'rightsize' | 'reliability' | (string & {});
+  title: string;
+  resource_type: string;
+  resource_id: string;
+  resource_name: string;
+  current: string;
+  observed: string;
+  proposed: string;
+  expected_benefit: string;
+  risk: RiskLevel;
+  requires_approval: boolean;
+  tool: string;
+  input: Record<string, unknown>;
+}
+
+export interface AdvisorReport {
+  generated_at: string;
+  currency: string;
+  monthly_total: number;
+  cost_resources: AdvisorCostItem[];
+  optimizations: Optimization[];
+  notes: string[];
+  quota?: QuotaUsage | null;
+}
+
+export interface TopologyNode {
+  id: string;
+  type: string;
+  name: string;
+  status: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TopologyEdge {
+  from: string;
+  from_type: string;
+  to: string;
+  to_type: string;
+  relation: string;
+  to_name?: string;
+}
+
+export interface TopologyView {
+  generated_at: string;
+  nodes: TopologyNode[];
+  edges: TopologyEdge[];
+}
+
+export interface AgentRole {
+  id: string;
+  name: string;
+  description: string;
+  tools: string[];
+}
+
+/** POST /ai/diagnostics/:type/:id/remediate returns the same shape as GET /ai/plans/:id. */
+export type RemediationPlan = OrchestratorPlan;

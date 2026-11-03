@@ -16,6 +16,7 @@ import {
   HardDrive,
   Gamepad2,
   Smartphone,
+  Stethoscope,
 } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { UnifiedResourceItem, QuotaUsage } from '../../types';
@@ -33,9 +34,10 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
     automations: number;
     ai_agents: number;
     buckets: number;
+    databases: number;
     game_servers: number;
     android_instances: number;
-  }>({ total: 0, vps: 0, apps: 0, automations: 0, ai_agents: 0, buckets: 0, game_servers: 0, android_instances: 0 });
+  }>({ total: 0, vps: 0, apps: 0, automations: 0, ai_agents: 0, buckets: 0, databases: 0, game_servers: 0, android_instances: 0 });
   const [usage, setUsage] = useState<QuotaUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,7 +52,7 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
         counts: any;
       }>('/resources');
       setResources(res.resources || []);
-      setCounts(res.counts || { total: 0, vps: 0, apps: 0, automations: 0, ai_agents: 0, buckets: 0 });
+      setCounts(res.counts || { total: 0, vps: 0, apps: 0, automations: 0, ai_agents: 0, buckets: 0, databases: 0, game_servers: 0, android_instances: 0 });
       setUsage(res.usage);
     } catch (err) {
       console.error('Failed to load cloud resources:', err);
@@ -83,6 +85,8 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
       case 'ai_agent':
         return <Bot className="w-4 h-4 text-purple-400" />;
       case 'bucket':
+        return <HardDrive className="w-4 h-4 text-cyan-400" />;
+      case 'database':
         return <Database className="w-4 h-4 text-cyan-400" />;
       case 'game_server':
         return <Gamepad2 className="w-4 h-4 text-violet-400" />;
@@ -105,6 +109,8 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
         return 'OpenClaw Agent';
       case 'bucket':
         return 'S3 Storage Bucket';
+      case 'database':
+        return 'Managed Database';
       case 'game_server':
         return 'Game Server';
       case 'android_instance':
@@ -163,6 +169,9 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
       case 'bucket':
         onNavigate('/dashboard/storage/files', r.id);
         break;
+      case 'database':
+        onNavigate('/dashboard/operations?tab=databases');
+        break;
       case 'game_server':
         onNavigate('/dashboard/game-servers', r.id);
         break;
@@ -172,6 +181,14 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
       default:
         break;
     }
+  };
+
+  const handleDiagnose = (r: UnifiedResourceItem) => {
+    const resourceType =
+      r.type === 'automation' ? 'n8n' : r.type === 'ai_agent' ? 'openclaw' : r.type === 'android_instance' ? 'android' : r.type;
+    onNavigate(
+      `/dashboard/operations?tab=diagnostics&type=${encodeURIComponent(resourceType)}&id=${encodeURIComponent(r.id)}&name=${encodeURIComponent(r.name)}`
+    );
   };
 
   return (
@@ -210,7 +227,7 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-2.5">
         <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
           <div className="text-[10px] uppercase font-mono text-zinc-400">Total</div>
           <div className="text-xl font-semibold text-white mt-1">{counts.total}</div>
@@ -236,6 +253,10 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
           <div className="text-xl font-semibold text-white mt-1">{counts.buckets}</div>
         </div>
         <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
+          <div className="text-[10px] uppercase font-mono text-zinc-400">Databases</div>
+          <div className="text-xl font-semibold text-white mt-1">{counts.databases || 0}</div>
+        </div>
+        <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800">
           <div className="text-[10px] uppercase font-mono text-zinc-400">Game Servers</div>
           <div className="text-xl font-semibold text-white mt-1">{counts.game_servers}</div>
         </div>
@@ -255,7 +276,8 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
             { id: 'app', label: 'Apps', icon: Globe },
             { id: 'automation', label: 'n8n', icon: Workflow },
             { id: 'ai_agent', label: 'OpenClaw', icon: Bot },
-            { id: 'bucket', label: 'S3', icon: Database },
+            { id: 'bucket', label: 'S3', icon: HardDrive },
+            { id: 'database', label: 'Databases', icon: Database },
             { id: 'game_server', label: 'Games', icon: Gamepad2 },
             { id: 'android_instance', label: 'Android', icon: Smartphone },
           ].map((tab) => {
@@ -348,16 +370,28 @@ export const UnifiedResources: React.FC<UnifiedResourcesProps> = ({ onNavigate }
                     <td className="px-3.5 py-3 text-zinc-400 font-mono text-[10px]">{item.created_at}</td>
 
                     <td className="px-3.5 py-3 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenResource(item);
-                        }}
-                        className="p-1 rounded bg-zinc-850 hover:bg-zinc-800 text-zinc-400 hover:text-white transition"
-                        title="Manage Resource"
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDiagnose(item);
+                          }}
+                          className="p-1 rounded bg-zinc-850 hover:bg-zinc-800 text-zinc-400 hover:text-white transition"
+                          title="Run diagnostics"
+                        >
+                          <Stethoscope className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenResource(item);
+                          }}
+                          className="p-1 rounded bg-zinc-850 hover:bg-zinc-800 text-zinc-400 hover:text-white transition"
+                          title="Manage Resource"
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

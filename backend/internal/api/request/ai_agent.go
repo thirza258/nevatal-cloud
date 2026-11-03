@@ -18,5 +18,12 @@ type SendMessageInput struct {
 }
 
 func (r SendMessageInput) ToUsecase() usecase.SendMessageInput {
-	return usecase.SendMessageInput(r)
+	return usecase.SendMessageInput{
+		Message:   r.Message,
+		AnswerKey: r.AnswerKey,
+		AnswerVal: r.AnswerVal,
+		Answers:   r.Answers,
+		APIKey:    r.APIKey,
+		Model:     r.Model,
+	}
 }

@@ -152,7 +152,7 @@ func TestDeleteCreatedOnlyOfferedWhenSomethingCanBeDeleted(t *testing.T) {
 		t.Fatalf("status %s", e.Status)
 	}
 	_, body := s.do("GET", "/ai/executions/"+id.String(), u, nil)
-	if got := strings.Join(recoveryActions(body), ","); got != "retry_failed,keep" {
+	if got := strings.Join(recoveryActions(body), ","); got != "retry_failed,diagnose,keep" {
 		t.Fatalf("modified-only execution offers %s", got)
 	}
 
@@ -163,7 +163,7 @@ func TestDeleteCreatedOnlyOfferedWhenSomethingCanBeDeleted(t *testing.T) {
 	})
 	s.waitExecution(id, 15*time.Second)
 	_, body = s.do("GET", "/ai/executions/"+id.String(), u, nil)
-	if got := strings.Join(recoveryActions(body), ","); got != "retry_failed,keep,delete_created" {
+	if got := strings.Join(recoveryActions(body), ","); got != "retry_failed,diagnose,keep,delete_created,compensate" {
 		t.Fatalf("execution with a created VPS offers %s", got)
 	}
 	// Once the resource is gone, the option disappears (and still answers 409).
@@ -171,7 +171,7 @@ func TestDeleteCreatedOnlyOfferedWhenSomethingCanBeDeleted(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, body = s.do("GET", "/ai/executions/"+id.String(), u, nil)
-	if got := strings.Join(recoveryActions(body), ","); got != "retry_failed,keep" {
+	if got := strings.Join(recoveryActions(body), ","); got != "retry_failed,diagnose,keep" {
 		t.Fatalf("execution whose created VPS is gone offers %s", got)
 	}
 	_, list := s.do("GET", "/ai/executions?plan_id="+data(body)["plan_id"].(string), u, nil)

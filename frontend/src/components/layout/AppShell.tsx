@@ -32,6 +32,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSystemConfig } from '../../context/SystemConfigContext';
 import { AIAssistantWidget } from '../ai/AIAssistantWidget';
 import { DemoBadge } from '../ui/DemoBadge';
+import { NotificationBell } from './NotificationBell';
 
 interface AppShellProps {
   currentPath: string;
@@ -59,6 +60,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
     { label: 'Overview', path: '/dashboard', icon: Layers },
     { label: 'AI Cloud Agent', path: '/dashboard/ai', icon: Sparkles, highlight: true },
     { label: 'Cloud Resources', path: '/dashboard/resources', icon: Zap },
+    { label: 'Operations', path: '/dashboard/operations', icon: Activity },
     { label: 'MCP Integrations', path: '/dashboard/integrations/mcp', icon: Code },
     { label: 'Compute (VMs)', path: '/dashboard/instances', icon: Server },
     // Public Domains: listed only when the backend config enables them (fail closed).
@@ -302,6 +304,9 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
           </div>
 
           <div className="flex items-center gap-3">
+            {/* In-app notifications (checks, executions, advisor, policies) */}
+            <NotificationBell onNavigate={onNavigate} />
+
             {/* Demo deployment marker (renders nothing unless demo_mode) */}
             <DemoBadge compactOnMobile />
 

@@ -88,7 +88,9 @@ func (h *AIAgentHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.ProcessUserMessage(c.Request.Context(), id, middleware.GetCurrentUserID(c), req.ToUsecase(), c.ClientIP())
+	in := req.ToUsecase()
+	in.IsAdmin = middleware.IsAdmin(c)
+	resp, err := h.service.ProcessUserMessage(c.Request.Context(), id, middleware.GetCurrentUserID(c), in, c.ClientIP())
 	if err != nil {
 		response.ErrorMessage(c, http.StatusInternalServerError, err.Error())
 		return

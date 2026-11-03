@@ -853,6 +853,7 @@ func RecoveryOptions(status string, tasks []models.AIExecutionTask, canDeleteCre
 	for _, t := range tasks {
 		if t.Status == models.TaskFailed {
 			out = append(out, RecoveryOption{Action: RecoveryRetryFailed, Label: "Retry failed tasks", RequiresApproval: false})
+			out = append(out, RecoveryOption{Action: RecoveryDiagnose, Label: "Diagnose the failed resources", RequiresApproval: false})
 			break
 		}
 	}
@@ -861,16 +862,17 @@ func RecoveryOptions(status string, tasks []models.AIExecutionTask, canDeleteCre
 	}
 	if canDeleteCreated {
 		out = append(out, RecoveryOption{Action: RecoveryDeleteCreated, Label: "Delete the resources this execution created", RequiresApproval: true})
+		out = append(out, RecoveryOption{Action: RecoveryCompensate, Label: "Compensate: remove what this execution created and keep the rest", RequiresApproval: true})
 	}
 	return out
 }
 
-// WithoutDeleteCreated drops the delete_created option (the created
-// resources are gone since the options were computed).
+// WithoutDeleteCreated drops the delete_created and compensate options (the
+// created resources are gone since the options were computed).
 func WithoutDeleteCreated(opts []RecoveryOption) []RecoveryOption {
 	out := make([]RecoveryOption, 0, len(opts))
 	for _, o := range opts {
-		if o.Action != RecoveryDeleteCreated {
+		if o.Action != RecoveryDeleteCreated && o.Action != RecoveryCompensate {
 			out = append(out, o)
 		}
 	}

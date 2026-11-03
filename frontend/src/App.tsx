@@ -60,6 +60,9 @@ const AICloudAgent = lazy(() => import('./pages/ai/AICloudAgent').then((m) => ({
 const UnifiedResources = lazy(() =>
   import('./pages/resources/UnifiedResources').then((m) => ({ default: m.UnifiedResources }))
 );
+const OperationsPage = lazy(() =>
+  import('./pages/operations/OperationsPage').then((m) => ({ default: m.OperationsPage }))
+);
 const MCPRegistry = lazy(() => import('./pages/integrations/MCPRegistry').then((m) => ({ default: m.MCPRegistry })));
 
 // S3 Object Storage & File Manager
@@ -277,6 +280,11 @@ export const App: React.FC = () => {
       {/* Cloud Resources Inventory (PRD Section 34.1) */}
       {currentPath === '/dashboard/resources' && (
         <UnifiedResources onNavigate={handleNavigate} />
+      )}
+
+      {/* Operations Center: managed databases, templates, checks, policies, advisor, topology, diagnostics */}
+      {currentPath === '/dashboard/operations' && (
+        <OperationsPage onNavigate={handleNavigate} />
       )}
 
       {/* Model Context Protocol (MCP) Server Registry & Connections (PRD Section 37.4) */}
