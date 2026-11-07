@@ -258,6 +258,97 @@ func (s *AdminUsecase) ListNodes(ctx context.Context) []NodeDetail {
 	return details
 }
 
+// SyncClusterCapacity queries the physical hypervisor node via Proxmox REST API,
+// updates the nodes table with real hardware specs (CPU cores/threads, RAM, storage),
+// and keeps administrator account quotas synchronized with the real hardware capacity.
+func (s *AdminUsecase) SyncClusterCapacity(ctx context.Context) error {
+	nodes, err := s.repos.Nodes.List(ctx)
+	if err != nil || len(nodes) == 0 {
+		return err
+	}
+
+	for i := range nodes {
+		n := &nodes[i]
+		pveCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		live, err := s.proxmox.GetNodeStatus(pveCtx, n.ProxmoxNodeName)
+		cancel()
+		if err != nil {
+			continue
+		}
+
+		pveCtx2, cancel2 := context.WithTimeout(ctx, 10*time.Second)
+		storageList, _ := s.proxmox.GetStorage(pveCtx2, n.ProxmoxNodeName)
+		cancel2()
+
+		// 1. Detect actual CPU threads
+		cpuThreads := live.CPUInfo.CPUs
+		if cpuThreads <= 0 {
+			if live.CPUInfo.Cores > 0 {
+				sockets := live.CPUInfo.Sockets
+				if sockets <= 0 {
+					sockets = 1
+				}
+				cpuThreads = live.CPUInfo.Cores * sockets
+			}
+		}
+		if cpuThreads <= 0 {
+			cpuThreads = n.TotalCPUThreads
+		}
+
+		// 2. Detect actual installed RAM in MB (clean round to nearest GB)
+		memMB := int(live.Memory.Total / (1024 * 1024))
+		if live.Memory.Total > 0 {
+			gb := int((live.Memory.Total + (512 * 1024 * 1024)) / (1024 * 1024 * 1024))
+			if gb > 0 {
+				memMB = gb * 1024
+			}
+		}
+		if memMB <= 0 {
+			memMB = n.TotalMemoryMB
+		}
+
+		// 3. Detect total VM disk storage capacity in GB across active storages
+		var totalDiskGB int64
+		for _, st := range storageList {
+			if st.Active == 1 && (st.Type == "zfspool" || st.Type == "dir" || st.Type == "lvmthin") {
+				totalDiskGB += st.Total / (1024 * 1024 * 1024)
+			}
+		}
+		if totalDiskGB <= 0 && live.RootFS.Total > 0 {
+			totalDiskGB = live.RootFS.Total / (1024 * 1024 * 1024)
+		}
+		if totalDiskGB <= 0 {
+			totalDiskGB = int64(n.TotalDiskGB)
+		}
+
+		// Update node in DB
+		now := time.Now()
+		n.TotalCPUThreads = cpuThreads
+		n.TotalMemoryMB = memMB
+		n.TotalDiskGB = int(totalDiskGB)
+		n.Status = "online"
+		n.LastHealthCheckAt = &now
+		if err := s.repos.Nodes.Save(ctx, n); err != nil {
+			continue
+		}
+
+		// 4. Synchronize all Admin accounts' quotas to match the physical hardware capacity
+		users, err := s.repos.Users.ListWithQuota(ctx)
+		if err == nil {
+			for _, u := range users {
+				if u.Role == models.RoleAdmin {
+					maxInstances := 50
+					if u.Quota != nil && u.Quota.MaxInstances > maxInstances {
+						maxInstances = u.Quota.MaxInstances
+					}
+					_, _ = s.quotaService.UpdateUserQuota(ctx, u.ID, cpuThreads, memMB, int(totalDiskGB), maxInstances)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // ListAuditLogs returns the 100 newest platform-wide audit entries.
 func (s *AdminUsecase) ListAuditLogs(ctx context.Context) ([]models.AuditLog, error) {
 	return s.auditService.ListRecentActivity(ctx, nil, 100)

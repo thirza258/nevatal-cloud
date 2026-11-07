@@ -35,9 +35,17 @@ type NodeStatus struct {
 	Wait       float64    `json:"wait"`
 	Memory     MemoryInfo `json:"memory"`
 	RootFS     RootFSInfo `json:"rootfs"`
+	CPUInfo    CPUInfo    `json:"cpuinfo"`
 	Uptime     int64      `json:"uptime"`
 	KVersion   string     `json:"kversion"`
 	PveVersion string     `json:"pveversion"`
+}
+
+type CPUInfo struct {
+	Cores   int    `json:"cores"`
+	CPUs    int    `json:"cpus"`
+	Sockets int    `json:"sockets"`
+	Model   string `json:"model"`
 }
 
 type MemoryInfo struct {

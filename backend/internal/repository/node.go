@@ -19,6 +19,7 @@ type NodeRepository interface {
 	// FirstOnlineByID returns the online node with the lowest id.
 	FirstOnlineByID(ctx context.Context) (*models.Node, error)
 	List(ctx context.Context) ([]models.Node, error)
+	Save(ctx context.Context, node *models.Node) error
 }
 
 type nodeRepository struct{ base }
@@ -65,4 +66,8 @@ func (r *nodeRepository) FirstOnlineByID(ctx context.Context) (*models.Node, err
 		return nil, mapErr(err)
 	}
 	return &node, nil
+}
+
+func (r *nodeRepository) Save(ctx context.Context, node *models.Node) error {
+	return r.conn(ctx).Save(node).Error
 }

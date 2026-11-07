@@ -235,6 +235,30 @@ func main() {
 		log.Printf("Notifications: retention %s", cfg.NotificationRetention)
 	}
 
+	// Synchronize hypervisor hardware capacity (CPU threads, RAM, storage)
+	// from Proxmox VE into node records and admin quotas.
+	syncCtx, cancelSync := context.WithTimeout(context.Background(), 15*time.Second)
+	if err := adminUC.SyncClusterCapacity(syncCtx); err != nil {
+		log.Printf("Warning: cluster capacity sync: %v", err)
+	} else {
+		log.Printf("Hypervisor node capacity synchronized with Proxmox host")
+	}
+	cancelSync()
+
+	// Periodic hardware capacity sync (detects physical CPU/RAM/storage upgrades)
+	go func() {
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-monitorCtx.Done():
+				return
+			case <-ticker.C:
+				_ = adminUC.SyncClusterCapacity(monitorCtx)
+			}
+		}
+	}()
+
 	// Long-lived responses (SSE) end when the HTTP server starts shutting
 	// down, so Shutdown does not wait for them.
 	streamCtx, cancelStreams := context.WithCancel(context.Background())
