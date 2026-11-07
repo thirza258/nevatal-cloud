@@ -218,6 +218,11 @@ services:
       APP_ENV: ${APP_ENV:-development}
       DEMO_MODE: ${DEMO_MODE:-}
       DATABASE_URL: *database-url
+      # AdControl snippet injected into customer HTML pages (empty site key =
+      # injection disabled). See docs/EDGE_ADS.md.
+      ADCONTROL_SDK_URL: ${ADCONTROL_SDK_URL:-}
+      ADCONTROL_SITE_KEY: ${ADCONTROL_SITE_KEY:-}
+      ADCONTROL_PLACEMENT_KEY: ${ADCONTROL_PLACEMENT_KEY:-}
       TZ: ${TZ:-UTC}
     # SIGTERM -> stop accepting, drain in-flight requests.
     stop_grace_period: 30s

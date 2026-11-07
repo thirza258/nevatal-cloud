@@ -53,10 +53,22 @@ func main() {
 		log.Fatalf("Database connection failed: %v", err)
 	}
 
+	ads := edge.AdsOptions{
+		SDKURL:       cfg.AdSDKURL,
+		SiteKey:      cfg.AdSiteKey,
+		PlacementKey: cfg.AdPlacementKey,
+	}
+	if ads.SiteKey != "" {
+		log.Printf("AdControl injection: enabled (placement %q, SDK %s)", cfg.AdPlacementKey, cfg.AdSDKURL)
+	} else {
+		log.Println("AdControl injection: disabled (ADCONTROL_SITE_KEY is empty)")
+	}
+
 	server := edge.NewServer(edge.Options{
 		Root:   cfg.PublicDomainRoot,
 		Policy: domainroute.Policy{TargetCIDRs: cfg.EdgeTargetCIDRs, DenyIPs: cfg.EdgeDenyIPs},
 		Source: repository.NewDomainRepository(db),
+		Ads:    ads,
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

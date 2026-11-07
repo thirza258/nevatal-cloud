@@ -103,6 +103,12 @@ type Config struct {
 	EdgeDenyIPs          []netip.Addr   // EDGE_DENY_IPS (+ PROXMOX_HOST when it is an IP): never proxied to
 	EdgePort             string         // EDGE_PORT: nevatal-edge listen port
 
+	// AdControl injection into HTML served by nevatal-edge. An empty AdSiteKey
+	// disables injection; the public site key is safe to expose.
+	AdSDKURL       string // ADCONTROL_SDK_URL (default https://marketing.nevatal.id/sdk/v1/adcontrol.js)
+	AdSiteKey      string // ADCONTROL_SITE_KEY (site_pub_...)
+	AdPlacementKey string // ADCONTROL_PLACEMENT_KEY (default edge-banner)
+
 	// Provisioning job durability: how often a running job refreshes its
 	// heartbeat (JOB_HEARTBEAT_SECONDS, default 10) and after how long
 	// without one the reaper fails it as JOB_STALE (JOB_STALE_AFTER_SECONDS,
@@ -459,6 +465,13 @@ func (c *Config) loadDomains() {
 	if port, err := strconv.Atoi(c.EdgePort); err != nil || port < 1 || port > 65535 {
 		c.domainProblems = append(c.domainProblems, fmt.Sprintf("EDGE_PORT %q is not a TCP port", c.EdgePort))
 		c.EdgePort = "8088"
+	}
+
+	c.AdSDKURL = getEnv("ADCONTROL_SDK_URL", "https://marketing.nevatal.id/sdk/v1/adcontrol.js")
+	c.AdSiteKey = strings.TrimSpace(os.Getenv("ADCONTROL_SITE_KEY"))
+	c.AdPlacementKey = getEnv("ADCONTROL_PLACEMENT_KEY", "edge-banner")
+	if c.AdSiteKey != "" && root == "" {
+		c.warn("ADCONTROL_SITE_KEY is set but PUBLIC_DOMAIN_ROOT is empty: the edge serves no customer apps, so no script is injected")
 	}
 
 	for _, raw := range splitList(os.Getenv("EDGE_TARGET_CIDRS")) {

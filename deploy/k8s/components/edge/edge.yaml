@@ -122,6 +122,25 @@ spec:
                 configMapKeyRef:
                   name: nevatal-config
                   key: EDGE_DENY_IPS
+            # AdControl injection; optional keys keep older ConfigMaps working.
+            - name: ADCONTROL_SDK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: nevatal-config
+                  key: ADCONTROL_SDK_URL
+                  optional: true
+            - name: ADCONTROL_SITE_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: nevatal-config
+                  key: ADCONTROL_SITE_KEY
+                  optional: true
+            - name: ADCONTROL_PLACEMENT_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: nevatal-config
+                  key: ADCONTROL_PLACEMENT_KEY
+                  optional: true
             # Fixed: the Service, the probes and cloudflared expect 8088.
             - name: EDGE_PORT
               value: "8088"

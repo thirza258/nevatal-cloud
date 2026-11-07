@@ -84,6 +84,11 @@ func newTestEdge(t *testing.T) *testEdge {
 		te.seen = r.Clone(context.Background())
 		te.mu.Unlock()
 		w.Header().Set("X-Backend", "yes")
+		if r.URL.Path == "/page" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprint(w, "<!doctype html><html><body><p>hello page</p></body></html>")
+			return
+		}
 		fmt.Fprintf(w, "hello from %s%s", r.Host, r.URL.RequestURI())
 	}))
 	t.Cleanup(te.backend.Close)
@@ -139,6 +144,7 @@ func newTestEdge(t *testing.T) *testEdge {
 		Transport:       transport,
 		RefreshInterval: time.Hour, // tests reload explicitly
 		Logger:          log.New(io.Discard, "", 0),
+		Ads:             AdsOptions{SiteKey: "site_pub_edge_test"},
 	})
 	if err := te.server.Refresh(context.Background()); err != nil {
 		t.Fatalf("Refresh: %v", err)
@@ -279,6 +285,30 @@ func TestProxiesWithPublicHostAndRebuiltForwardingHeaders(t *testing.T) {
 	}
 	if got := seen.Header.Values("X-Forwarded-For"); len(got) != 1 {
 		t.Errorf("X-Forwarded-For must be a single value, got %q", got)
+	}
+}
+
+func TestInjectsAdControlIntoProxiedHTML(t *testing.T) {
+	te := newTestEdge(t)
+	resp, body := te.do("app.nevatal.id", "/page", nil)
+	if resp.StatusCode != http.StatusOK || resp.Header.Get("X-Backend") != "yes" {
+		t.Fatalf("expected the backend page, got %d %q", resp.StatusCode, body)
+	}
+	for _, want := range []string{
+		`data-site-key="site_pub_edge_test"`,
+		`data-adcontrol-placement="edge-banner"`,
+		`src="https://marketing.nevatal.id/sdk/v1/adcontrol.js"`,
+		adInjectMarker,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("proxied page does not contain %q:\n%s", want, body)
+		}
+	}
+	if strings.Index(body, adInjectMarker) > strings.Index(body, "</body>") {
+		t.Errorf("snippet was injected after </body>: %s", body)
+	}
+	if got := resp.Header.Get("Content-Length"); got != "" && got != fmt.Sprint(len(body)) {
+		t.Errorf("Content-Length = %q, want %d", got, len(body))
 	}
 }
 

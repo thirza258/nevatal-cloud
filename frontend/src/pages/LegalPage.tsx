@@ -168,7 +168,22 @@ export const LegalPage: React.FC<LegalPageProps> = ({ onNavigate, initialTab = '
             </section>
 
             <section className="bg-zinc-900/60 p-6 rounded-xl border border-zinc-850">
-              <h2 className="text-lg font-semibold text-white mb-3">4. Disclaimer of Warranties</h2>
+              <h2 className="text-lg font-semibold text-white mb-3">4. Published Sites &amp; Advertising</h2>
+              <p className="mb-2">
+                Nevatal Cloud is free to use. When you publish a VM port through Nevatal Domains
+                (<code className="font-mono text-zinc-200">https://&lt;name&gt;.&lt;PUBLIC_DOMAIN_ROOT&gt;</code>), the edge proxy
+                may add a small, clearly labelled advertisement served by the platform&rsquo;s AdControl deployment to the HTML
+                pages it proxies. This is how the free platform is funded.
+              </p>
+              <p>
+                The advertisement is a script and placement container appended before the closing body tag; it does not alter
+                your application data, API responses, or non-HTML content. A strict Content-Security-Policy on your app may block
+                it. Do not publish pages where third-party advertising is prohibited by your own agreements.
+              </p>
+            </section>
+
+            <section className="bg-zinc-900/60 p-6 rounded-xl border border-zinc-850">
+              <h2 className="text-lg font-semibold text-white mb-3">5. Disclaimer of Warranties</h2>
               <p>
                 The software is provided &ldquo;AS IS&rdquo;, without warranty of any kind, express or implied.
                 The authors or copyright holders shall not be liable for any claim, damages, or other liability arising from the software.
@@ -176,7 +191,7 @@ export const LegalPage: React.FC<LegalPageProps> = ({ onNavigate, initialTab = '
             </section>
 
             <section className="bg-zinc-900/60 p-6 rounded-xl border border-zinc-850">
-              <h2 className="text-lg font-semibold text-white mb-3">5. Terms Contact</h2>
+              <h2 className="text-lg font-semibold text-white mb-3">6. Terms Contact</h2>
               <p>
                 For terms inquiries or administrative notices, contact:{" "}
                 <a href="mailto:nevatalapp@gmail.com" className="text-indigo-400 hover:underline font-mono">

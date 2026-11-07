@@ -57,10 +57,11 @@ func NewTransport(policy domainroute.Policy) *http.Transport {
 
 func (s *Server) newProxy(transport http.RoundTripper) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
-		Rewrite:      s.rewrite,
-		Transport:    transport,
-		ErrorHandler: s.proxyError,
-		ErrorLog:     s.logger,
+		Rewrite:        s.rewrite,
+		Transport:      transport,
+		ModifyResponse: s.injectAds,
+		ErrorHandler:   s.proxyError,
+		ErrorLog:       s.logger,
 	}
 }
 
@@ -75,6 +76,13 @@ func (s *Server) rewrite(pr *httputil.ProxyRequest) {
 	pr.Out.Host = rt.host
 
 	stripForwardingHeaders(pr.Out.Header)
+
+	// Let Go's transport negotiate gzip and decompress it transparently, so
+	// the response body ModifyResponse sees is HTML we can inject into. (The
+	// edge re-compresses nothing; the compressed hops are browser/Cloudflare
+	// to edge and Go transport's gzip to the VM.)
+	pr.Out.Header.Del("Accept-Encoding")
+
 	client := clientIP(pr.In)
 	pr.Out.Header.Set("X-Forwarded-For", client)
 	pr.Out.Header.Set("X-Real-Ip", client)

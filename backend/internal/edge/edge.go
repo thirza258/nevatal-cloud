@@ -58,6 +58,9 @@ type Options struct {
 	RefreshInterval time.Duration
 	// Logger receives the access log and errors; nil means log.Default().
 	Logger *log.Logger
+	// Ads configures the AdControl snippet injected into proxied HTML pages.
+	// An empty SiteKey disables injection.
+	Ads AdsOptions
 }
 
 // route is one active hostname and what the edge does with it.
@@ -83,6 +86,8 @@ type Server struct {
 	proxy    *httputil.ReverseProxy
 	interval time.Duration
 	logger   *log.Logger
+	ads      AdsOptions
+	adsOn    bool
 
 	snap atomic.Pointer[snapshot]
 
@@ -107,6 +112,10 @@ func NewServer(opts Options) *Server {
 	}
 	if s.logger == nil {
 		s.logger = log.Default()
+	}
+	s.ads, s.adsOn = normalizeAds(opts.Ads)
+	if opts.Ads.SiteKey != "" && !s.adsOn {
+		s.logger.Printf("edge: AdControl injection disabled: ADCONTROL_SITE_KEY, ADCONTROL_SDK_URL or ADCONTROL_PLACEMENT_KEY is invalid")
 	}
 	transport := opts.Transport
 	if transport == nil {
