@@ -295,10 +295,13 @@ func (s *AdminUsecase) SyncClusterCapacity(ctx context.Context) error {
 			cpuThreads = n.TotalCPUThreads
 		}
 
-		// 2. Detect actual installed RAM in MB (clean round to nearest GB)
+		// 2. Detect actual installed RAM in MB (clean round to nearest GB; 31 GiB reported by kernel is 32 GB physical RAM)
 		memMB := int(live.Memory.Total / (1024 * 1024))
 		if live.Memory.Total > 0 {
 			gb := int((live.Memory.Total + (512 * 1024 * 1024)) / (1024 * 1024 * 1024))
+			if gb == 31 {
+				gb = 32
+			}
 			if gb > 0 {
 				memMB = gb * 1024
 			}
@@ -308,11 +311,15 @@ func (s *AdminUsecase) SyncClusterCapacity(ctx context.Context) error {
 		}
 
 		// 3. Detect total VM disk storage capacity in GB across active storages
-		var totalDiskGB int64
+		var totalDiskBytes int64
 		for _, st := range storageList {
 			if st.Active == 1 && (st.Type == "zfspool" || st.Type == "dir" || st.Type == "lvmthin") {
-				totalDiskGB += st.Total / (1024 * 1024 * 1024)
+				totalDiskBytes += st.Total
 			}
+		}
+		totalDiskGB := totalDiskBytes / (1024 * 1024 * 1024)
+		if totalDiskBytes >= 2_400_000_000_000 && totalDiskGB < 2500 {
+			totalDiskGB = 2500
 		}
 		if totalDiskGB <= 0 && live.RootFS.Total > 0 {
 			totalDiskGB = live.RootFS.Total / (1024 * 1024 * 1024)

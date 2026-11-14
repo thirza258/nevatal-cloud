@@ -128,10 +128,10 @@ export const DOCS_CATEGORIES: DocCategory[] = [
               rows: [
                 ['Chassis', 'Dell PowerEdge R640 1U Rackmount', 'Dual redundant 750W Titanium PSUs'],
                 ['Processors', '2x Intel Xeon Scalable (Gold/Silver)', 'Multi-core hyper-threading with VT-x & EPT'],
-                ['Memory', '128 GB - 256 GB ECC Registered DDR4', 'Fault-tolerant ECC error correction'],
+                ['Memory', '32 GB ECC Registered DDR4', 'Fault-tolerant ECC error correction'],
                 ['Primary Storage', 'Enterprise NVMe SSDs in ZFS Mirror', 'Extreme low latency and high IOPS throughput'],
                 ['Network', 'Dual 10GbE SFP+ + Gigabit Management', 'LACP bonded uplink to datacenter distribution switches'],
-                ['Hypervisor', 'Proxmox VE 8.x (Linux Kernel 6.8+)', 'KVM virtualization with QEMU guest agent']
+                ['Hypervisor', 'Proxmox VE 9.x (Linux Kernel 7.0+)', 'KVM virtualization with QEMU guest agent']
               ]
             }
           },

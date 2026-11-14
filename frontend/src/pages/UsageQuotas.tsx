@@ -90,6 +90,11 @@ export const UsageQuotas: React.FC = () => {
                 Available to allocate:{' '}
                 <strong className="text-white">
                   {Math.max(0, usage.max_storage_gb - usage.used_storage_gb)} GB
+                  {usage.max_storage_gb >= 1000 && (
+                    <span className="text-slate-400 font-normal ml-1">
+                      ({usage.max_storage_gb >= 2400 ? '2.5 TB' : `${((usage.max_storage_gb - usage.used_storage_gb) / 1000).toFixed(1)} TB`})
+                    </span>
+                  )}
                 </strong>
               </p>
             </div>

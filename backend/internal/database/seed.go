@@ -34,9 +34,9 @@ func Seed(db *gorm.DB, cfg *config.Config) error {
 			Name:              "Dell PowerEdge R640 Node 01",
 			ProxmoxNodeName:   nodeName,
 			Status:            "online",
-			TotalCPUThreads:   64,
-			TotalMemoryMB:     262144, // 256 GB
-			TotalDiskGB:       3840,   // ~3.8 TB
+			TotalCPUThreads:   40,
+			TotalMemoryMB:     32768, // 32 GB
+			TotalDiskGB:       2500,  // 2.5 TB
 			LastHealthCheckAt: &now,
 		}
 		if err := db.Create(&defaultNode).Error; err != nil {

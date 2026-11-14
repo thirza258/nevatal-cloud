@@ -979,6 +979,23 @@ export interface AndroidInstance {
 
 
 // --- Runtime System Configuration (GET /system/config, public) ---
+export interface SystemTelemetry {
+  node_name?: string;
+  proxmox_node_name?: string;
+  cpu_threads?: number;
+  cpu_cores?: number;
+  cpu_model?: string;
+  memory_total_mb?: number;
+  memory_total_gb?: number;
+  memory_used_gb?: number;
+  disk_total_gb?: number;
+  disk_total_tb?: string;
+  disk_used_gb?: number;
+  pve_version?: string;
+  kernel_version?: string;
+  status?: string;
+}
+
 export interface SystemConfig {
   environment: 'production' | 'development' | (string & {});
   demo_mode: boolean;
@@ -995,6 +1012,7 @@ export interface SystemConfig {
     social_login: boolean;
     registration: boolean;
   };
+  telemetry?: SystemTelemetry;
 }
 
 // --- Public Domains (https://<subdomain>.<root> → a port of the customer's VM) ---

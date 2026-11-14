@@ -72,6 +72,7 @@ function normalizeConfig(raw: unknown): SystemConfig {
   // Domains need both switches plus a usable root; otherwise every Domains surface stays hidden.
   const domainsRoot = normalizeDomainRoot(domains.root);
   const domainsEnabled = strictTrue(features.domains) && strictTrue(domains.enabled) && domainsRoot !== '';
+  const telemetry = asRecord(data.telemetry);
 
   return {
     environment: typeof data.environment === 'string' && data.environment ? data.environment : 'production',
@@ -92,6 +93,7 @@ function normalizeConfig(raw: unknown): SystemConfig {
       social_login: strictTrue(auth.social_login),
       registration: notFalse(auth.registration),
     },
+    telemetry: Object.keys(telemetry).length > 0 ? (telemetry as any) : undefined,
   };
 }
 

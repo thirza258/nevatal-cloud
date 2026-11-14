@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSystemConfig } from '../context/SystemConfigContext';
 import { R640Chassis, type R640Variant } from '../components/landing/R640Chassis';
 import {
   Server,
@@ -33,6 +34,8 @@ interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const { user } = useAuth();
+  const { config } = useSystemConfig();
+  const telemetry = config.telemetry;
   const [activeTab, setActiveTab] = useState<'compute' | 'game' | 'android' | 'ai'>('compute');
   const [copiedCurl, setCopiedCurl] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -279,8 +282,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                   <Cpu className="w-3 h-3 text-zinc-400" />
                   <span>Compute Core</span>
                 </div>
-                <div className="text-xs font-semibold text-white font-mono">Dual Intel Xeon Scalable</div>
-                <div className="text-[10px] text-zinc-400 mt-0.5">Up to 56 Cores / 112 Threads</div>
+                <div className="text-xs font-semibold text-white font-mono">{telemetry?.cpu_model || 'Dual Intel Xeon Silver 4114'}</div>
+                <div className="text-[10px] text-zinc-400 mt-0.5">{telemetry?.cpu_threads ? `${telemetry.cpu_cores || 20} Cores / ${telemetry.cpu_threads} Threads` : '20 Cores / 40 Threads'}</div>
               </div>
 
               <div className="p-2.5 rounded-lg bg-zinc-900/50 border border-zinc-800/80">
@@ -288,8 +291,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                   <Layers className="w-3 h-3 text-zinc-400" />
                   <span>Memory Subsystem</span>
                 </div>
-                <div className="text-xs font-semibold text-white font-mono">24x DDR4 ECC RDIMM</div>
-                <div className="text-[10px] text-zinc-400 mt-0.5">High-Speed Mirrored Channels</div>
+                <div className="text-xs font-semibold text-white font-mono">{telemetry?.memory_total_gb ? `${telemetry.memory_total_gb} GB ECC DDR4` : '32 GB ECC DDR4'}</div>
+                <div className="text-[10px] text-zinc-400 mt-0.5">High-Speed Registered DDR4</div>
               </div>
 
               <div className="p-2.5 rounded-lg bg-zinc-900/50 border border-zinc-800/80">
@@ -297,8 +300,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                   <HardDrive className="w-3 h-3 text-zinc-400" />
                   <span>Storage Pool</span>
                 </div>
-                <div className="text-xs font-semibold text-white font-mono">10x 2.5" NVMe PCIe Gen3</div>
-                <div className="text-[10px] text-zinc-400 mt-0.5">High-IOPS Enterprise ZFS</div>
+                <div className="text-xs font-semibold text-white font-mono">{telemetry?.disk_total_tb ? `${telemetry.disk_total_tb} TB Storage Capacity` : '2.5 TB Storage Capacity'}</div>
+                <div className="text-[10px] text-zinc-400 mt-0.5">Active Enterprise ZFS, M.2 SSD & HDD</div>
               </div>
             </div>
           </div>
@@ -464,7 +467,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           <div className="p-4 rounded-lg bg-zinc-900/40 border border-zinc-850">
             <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider mb-1">Compute Node</div>
             <div className="text-sm sm:text-base font-semibold text-white">Dell PowerEdge R640</div>
-            <div className="text-[11px] text-zinc-400 font-mono mt-0.5">Dual Intel Xeon Scalable</div>
+            <div className="text-[11px] text-zinc-400 font-mono mt-0.5">{telemetry?.cpu_threads ? `${telemetry.cpu_threads} Threads · ${telemetry.cpu_model || 'Dual Intel Xeon Silver'}` : '40 Threads · Dual Intel Xeon Silver 4114'}</div>
           </div>
           <div className="p-4 rounded-lg bg-zinc-900/40 border border-zinc-850">
             <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider mb-1">Provision Time</div>
@@ -473,12 +476,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           </div>
           <div className="p-4 rounded-lg bg-zinc-900/40 border border-zinc-850">
             <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider mb-1">Storage Subsystem</div>
-            <div className="text-sm sm:text-base font-semibold text-white">Enterprise NVMe ZFS</div>
-            <div className="text-[11px] text-zinc-400 font-mono mt-0.5">High-IOPS Mirrored Pools</div>
+            <div className="text-sm sm:text-base font-semibold text-white">{telemetry?.disk_total_tb ? `${telemetry.disk_total_tb} TB Multi-Tier Storage` : '2.5 TB Enterprise Storage'}</div>
+            <div className="text-[11px] text-zinc-400 font-mono mt-0.5">ZFS Mirror, M.2 NVMe & HDD</div>
           </div>
           <div className="p-4 rounded-lg bg-zinc-900/40 border border-zinc-850">
             <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider mb-1">Hypervisor Core</div>
-            <div className="text-sm sm:text-base font-semibold text-white">Proxmox VE 8.x</div>
+            <div className="text-sm sm:text-base font-semibold text-white">Proxmox VE 9.x</div>
             <div className="text-[11px] text-zinc-400 font-mono mt-0.5">REST API v2 Orchestration</div>
           </div>
         </div>
@@ -720,7 +723,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
         <div className="max-w-6xl mx-auto mt-6 pt-6 border-t border-zinc-900 flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-400 gap-3">
           <div>&copy; {new Date().getFullYear()} Nevatal Cloud. All rights reserved. · This project is under nevatal.id for educational purposes.</div>
-          <div className="font-mono">Node: Dell PowerEdge R640 · Hypervisor: Proxmox VE 8</div>
+          <div className="font-mono">Node: Dell PowerEdge R640 · Hypervisor: Proxmox VE 9</div>
         </div>
       </footer>
     </div>

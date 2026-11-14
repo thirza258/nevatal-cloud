@@ -69,7 +69,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 	}
 	router.Use(middleware.SetupCORSWithConfig(p.Cfg))
 
-	systemHandler := handler.NewSystemHandler(p.Cfg)
+	systemHandler := handler.NewSystemHandler(p.Cfg, p.Admin)
 
 	// Health check endpoint
 	router.GET("/health", systemHandler.Health)
@@ -119,8 +119,9 @@ func SetupRouter(p RouterParams) *gin.Engine {
 			auth.POST("/oauth/wordpress", authHandler.OAuthWordPress)
 		}
 
-		// Public runtime settings (demo/production mode for the SPA)
+		// Public runtime settings & dynamic server telemetry
 		v1.GET("/system/config", systemHandler.GetConfig)
+		v1.GET("/system/telemetry", systemHandler.GetTelemetry)
 
 		// Public/Semi-public catalogs
 		v1.GET("/templates", templatePlanHandler.ListTemplates)

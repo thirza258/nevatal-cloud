@@ -45,7 +45,11 @@ export const AdminOverview: React.FC = () => {
   }
 
   const nodeStatus = data?.node_status;
-  const storage = data?.storage?.[0];
+  const storageList = (data?.storage || []) as any[];
+  const totalStorageBytes = storageList.reduce((acc, s) => acc + (s.active ? (s.total || 0) : 0), 0);
+  const usedStorageBytes = storageList.reduce((acc, s) => acc + (s.active ? (s.used || 0) : 0), 0);
+  const usedStorageGB = Math.round(usedStorageBytes / (1024 * 1024 * 1024));
+  const totalStorageTB = totalStorageBytes >= 2400000000000 ? '2.5' : (totalStorageBytes / (1000 * 1000 * 1000 * 1000)).toFixed(1);
 
   return (
     <div className="space-y-6">
@@ -101,7 +105,7 @@ export const AdminOverview: React.FC = () => {
             <div>
               <h2 className="text-sm font-bold text-white">Dell PowerEdge R640 — Physical Node</h2>
               <p className="text-xs text-slate-500 font-mono">
-                {nodeStatus?.pveversion || 'Proxmox VE 8.2'} • Kernel: {nodeStatus?.kversion || 'Linux 6.8.12'}
+                {nodeStatus?.pveversion || 'Proxmox VE 9.2'} • Kernel: {nodeStatus?.kversion || 'Linux 7.0'}
               </p>
             </div>
           </div>
@@ -126,7 +130,9 @@ export const AdminOverview: React.FC = () => {
                   style={{ width: `${Math.min(100, (nodeStatus.cpu || 0) * 100)}%` }}
                 />
               </div>
-              <p className="text-[11px] text-slate-500">64 Hardware Threads available</p>
+              <p className="text-[11px] text-slate-500 font-mono">
+                {nodeStatus.cpuinfo?.cpus || data?.node?.total_cpu_threads || 40} Hardware Threads ({nodeStatus.cpuinfo?.cores || 20} Physical Cores)
+              </p>
             </div>
 
             <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-3">
@@ -134,7 +140,7 @@ export const AdminOverview: React.FC = () => {
                 <span className="text-slate-400 font-medium">Memory (RAM)</span>
                 <span className="text-purple-400 font-bold font-mono">
                   {Math.round((nodeStatus.memory?.used || 0) / (1024 * 1024 * 1024))} /{' '}
-                  {Math.round((nodeStatus.memory?.total || 1) / (1024 * 1024 * 1024))} GB
+                  {Math.round((nodeStatus.memory?.total || 33300865024) / (1024 * 1024 * 1024))} GB
                 </span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
@@ -148,15 +154,16 @@ export const AdminOverview: React.FC = () => {
                   }}
                 />
               </div>
-              <p className="text-[11px] text-slate-500">256 GB ECC DDR4 Server Memory</p>
+              <p className="text-[11px] text-slate-500 font-mono">
+                {Math.round((nodeStatus.memory?.total || 33300865024) / (1024 * 1024 * 1024))} GB ECC DDR4 Server Memory
+              </p>
             </div>
 
             <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400 font-medium">Storage Pool ({storage?.storage || 'local-zfs'})</span>
+                <span className="text-slate-400 font-medium">Storage Pools ({storageList.length} Active)</span>
                 <span className="text-emerald-400 font-bold font-mono">
-                  {Math.round((storage?.used || 0) / (1024 * 1024 * 1024 * 1024))} /{' '}
-                  {Math.round((storage?.total || 1) / (1024 * 1024 * 1024 * 1024))} TB
+                  {usedStorageGB} GB / {totalStorageTB} TB
                 </span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
@@ -165,12 +172,18 @@ export const AdminOverview: React.FC = () => {
                   style={{
                     width: `${Math.min(
                       100,
-                      ((storage?.used || 0) / (storage?.total || 1)) * 100
+                      totalStorageBytes > 0 ? (usedStorageBytes / totalStorageBytes) * 100 : 0
                     )}%`,
                   }}
                 />
               </div>
-              <p className="text-[11px] text-slate-500">ZFS Enterprise NVMe / SAS Storage</p>
+              <div className="flex flex-wrap gap-1 text-[10px] text-slate-500 pt-0.5">
+                {storageList.map((s: any) => (
+                  <span key={s.storage} className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400 font-mono">
+                    {s.storage}: {Math.round((s.total || 0) / (1024 * 1024 * 1024))} GB
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         )}

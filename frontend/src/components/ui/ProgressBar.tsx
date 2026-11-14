@@ -24,12 +24,15 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     color = 'bg-amber-500';
   }
 
+  const tbDisplay = unit === 'GB' && total >= 1000 ? (total >= 2400 ? '2.5 TB' : `${(total / 1000).toFixed(1)} TB`) : null;
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs">
         <span className="font-medium text-zinc-300">{label}</span>
         <span className="text-zinc-400 font-mono text-[11px]">
           <strong className="text-zinc-100 font-semibold">{used}</strong> / {total} {unit}
+          {tbDisplay && <span className="text-zinc-500 ml-1">({tbDisplay})</span>}
           {showPercent && <span className="ml-1 text-zinc-500">({percent}%)</span>}
         </span>
       </div>

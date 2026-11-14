@@ -149,6 +149,7 @@ GET /api/v1/storage/shared-links
 GET /api/v1/storage/shared/:token
 GET /api/v1/storage/shared/:token/download
 GET /api/v1/system/config
+GET /api/v1/system/telemetry
 GET /api/v1/templates
 GET /api/v1/usage
 GET /api/v1/wordpress/status

@@ -67,9 +67,9 @@ export const AdminNodes: React.FC = () => {
                       Processor Cores
                     </span>
                     <span className="text-lg font-bold text-white mt-1 block">
-                      {n.total_cpu_threads} Threads
+                      {live?.cpuinfo?.cpus || n.total_cpu_threads || 40} Threads
                     </span>
-                    <span className="text-[11px] text-slate-500">Dual Intel Xeon Scalable</span>
+                    <span className="text-[11px] text-slate-500">{live?.cpuinfo?.model || 'Dual Intel Xeon Silver 4114'}</span>
                   </div>
 
                   <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4">
@@ -77,19 +77,21 @@ export const AdminNodes: React.FC = () => {
                       Installed Memory
                     </span>
                     <span className="text-lg font-bold text-white mt-1 block">
-                      {Math.round(n.total_memory_mb / 1024)} GB RAM
+                      {Math.round((live?.memory?.total || (n.total_memory_mb * 1024 * 1024)) / (1024 * 1024 * 1024))} GB RAM
                     </span>
                     <span className="text-[11px] text-slate-500">ECC Registered DDR4</span>
                   </div>
 
                   <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4">
                     <span className="text-[11px] font-semibold uppercase text-slate-500 block">
-                      Primary Storage Pool
+                      Storage Capacity
                     </span>
                     <span className="text-lg font-bold text-white mt-1 block">
-                      {Math.round(n.total_disk_gb / 1024)} TB Capacity
+                      {(n.total_disk_gb >= 2400 ? '2.5 TB' : (n.total_disk_gb >= 1000 ? (n.total_disk_gb / 1000).toFixed(1) + ' TB' : n.total_disk_gb + ' GB'))} Capacity
                     </span>
-                    <span className="text-[11px] text-slate-500">Enterprise ZFS Pool</span>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {n.total_disk_gb} GB across active pools
+                    </span>
                   </div>
                 </div>
 

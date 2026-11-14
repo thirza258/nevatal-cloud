@@ -16,7 +16,34 @@ type SystemConfig struct {
 	Environment string               `json:"environment"`
 	Features    SystemFeaturesConfig `json:"features"`
 	ProxmoxMock bool                 `json:"proxmox_mock"`
+	Telemetry   *SystemTelemetry     `json:"telemetry,omitempty"`
 	Version     string               `json:"version"`
+}
+
+type SystemTelemetry struct {
+	NodeName        string               `json:"node_name"`
+	ProxmoxNodeName string               `json:"proxmox_node_name"`
+	CPUThreads      int                  `json:"cpu_threads"`
+	CPUCores        int                  `json:"cpu_cores"`
+	CPUModel        string               `json:"cpu_model"`
+	MemoryTotalMB   int                  `json:"memory_total_mb"`
+	MemoryTotalGB   int                  `json:"memory_total_gb"`
+	MemoryUsedGB    int                  `json:"memory_used_gb"`
+	DiskTotalGB     int                  `json:"disk_total_gb"`
+	DiskTotalTB     string               `json:"disk_total_tb"`
+	DiskUsedGB      int                  `json:"disk_used_gb"`
+	PveVersion      string               `json:"pve_version"`
+	KernelVersion   string               `json:"kernel_version"`
+	StoragePools    []StoragePoolSummary `json:"storage_pools"`
+	Status          string               `json:"status"`
+}
+
+type StoragePoolSummary struct {
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	TotalGB int64  `json:"total_gb"`
+	AvailGB int64  `json:"avail_gb"`
+	UsedGB  int64  `json:"used_gb"`
 }
 
 type SystemAuthConfig struct {
