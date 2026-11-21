@@ -166,6 +166,24 @@ func (c *httpPVEClient) CloneVM(ctx context.Context, node string, templateVMID, 
 	return res.Data, nil
 }
 
+// pveEscapeURLEncoded percent-encodes every character not in [-%a-zA-Z0-9_.!~*'()]
+// to satisfy Proxmox JSONSchema's format="urlencoded": ^[-%a-zA-Z0-9_.!~*'()]*\z.
+// Go's url.QueryEscape turns spaces into '+' and leaves '/', '=' unencoded, which
+// causes Proxmox parameter verification to fail with HTTP 400.
+func pveEscapeURLEncoded(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+			c == '-' || c == '_' || c == '.' || c == '!' || c == '~' || c == '*' || c == '\'' || c == '(' || c == ')' {
+			b.WriteByte(c)
+		} else {
+			fmt.Fprintf(&b, "%%%02X", c)
+		}
+	}
+	return b.String()
+}
+
 func (c *httpPVEClient) ConfigVM(ctx context.Context, node string, vmid int, cfg VMConfig) error {
 	params := url.Values{}
 	if cfg.Cores > 0 {
@@ -178,7 +196,7 @@ func (c *httpPVEClient) ConfigVM(ctx context.Context, node string, vmid int, cfg
 		params.Set("ciuser", cfg.CIUser)
 	}
 	if cfg.SSHPublicKey != "" {
-		params.Set("sshkeys", url.QueryEscape(cfg.SSHPublicKey))
+		params.Set("sshkeys", pveEscapeURLEncoded(cfg.SSHPublicKey))
 	}
 	if cfg.IPConfig0 != "" {
 		params.Set("ipconfig0", cfg.IPConfig0)

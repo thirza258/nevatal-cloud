@@ -51,11 +51,27 @@ func newAPIError(statusCode int, statusLine string, body []byte) *APIError {
 	apiErr := &APIError{StatusCode: statusCode, Body: strings.TrimSpace(string(body))}
 
 	var parsed struct {
-		Message string `json:"message"`
+		Message string            `json:"message"`
+		Errors  map[string]string `json:"errors"`
 	}
-	if json.Unmarshal(body, &parsed) == nil && strings.TrimSpace(parsed.Message) != "" {
-		apiErr.Message = strings.TrimSpace(parsed.Message)
-		return apiErr
+	if json.Unmarshal(body, &parsed) == nil {
+		if len(parsed.Errors) > 0 {
+			var errDetails []string
+			for k, v := range parsed.Errors {
+				errDetails = append(errDetails, fmt.Sprintf("%s: %s", k, strings.TrimSpace(v)))
+			}
+			msg := strings.TrimSpace(parsed.Message)
+			if msg != "" {
+				apiErr.Message = fmt.Sprintf("%s (%s)", msg, strings.Join(errDetails, "; "))
+			} else {
+				apiErr.Message = strings.Join(errDetails, "; ")
+			}
+			return apiErr
+		}
+		if strings.TrimSpace(parsed.Message) != "" {
+			apiErr.Message = strings.TrimSpace(parsed.Message)
+			return apiErr
+		}
 	}
 
 	reason := strings.TrimSpace(strings.TrimPrefix(statusLine, strconv.Itoa(statusCode)))
