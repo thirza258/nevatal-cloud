@@ -2111,3 +2111,250 @@ export interface AIInvestigateInput {
   resource_id?: string;
   query: string;
 }
+
+// ==========================================
+// Networking & Developer Platform Types (PRD v1.0)
+// ==========================================
+
+export interface NetworkAttachment {
+  id: string;
+  network_id: string;
+  instance_id: string;
+  ip_address: string;
+  mac_address?: string;
+  is_primary: boolean;
+  status: string;
+  created_at: string;
+  instance?: Instance;
+}
+
+export interface PrivateNetwork {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  name: string;
+  description?: string;
+  cidr: string;
+  gateway?: string;
+  vlan_id?: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  attachments?: NetworkAttachment[];
+}
+
+export interface FirewallRule {
+  id: string;
+  firewall_id: string;
+  direction: 'inbound' | 'outbound';
+  action: 'allow' | 'deny';
+  protocol: 'tcp' | 'udp' | 'icmp' | 'all';
+  port_range?: string;
+  cidr: string;
+  description?: string;
+  priority: number;
+  created_at: string;
+}
+
+export interface FirewallAttachment {
+  id: string;
+  firewall_id: string;
+  instance_id: string;
+  created_at: string;
+  instance?: Instance;
+}
+
+export interface CloudFirewall {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  name: string;
+  description?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  rules?: FirewallRule[];
+  attachments?: FirewallAttachment[];
+}
+
+export interface FloatingIP {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  ip_address: string;
+  instance_id?: string;
+  status: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  instance?: Instance;
+}
+
+export interface DNSRecord {
+  id: string;
+  zone_id: string;
+  name: string;
+  type: 'A' | 'AAAA' | 'CNAME' | 'TXT' | 'MX' | 'NS' | 'SRV';
+  content: string;
+  ttl: number;
+  priority?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DNSZone {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  records?: DNSRecord[];
+}
+
+export interface NetworkTrafficMetric {
+  instance_id: string;
+  network_id?: string;
+  rx_bytes: number;
+  tx_bytes: number;
+  rx_packets: number;
+  tx_packets: number;
+  rx_drop: number;
+  tx_drop: number;
+  timestamp: string;
+}
+
+export interface LoadBalancerMember {
+  id: string;
+  pool_id: string;
+  instance_id?: string;
+  ip_address: string;
+  port: number;
+  weight: number;
+  status: 'healthy' | 'unhealthy' | 'draining' | 'disabled';
+  health_check_status?: string;
+  created_at: string;
+  updated_at: string;
+  instance?: Instance;
+}
+
+export interface LoadBalancerPool {
+  id: string;
+  load_balancer_id: string;
+  name: string;
+  protocol: 'tcp' | 'http' | 'https';
+  algorithm: 'round_robin' | 'least_conn' | 'source_ip' | 'weighted_round_robin';
+  health_check_type: 'tcp' | 'http';
+  health_check_path?: string;
+  health_check_interval: number;
+  health_check_timeout: number;
+  healthy_threshold: number;
+  unhealthy_threshold: number;
+  members?: LoadBalancerMember[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoadBalancerListener {
+  id: string;
+  load_balancer_id: string;
+  name: string;
+  protocol: 'tcp' | 'http' | 'https';
+  port: number;
+  ssl_enabled: boolean;
+  certificate_id?: string;
+  pool_id?: string;
+  pool?: LoadBalancerPool;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoadBalancerConfigRevision {
+  id: string;
+  load_balancer_id: string;
+  version: number;
+  config_text: string;
+  applied: boolean;
+  error?: string;
+  created_at: string;
+}
+
+export interface LoadBalancer {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  name: string;
+  status: 'provisioning' | 'active' | 'updating' | 'error' | 'stopped';
+  network_id?: string;
+  vip_address?: string;
+  algorithm: string;
+  created_at: string;
+  updated_at: string;
+  listeners?: LoadBalancerListener[];
+  pools?: LoadBalancerPool[];
+  network?: PrivateNetwork;
+}
+
+export interface APIKey {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  name: string;
+  key_prefix: string;
+  scopes: string[];
+  expires_at?: string;
+  last_used_at?: string;
+  revoked: boolean;
+  created_at: string;
+  raw_key?: string; // returned once during creation
+}
+
+export interface WebhookSubscription {
+  id: string;
+  endpoint_id: string;
+  event_type: string;
+  created_at: string;
+}
+
+export interface WebhookEndpoint {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  url: string;
+  description?: string;
+  secret_preview?: string;
+  secret?: string; // returned once on creation/rotation
+  enabled: boolean;
+  rate_limit: number;
+  created_at: string;
+  updated_at: string;
+  subscriptions?: WebhookSubscription[];
+}
+
+export interface WebhookDeliveryAttempt {
+  id: string;
+  delivery_id: string;
+  attempt_number: number;
+  response_code?: number;
+  response_body?: string;
+  duration_ms: number;
+  error?: string;
+  created_at: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  tenant_id: string;
+  endpoint_id: string;
+  event_id: string;
+  event_type: string;
+  payload: string;
+  status: 'pending' | 'success' | 'failed' | 'abandoned';
+  response_code?: number;
+  attempts: number;
+  next_retry_at?: string;
+  created_at: string;
+  updated_at: string;
+  attempts_log?: WebhookDeliveryAttempt[];
+}

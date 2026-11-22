@@ -29,30 +29,45 @@ func SessionCookieName(secure bool) string {
 	return LegacySessionCookie
 }
 
-// AuthRequired accepts a Bearer token, or the session cookie on safe methods
-// only, and stores the caller's id, email and role in the gin context.
-//
-// Cookie auth is limited to GET/HEAD because tenant apps on sibling
-// subdomains are same-site with the control plane: SameSite=Lax would still
-// attach the cookie to their cross-origin POSTs (CSRF). The SPA always sends
-// Bearer tokens; the cookie only serves plain links such as file downloads.
-func AuthRequired(authService *usecase.AuthUsecase, secureCookies bool) gin.HandlerFunc {
+// AuthRequired accepts a Bearer token, an X-API-Key header, or the session cookie
+// on safe methods only, and stores the caller's id, email and role in the gin context.
+func AuthRequired(authService *usecase.AuthUsecase, devService *usecase.DeveloperUsecase, secureCookies bool) gin.HandlerFunc {
 	cookieName := SessionCookieName(secureCookies)
 	return func(c *gin.Context) {
 		var tokenStr string
 
-		authHeader := c.GetHeader("Authorization")
-		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
-			tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
-		} else if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead {
-			cookieToken, err := c.Cookie(cookieName)
-			if err == nil && cookieToken != "" {
-				tokenStr = cookieToken
+		apiKeyHeader := c.GetHeader("X-API-Key")
+		if apiKeyHeader != "" && strings.HasPrefix(apiKeyHeader, "nv_live_") {
+			tokenStr = apiKeyHeader
+		} else {
+			authHeader := c.GetHeader("Authorization")
+			if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+				tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+			} else if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead {
+				cookieToken, err := c.Cookie(cookieName)
+				if err == nil && cookieToken != "" {
+					tokenStr = cookieToken
+				}
 			}
 		}
 
 		if tokenStr == "" {
 			response.AbortError(c, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required to access this resource")
+			return
+		}
+
+		// Check if caller authenticated via customer API key
+		if devService != nil && strings.HasPrefix(tokenStr, "nv_live_") {
+			apiKey, err := devService.ValidateRawAPIKey(c.Request.Context(), tokenStr, "")
+			if err != nil {
+				response.AbortError(c, http.StatusUnauthorized, "INVALID_API_KEY", err.Error())
+				return
+			}
+			c.Set("userID", apiKey.TenantID)
+			c.Set("email", "api-key@"+apiKey.KeyPrefix)
+			c.Set("role", models.RoleCustomer)
+			c.Set("apiKeyScopes", apiKey.Scopes)
+			c.Next()
 			return
 		}
 

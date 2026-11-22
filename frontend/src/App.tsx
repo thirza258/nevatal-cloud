@@ -63,6 +63,15 @@ const UnifiedResources = lazy(() =>
 const OperationsPage = lazy(() =>
   import('./pages/operations/OperationsPage').then((m) => ({ default: m.OperationsPage }))
 );
+const NetworkingPage = lazy(() =>
+  import('./pages/networking/NetworkingPage').then((m) => ({ default: m.NetworkingPage }))
+);
+const LoadBalancerPage = lazy(() =>
+  import('./pages/loadbalancer/LoadBalancerPage').then((m) => ({ default: m.LoadBalancerPage }))
+);
+const DeveloperPage = lazy(() =>
+  import('./pages/developer/DeveloperPage').then((m) => ({ default: m.DeveloperPage }))
+);
 const MCPRegistry = lazy(() => import('./pages/integrations/MCPRegistry').then((m) => ({ default: m.MCPRegistry })));
 
 // S3 Object Storage & File Manager
@@ -234,6 +243,11 @@ export const App: React.FC = () => {
     <>
       {/* Customer Compute Routes */}
       {currentPath === '/dashboard' && <Dashboard onNavigate={handleNavigate} />}
+
+      {/* Networking & Developer Platform */}
+      {currentPath === '/dashboard/networking' && <NetworkingPage onNavigate={handleNavigate} />}
+      {currentPath === '/dashboard/load-balancers' && <LoadBalancerPage onNavigate={handleNavigate} />}
+      {currentPath === '/dashboard/developer' && <DeveloperPage onNavigate={handleNavigate} />}
 
       {currentPath === '/dashboard/instances' && !param && (
         <InstancesList onNavigate={handleNavigate} />

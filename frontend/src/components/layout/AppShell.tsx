@@ -27,6 +27,8 @@ import {
   Smartphone,
   BookOpen,
   Container,
+  Network,
+  Terminal,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSystemConfig } from '../../context/SystemConfigContext';
@@ -64,6 +66,8 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
     { label: 'Observability', path: '/dashboard/observability', icon: Activity },
     { label: 'MCP Integrations', path: '/dashboard/integrations/mcp', icon: Code },
     { label: 'Compute (VMs)', path: '/dashboard/instances', icon: Server },
+    { label: 'Networking', path: '/dashboard/networking', icon: Network },
+    { label: 'Load Balancers', path: '/dashboard/load-balancers', icon: Cpu },
     // Public Domains: listed only when the backend config enables them (fail closed).
     ...(config.domains.enabled ? [{ label: 'Domains', path: '/dashboard/domains', icon: Globe }] : []),
     { label: 'App Hosting', path: '/dashboard/apps', icon: Globe },
@@ -72,6 +76,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
     { label: 'Object Storage', path: '/dashboard/storage', icon: Database },
     { label: 'Game Servers', path: '/dashboard/game-servers', icon: Gamepad2 },
     { label: 'Android Cloud', path: '/dashboard/android', icon: Smartphone },
+    { label: 'Developer', path: '/dashboard/developer', icon: Terminal },
     { label: 'SSH Keys', path: '/dashboard/ssh-keys', icon: Key },
     { label: 'Usage & Quotas', path: '/dashboard/usage', icon: PieChart },
     { label: 'Activity Log', path: '/dashboard/activity', icon: Activity },

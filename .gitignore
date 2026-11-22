@@ -16,6 +16,9 @@ deploy/**/*.p12
 # Binaries & build artifacts
 backend/bin/
 backend/nevatal-api
+backend/api
+backend/cli
+backend/nevatal
 dist/
 build/
 *.tsbuildinfo

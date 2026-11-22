@@ -45,6 +45,9 @@ type RouterParams struct {
 	Monitoring    *usecase.MonitoringUsecase
 	Policies      *usecase.AutomationPolicyUsecase
 	Observability *usecase.ObservabilityUsecase
+	Network       *usecase.NetworkUsecase
+	LoadBalancer  *usecase.LoadBalancerUsecase
+	Developer     *usecase.DeveloperUsecase
 
 	// Orchestrator serves plans, approvals and executions (/ai/plans,
 	// /ai/executions, /ai/tools).
@@ -103,17 +106,23 @@ func SetupRouter(p RouterParams) *gin.Engine {
 	orchHandler := handler.NewOrchestratorHandler(p.Orchestrator, p.Streams)
 	opsHandler := handler.NewOperationsHandler(p.Database, p.Notification, p.Monitoring, p.Policies, p.Orchestrator)
 	obsHandler := handler.NewObservabilityHandler(p.Observability, p.Admin, p.Streams)
+	netHandler := handler.NewNetworkHandler(p.Network)
+	lbHandler := handler.NewLoadBalancerHandler(p.LoadBalancer)
+	devHandler := handler.NewDeveloperHandler(p.Developer)
 
 	// API v1 group
 	v1 := router.Group("/api/v1")
 	{
+		// OpenAPI Specification
+		v1.GET("/openapi.json", devHandler.GetOpenAPISpec)
+
 		// Authentication endpoints
 		auth := v1.Group("/auth")
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/logout", authHandler.Logout)
-			auth.GET("/me", middleware.AuthRequired(p.Auth, p.Cfg.CookieSecure), authHandler.Me)
+			auth.GET("/me", middleware.AuthRequired(p.Auth, p.Developer, p.Cfg.CookieSecure), authHandler.Me)
 
 			// Social & Single Sign-On (OAuth)
 			auth.GET("/oauth/urls", authHandler.GetOAuthURLs)
@@ -141,7 +150,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 
 		// Authenticated customer endpoints
 		protected := v1.Group("")
-		protected.Use(middleware.AuthRequired(p.Auth, p.Cfg.CookieSecure))
+		protected.Use(middleware.AuthRequired(p.Auth, p.Developer, p.Cfg.CookieSecure))
 		{
 			// Dashboard & Quotas
 			protected.GET("/dashboard", dashboardHandler.GetSummary)
@@ -476,11 +485,106 @@ func SetupRouter(p RouterParams) *gin.Engine {
 				obs.GET("/instances/:id/events", obsHandler.UserInstanceEvents)
 				obs.GET("/stream", obsHandler.Stream)
 			}
+
+			// Private Networks
+			networks := protected.Group("/networks")
+			{
+				networks.GET("", netHandler.ListNetworks)
+				networks.POST("", netHandler.CreateNetwork)
+				networks.GET("/:id", netHandler.GetNetwork)
+				networks.PATCH("/:id", netHandler.UpdateNetwork)
+				networks.DELETE("/:id", netHandler.DeleteNetwork)
+				networks.POST("/:id/attachments", netHandler.AttachInstance)
+				networks.DELETE("/:id/attachments/:attachment_id", netHandler.DetachInstance)
+				networks.GET("/:id/traffic", netHandler.GetNetworkTraffic)
+			}
+
+			// Cloud Firewalls
+			firewalls := protected.Group("/firewalls")
+			{
+				firewalls.GET("", netHandler.ListFirewalls)
+				firewalls.POST("", netHandler.CreateFirewall)
+				firewalls.GET("/:id", netHandler.GetFirewall)
+				firewalls.PATCH("/:id", netHandler.UpdateFirewall)
+				firewalls.DELETE("/:id", netHandler.DeleteFirewall)
+				firewalls.POST("/:id/rules", netHandler.AddFirewallRule)
+				firewalls.PATCH("/:id/rules/:rule_id", netHandler.UpdateFirewallRule)
+				firewalls.DELETE("/:id/rules/:rule_id", netHandler.DeleteFirewallRule)
+				firewalls.POST("/:id/attachments", netHandler.AttachFirewall)
+				firewalls.DELETE("/:id/attachments/:attachment_id", netHandler.DetachFirewall)
+			}
+
+			// Floating IPs
+			floatingIPs := protected.Group("/floating-ips")
+			{
+				floatingIPs.GET("", netHandler.ListFloatingIPs)
+				floatingIPs.POST("", netHandler.AllocateFloatingIP)
+				floatingIPs.POST("/:id/assign", netHandler.AssignFloatingIP)
+				floatingIPs.POST("/:id/unassign", netHandler.UnassignFloatingIP)
+				floatingIPs.DELETE("/:id", netHandler.ReleaseFloatingIP)
+			}
+
+			// DNS Management
+			dns := protected.Group("/dns")
+			{
+				dns.GET("/zones", netHandler.ListDNSZones)
+				dns.POST("/zones", netHandler.CreateDNSZone)
+				dns.DELETE("/zones/:id", netHandler.DeleteDNSZone)
+				dns.GET("/zones/:id/records", netHandler.ListDNSRecords)
+				dns.POST("/zones/:id/records", netHandler.CreateDNSRecord)
+				dns.PATCH("/zones/:id/records/:record_id", netHandler.UpdateDNSRecord)
+				dns.DELETE("/zones/:id/records/:record_id", netHandler.DeleteDNSRecord)
+			}
+
+			// Managed Load Balancers
+			lbs := protected.Group("/load-balancers")
+			{
+				lbs.GET("", lbHandler.ListLoadBalancers)
+				lbs.POST("", lbHandler.CreateLoadBalancer)
+				lbs.GET("/certificates", lbHandler.ListCertificates)
+				lbs.POST("/certificates", lbHandler.AddCertificate)
+				lbs.DELETE("/certificates/:id", lbHandler.DeleteCertificate)
+				lbs.GET("/:id", lbHandler.GetLoadBalancer)
+				lbs.PATCH("/:id", lbHandler.UpdateLoadBalancer)
+				lbs.DELETE("/:id", lbHandler.DeleteLoadBalancer)
+				lbs.POST("/:id/listeners", lbHandler.AddListener)
+				lbs.DELETE("/:id/listeners/:listener_id", lbHandler.DeleteListener)
+				lbs.POST("/:id/pools", lbHandler.AddPool)
+				lbs.PATCH("/:id/pools/:pool_id", lbHandler.UpdatePool)
+				lbs.DELETE("/:id/pools/:pool_id", lbHandler.DeletePool)
+				lbs.POST("/:id/pools/:pool_id/members", lbHandler.AddMember)
+				lbs.PATCH("/:id/pools/:pool_id/members/:member_id", lbHandler.UpdateMember)
+				lbs.DELETE("/:id/pools/:pool_id/members/:member_id", lbHandler.DeleteMember)
+				lbs.GET("/:id/health", lbHandler.GetHealth)
+				lbs.GET("/:id/metrics", lbHandler.GetMetrics)
+			}
+
+			// Developer API Keys
+			apiKeys := protected.Group("/api-keys")
+			{
+				apiKeys.GET("", devHandler.ListAPIKeys)
+				apiKeys.POST("", devHandler.CreateAPIKey)
+				apiKeys.DELETE("/:id", devHandler.RevokeAPIKey)
+			}
+
+			// Webhooks & Event Integrations
+			webhooks := protected.Group("/webhooks")
+			{
+				webhooks.GET("", devHandler.ListWebhooks)
+				webhooks.POST("", devHandler.CreateWebhook)
+				webhooks.GET("/deliveries", devHandler.ListDeliveries)
+				webhooks.POST("/deliveries/:delivery_id/retry", devHandler.RetryDelivery)
+				webhooks.GET("/:id", devHandler.GetWebhook)
+				webhooks.PATCH("/:id", devHandler.UpdateWebhook)
+				webhooks.DELETE("/:id", devHandler.DeleteWebhook)
+				webhooks.POST("/:id/rotate-secret", devHandler.RotateSecret)
+				webhooks.POST("/:id/ping", devHandler.TestPing)
+			}
 		}
 
 		// Authenticated administrator endpoints
 		admin := v1.Group("/admin")
-		admin.Use(middleware.AuthRequired(p.Auth, p.Cfg.CookieSecure), middleware.AdminOnly())
+		admin.Use(middleware.AuthRequired(p.Auth, p.Developer, p.Cfg.CookieSecure), middleware.AdminOnly())
 		{
 			admin.GET("/overview", adminHandler.Overview)
 			admin.GET("/users", adminHandler.ListUsers)

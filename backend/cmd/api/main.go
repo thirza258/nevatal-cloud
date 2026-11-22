@@ -87,6 +87,9 @@ func main() {
 	infraCheckRepo := repository.NewInfraCheckRepository(db)
 	policyRepo := repository.NewAutomationPolicyRepository(db)
 	obsRepo := repository.NewObservabilityRepository(db)
+	networkRepo := repository.NewNetworkRepository(db)
+	loadBalancerRepo := repository.NewLoadBalancerRepository(db)
+	developerRepo := repository.NewDeveloperRepository(db)
 
 	// 5. Use cases (business logic)
 	auditUC := usecase.NewAuditUsecase(auditRepo)
@@ -215,6 +218,9 @@ func main() {
 		Orchestrator:  orchRepo,
 		Audits:        auditRepo,
 	}, cfg, pveClient)
+	networkUC := usecase.NewNetworkUsecase(networkRepo, instanceRepo)
+	loadBalancerUC := usecase.NewLoadBalancerUsecase(loadBalancerRepo, instanceRepo, secretCipher)
+	developerUC := usecase.NewDeveloperUsecase(developerRepo, secretCipher)
 	if cfg.DomainsEnabled() {
 		log.Printf("Nevatal Domains enabled: customers publish at https://<subdomain>.%s (edge targets: %v)", cfg.PublicDomainRoot, cfg.EdgeTargetCIDRs)
 	}
@@ -305,6 +311,9 @@ func main() {
 		Monitoring:    monitoringUC,
 		Policies:      policiesUC,
 		Observability: obsUC,
+		Network:       networkUC,
+		LoadBalancer:  loadBalancerUC,
+		Developer:     developerUC,
 
 		Orchestrator: orchUC,
 		Streams:      streamCtx,
