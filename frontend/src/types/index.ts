@@ -1733,3 +1733,381 @@ export interface AgentRole {
 
 /** POST /ai/diagnostics/:type/:id/remediate returns the same shape as GET /ai/plans/:id. */
 export type RemediationPlan = OrchestratorPlan;
+
+// ==========================================
+// Nevatal Cloud — Observability & Operations Platform
+// ==========================================
+
+export type ObservabilitySeverity = 'info' | 'warning' | 'error' | 'critical';
+export type ObservabilityAlertStatus = 'triggered' | 'acknowledged' | 'resolved';
+export type ObservabilityIncidentStatus = 'detected' | 'investigating' | 'mitigating' | 'resolved' | 'postmortem';
+export type ObservabilityIncidentSeverity = 'SEV-1' | 'SEV-2' | 'SEV-3' | 'SEV-4';
+
+export interface ObservabilityMetric {
+  id: string;
+  timestamp: string;
+  metric_name: string;
+  value: number;
+  tenant_id?: string;
+  resource_type: string;
+  resource_id?: string;
+  unit: string;
+  labels: string;
+}
+
+export interface ObservabilityEvent {
+  id: string;
+  timestamp: string;
+  event_type: string;
+  severity: ObservabilitySeverity;
+  actor: string;
+  tenant_id?: string;
+  resource_type: string;
+  resource_id?: string;
+  message: string;
+  metadata: string;
+  correlation_id: string;
+  is_internal: boolean;
+  tenant?: User;
+}
+
+export interface ObservabilityLog {
+  id: string;
+  timestamp: string;
+  level: string;
+  service: string;
+  event: string;
+  tenant_id?: string;
+  resource_id?: string;
+  job_id?: string;
+  correlation_id: string;
+  error_code: string;
+  message: string;
+  metadata: string;
+}
+
+export interface ObservabilityAlertRule {
+  id: string;
+  tenant_id?: string;
+  name: string;
+  description: string;
+  resource_type: string;
+  resource_id?: string;
+  condition_type: string;
+  metric_name: string;
+  operator: string;
+  threshold: number;
+  duration_seconds: number;
+  severity: ObservabilitySeverity;
+  channels: string; // JSON string e.g. '["dashboard","email"]'
+  webhook_url: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ObservabilityAlert {
+  id: string;
+  rule_id?: string;
+  incident_id?: string;
+  tenant_id?: string;
+  resource_type: string;
+  resource_id?: string;
+  resource_name: string;
+  severity: ObservabilitySeverity;
+  title: string;
+  message: string;
+  status: ObservabilityAlertStatus;
+  correlation_id: string;
+  triggered_at: string;
+  acknowledged_at?: string;
+  acknowledged_by?: string;
+  resolved_at?: string;
+  resolution?: string;
+  rule?: ObservabilityAlertRule;
+}
+
+export interface ObservabilityIncidentResource {
+  id: string;
+  incident_id: string;
+  resource_type: string;
+  resource_id?: string;
+  tenant_id?: string;
+  blast_radius_impact: string;
+}
+
+export interface ObservabilityIncident {
+  id: string;
+  incident_number: string;
+  title: string;
+  severity: ObservabilityIncidentSeverity;
+  status: ObservabilityIncidentStatus;
+  root_cause: string;
+  symptoms: string; // JSON string array
+  affected_resources_count: number;
+  affected_tenants_count: number;
+  started_at: string;
+  detected_at: string;
+  investigating_at?: string;
+  mitigating_at?: string;
+  resolved_at?: string;
+  postmortem: string;
+  lead_actor: string;
+  timeline: string; // JSON string array of {timestamp, message, status}
+  correlation_id: string;
+  created_at: string;
+  updated_at: string;
+  affected_resources?: ObservabilityIncidentResource[];
+}
+
+export interface VMHealthScore {
+  score: number;
+  status: 'healthy' | 'warning' | 'degraded' | 'critical' | string;
+  reasons: string[];
+  recommended_action: string;
+}
+
+export interface UserObservabilityOverview {
+  total_servers: number;
+  running_servers: number;
+  stopped_servers: number;
+  overall_health_score: number;
+  cpu_usage_pct: number;
+  ram_usage_pct: number;
+  storage_usage_pct: number;
+  network_bandwidth_mbps: number;
+  active_alerts: number;
+  recent_events: ObservabilityEvent[];
+  recent_alerts: ObservabilityAlert[];
+}
+
+export interface MetricTrend {
+  current: number;
+  avg_5m: number;
+  trend_1h_pct: number;
+  trend_24h_pct: number;
+  threshold: number;
+  status: string;
+  unit: string;
+}
+
+export interface ZFSTrend {
+  pool_name: string;
+  health: string;
+  capacity_pct: number;
+  read_bytes_sec: number;
+  write_bytes_sec: number;
+  iops: number;
+  latency_ms: number;
+  status: string;
+}
+
+export interface InfrastructureHealth {
+  model: string;
+  cpu: MetricTrend;
+  ram: MetricTrend;
+  storage: MetricTrend;
+  zfs: ZFSTrend;
+  network: MetricTrend;
+  temperature_celsius: number;
+  power_watts: number;
+  hardware_status: string;
+  uptime_seconds: number;
+}
+
+export interface AdminKPI {
+  active_users: number;
+  active_vms: number;
+  running_vms: number;
+  cpu_utilization_pct: number;
+  ram_utilization_pct: number;
+  storage_utilization_pct: number;
+  api_error_rate_pct: number;
+  api_p95_latency_ms: number;
+  active_jobs: number;
+  failed_jobs: number;
+  open_incidents: number;
+  active_alerts: number;
+}
+
+export interface AdminObservabilityOverview {
+  platform_status: string;
+  components: Record<string, string>;
+  kpi: AdminKPI;
+  recent_events: ObservabilityEvent[];
+  recent_alerts: ObservabilityAlert[];
+  updated_now: string;
+}
+
+export interface APIEndpointStats {
+  endpoint: string;
+  requests: number;
+  p95_ms: number;
+  error_rate_pct: number;
+  status: string;
+}
+
+export interface APIObservabilitySummary {
+  requests_per_sec: number;
+  total_requests: number;
+  error_rate_pct: number;
+  status_4xx_count: number;
+  status_5xx_count: number;
+  p50_latency_ms: number;
+  p95_latency_ms: number;
+  p99_latency_ms: number;
+  endpoints: APIEndpointStats[];
+}
+
+export interface JobTimelineStep {
+  timestamp: string;
+  message: string;
+  status: string;
+}
+
+export interface JobFailureDetail {
+  job_id: string;
+  instance_name: string;
+  duration: string;
+  status: string;
+  timeline: JobTimelineStep[];
+  root_failure: string;
+  possible_causes: string[];
+}
+
+export interface JobObservabilitySummary {
+  queued: number;
+  running: number;
+  succeeded: number;
+  failed: number;
+  retrying: number;
+  stuck: number;
+  avg_duration_sec: number;
+  p95_duration_sec: number;
+  recent_failed: JobFailureDetail[];
+}
+
+export interface AIObservabilitySummary {
+  total_requests: number;
+  plans_generated: number;
+  plans_approved: number;
+  plans_rejected: number;
+  executions_count: number;
+  success_rate_pct: number;
+  failure_rate_pct: number;
+  avg_execution_time_sec: number;
+  total_tool_calls: number;
+  avg_approval_latency_sec: number;
+  token_usage: number;
+  estimated_cost_usd: number;
+}
+
+export interface TenantObservabilityDetail {
+  tenant_id: string;
+  email: string;
+  display_name: string;
+  vms_count: number;
+  cpu_pct: number;
+  ram_pct: number;
+  storage_pct: number;
+  api_requests: number;
+  provisioning_jobs: number;
+  failed_jobs: number;
+  open_alerts: number;
+  health: string;
+}
+
+export interface CapacityForecast {
+  current_cpu_pct: number;
+  current_ram_pct: number;
+  current_storage_pct: number;
+  projected_7d_cpu_pct: number;
+  projected_7d_ram_pct: number;
+  projected_7d_storage_pct: number;
+  projected_30d_cpu_pct: number;
+  projected_30d_ram_pct: number;
+  projected_30d_storage_pct: number;
+  warnings: string[];
+}
+
+export interface AIIncidentInvestigationResult {
+  incident_summary: string;
+  likely_root_cause: string;
+  affected_resources: string[];
+  evidence: string[];
+  recommended_actions: string[];
+  confidence_pct: number;
+  risk_assessment: string;
+}
+
+export interface VMDetailObservability {
+  instance: Instance;
+  health_score: VMHealthScore;
+  cpu_usage_pct: number;
+  memory_usage_pct: number;
+  memory_used_mb: number;
+  memory_total_mb: number;
+  disk_usage_pct: number;
+  disk_used_gb: number;
+  disk_total_gb: number;
+  disk_read_bytes_sec: number;
+  disk_write_bytes_sec: number;
+  network_rx_mbps: number;
+  network_tx_mbps: number;
+  uptime_seconds: number;
+  guest_agent_status: string;
+  recent_events: ObservabilityEvent[];
+  active_alerts: ObservabilityAlert[];
+}
+
+export interface CreateAlertRuleInput {
+  name: string;
+  description: string;
+  resource_type: string;
+  resource_id?: string;
+  condition_type: string;
+  metric_name: string;
+  operator: string;
+  threshold: number;
+  duration_seconds: number;
+  severity: ObservabilitySeverity;
+  channels: string[];
+  webhook_url?: string;
+  enabled?: boolean;
+}
+
+export interface UpdateAlertRuleInput {
+  name?: string;
+  description?: string;
+  operator?: string;
+  threshold?: number;
+  duration_seconds?: number;
+  severity?: ObservabilitySeverity;
+  channels?: string[];
+  webhook_url?: string;
+  enabled?: boolean;
+}
+
+export interface CreateIncidentInput {
+  title: string;
+  severity: ObservabilityIncidentSeverity;
+  root_cause: string;
+  symptoms: string[];
+  affected_resource_ids: string[];
+  lead_actor?: string;
+}
+
+export interface UpdateIncidentInput {
+  status?: ObservabilityIncidentStatus;
+  severity?: ObservabilityIncidentSeverity;
+  title?: string;
+  root_cause?: string;
+  postmortem?: string;
+  timeline_note?: string;
+}
+
+export interface AIInvestigateInput {
+  incident_id?: string;
+  resource_id?: string;
+  query: string;
+}

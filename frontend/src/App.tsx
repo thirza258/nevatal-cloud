@@ -113,6 +113,12 @@ const AdminPlans = lazy(() => import('./pages/admin/AdminPlans').then((m) => ({ 
 const AdminNodes = lazy(() => import('./pages/admin/AdminNodes').then((m) => ({ default: m.AdminNodes })));
 const AdminAudit = lazy(() => import('./pages/admin/AdminAudit').then((m) => ({ default: m.AdminAudit })));
 const AdminDomains = lazy(() => import('./pages/admin/AdminDomains').then((m) => ({ default: m.AdminDomains })));
+const UserObservabilityPage = lazy(() =>
+  import('./pages/observability/UserObservabilityPage').then((m) => ({ default: m.UserObservabilityPage }))
+);
+const AdminObservability = lazy(() =>
+  import('./pages/admin/AdminObservability').then((m) => ({ default: m.AdminObservability }))
+);
 
 /** Routing matches on the pathname only; any `?query`/`#hash` is left for the page to read. */
 const pathnameOf = (path: string): string => {
@@ -353,12 +359,25 @@ export const App: React.FC = () => {
       )}
 
       {/* Account & Administration */}
+      {currentPath === '/dashboard/observability' && (
+        <UserObservabilityPage onNavigate={handleNavigate} />
+      )}
       {currentPath === '/dashboard/ssh-keys' && <SSHKeys />}
       {currentPath === '/dashboard/usage' && <UsageQuotas />}
       {currentPath === '/dashboard/activity' && <ActivityPage />}
 
       {/* Admin Routes */}
       {currentPath === '/admin' && <AdminOverview />}
+      {(currentPath === '/admin/observability' ||
+        currentPath.startsWith('/admin/observability/') ||
+        currentPath === '/dashboard/admin/observability' ||
+        currentPath.startsWith('/dashboard/admin/observability/')) && (
+        <AdminObservability
+          initialTab={
+            currentPath.replace(/^\/(?:dashboard\/)?admin\/observability\/?/, '').split('/')[0] || 'overview'
+          }
+        />
+      )}
       {currentPath === '/admin/users' && <AdminUsers />}
       {currentPath === '/admin/instances' && <AdminInstances onNavigate={handleNavigate} />}
       {currentPath === '/admin/docker' && <AdminDocker onNavigate={handleNavigate} />}

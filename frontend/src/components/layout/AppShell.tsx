@@ -61,6 +61,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
     { label: 'AI Cloud Agent', path: '/dashboard/ai', icon: Sparkles, highlight: true },
     { label: 'Cloud Resources', path: '/dashboard/resources', icon: Zap },
     { label: 'Operations', path: '/dashboard/operations', icon: Activity },
+    { label: 'Observability', path: '/dashboard/observability', icon: Activity },
     { label: 'MCP Integrations', path: '/dashboard/integrations/mcp', icon: Code },
     { label: 'Compute (VMs)', path: '/dashboard/instances', icon: Server },
     // Public Domains: listed only when the backend config enables them (fail closed).
@@ -78,6 +79,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
 
   const adminNav: NavItem[] = [
     { label: 'Admin Overview', path: '/admin', icon: Shield },
+    { label: 'Observability Center', path: '/admin/observability', icon: Activity },
     { label: 'User Directory', path: '/admin/users', icon: Users },
     { label: 'All Instances', path: '/admin/instances', icon: Server },
     { label: 'Docker Viewer', path: '/admin/docker', icon: Container },

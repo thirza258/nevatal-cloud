@@ -86,6 +86,7 @@ func main() {
 	notificationRepo := repository.NewNotificationRepository(db)
 	infraCheckRepo := repository.NewInfraCheckRepository(db)
 	policyRepo := repository.NewAutomationPolicyRepository(db)
+	obsRepo := repository.NewObservabilityRepository(db)
 
 	// 5. Use cases (business logic)
 	auditUC := usecase.NewAuditUsecase(auditRepo)
@@ -205,6 +206,15 @@ func main() {
 		Templates: templateRepo,
 		Plans:     planRepo,
 	}, quotaUC, auditUC, workerUC, pveClient)
+	obsUC := usecase.NewObservabilityUsecase(usecase.ObservabilityRepos{
+		Observability: obsRepo,
+		Instances:     instanceRepo,
+		Jobs:          jobRepo,
+		Users:         userRepo,
+		Nodes:         nodeRepo,
+		Orchestrator:  orchRepo,
+		Audits:        auditRepo,
+	}, cfg, pveClient)
 	if cfg.DomainsEnabled() {
 		log.Printf("Nevatal Domains enabled: customers publish at https://<subdomain>.%s (edge targets: %v)", cfg.PublicDomainRoot, cfg.EdgeTargetCIDRs)
 	}
@@ -266,34 +276,35 @@ func main() {
 
 	// 6. HTTP router (handlers)
 	router := api.SetupRouter(api.RouterParams{
-		Cfg:          cfg,
-		Auth:         authUC,
-		Quota:        quotaUC,
-		SSHKey:       sshKeyUC,
-		Audit:        auditUC,
-		Catalog:      catalogUC,
-		Dashboard:    dashboardUC,
-		Job:          jobUC,
-		Instance:     instanceUC,
-		Docker:       dockerUC,
-		App:          appUC,
-		Automation:   automationUC,
-		OpenClaw:     openClawUC,
-		ISO:          isoUC,
-		Storage:      storageUC,
-		GameServer:   gameServerUC,
-		Android:      androidUC,
-		AIAssistant:  aiAssistantUC,
-		MCP:          mcpUC,
-		AIAgent:      aiAgentUC,
-		Resource:     resourceUC,
-		WordPress:    wordPressUC,
-		Admin:        adminUC,
-		Domain:       domainUC,
-		Database:     databaseUC,
-		Notification: notificationUC,
-		Monitoring:   monitoringUC,
-		Policies:     policiesUC,
+		Cfg:           cfg,
+		Auth:          authUC,
+		Quota:         quotaUC,
+		SSHKey:        sshKeyUC,
+		Audit:         auditUC,
+		Catalog:       catalogUC,
+		Dashboard:     dashboardUC,
+		Job:           jobUC,
+		Instance:      instanceUC,
+		Docker:        dockerUC,
+		App:           appUC,
+		Automation:    automationUC,
+		OpenClaw:      openClawUC,
+		ISO:           isoUC,
+		Storage:       storageUC,
+		GameServer:    gameServerUC,
+		Android:       androidUC,
+		AIAssistant:   aiAssistantUC,
+		MCP:           mcpUC,
+		AIAgent:       aiAgentUC,
+		Resource:      resourceUC,
+		WordPress:     wordPressUC,
+		Admin:         adminUC,
+		Domain:        domainUC,
+		Database:      databaseUC,
+		Notification:  notificationUC,
+		Monitoring:    monitoringUC,
+		Policies:      policiesUC,
+		Observability: obsUC,
 
 		Orchestrator: orchUC,
 		Streams:      streamCtx,

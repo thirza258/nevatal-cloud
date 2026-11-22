@@ -17,33 +17,34 @@ import (
 type RouterParams struct {
 	Cfg *config.Config
 
-	Auth         *usecase.AuthUsecase
-	Quota        *usecase.QuotaUsecase
-	SSHKey       *usecase.SSHKeyUsecase
-	Audit        *usecase.AuditUsecase
-	Catalog      *usecase.CatalogUsecase
-	Dashboard    *usecase.DashboardUsecase
-	Job          *usecase.JobUsecase
-	Instance     *usecase.InstanceUsecase
-	Docker       *usecase.DockerUsecase
-	App          *usecase.AppUsecase
-	Automation   *usecase.AutomationUsecase
-	OpenClaw     *usecase.OpenClawUsecase
-	ISO          *usecase.ISOUsecase
-	Storage      *usecase.StorageUsecase
-	GameServer   *usecase.GameServerUsecase
-	Android      *usecase.AndroidUsecase
-	AIAssistant  *usecase.AIAssistantUsecase
-	MCP          *usecase.MCPUsecase
-	AIAgent      *usecase.AIAgentUsecase
-	Resource     *usecase.ResourceUsecase
-	WordPress    *usecase.WordPressUsecase
-	Admin        *usecase.AdminUsecase
-	Domain       *usecase.DomainUsecase
-	Database     *usecase.DatabaseUsecase
-	Notification *usecase.NotificationUsecase
-	Monitoring   *usecase.MonitoringUsecase
-	Policies     *usecase.AutomationPolicyUsecase
+	Auth          *usecase.AuthUsecase
+	Quota         *usecase.QuotaUsecase
+	SSHKey        *usecase.SSHKeyUsecase
+	Audit         *usecase.AuditUsecase
+	Catalog       *usecase.CatalogUsecase
+	Dashboard     *usecase.DashboardUsecase
+	Job           *usecase.JobUsecase
+	Instance      *usecase.InstanceUsecase
+	Docker        *usecase.DockerUsecase
+	App           *usecase.AppUsecase
+	Automation    *usecase.AutomationUsecase
+	OpenClaw      *usecase.OpenClawUsecase
+	ISO           *usecase.ISOUsecase
+	Storage       *usecase.StorageUsecase
+	GameServer    *usecase.GameServerUsecase
+	Android       *usecase.AndroidUsecase
+	AIAssistant   *usecase.AIAssistantUsecase
+	MCP           *usecase.MCPUsecase
+	AIAgent       *usecase.AIAgentUsecase
+	Resource      *usecase.ResourceUsecase
+	WordPress     *usecase.WordPressUsecase
+	Admin         *usecase.AdminUsecase
+	Domain        *usecase.DomainUsecase
+	Database      *usecase.DatabaseUsecase
+	Notification  *usecase.NotificationUsecase
+	Monitoring    *usecase.MonitoringUsecase
+	Policies      *usecase.AutomationPolicyUsecase
+	Observability *usecase.ObservabilityUsecase
 
 	// Orchestrator serves plans, approvals and executions (/ai/plans,
 	// /ai/executions, /ai/tools).
@@ -68,6 +69,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 		_ = router.SetTrustedProxies(nil)
 	}
 	router.Use(middleware.SetupCORSWithConfig(p.Cfg))
+	router.Use(middleware.CorrelationMiddleware())
 
 	systemHandler := handler.NewSystemHandler(p.Cfg, p.Admin)
 
@@ -100,6 +102,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 	domainHandler := handler.NewDomainHandler(p.Domain)
 	orchHandler := handler.NewOrchestratorHandler(p.Orchestrator, p.Streams)
 	opsHandler := handler.NewOperationsHandler(p.Database, p.Notification, p.Monitoring, p.Policies, p.Orchestrator)
+	obsHandler := handler.NewObservabilityHandler(p.Observability, p.Admin, p.Streams)
 
 	// API v1 group
 	v1 := router.Group("/api/v1")
@@ -457,6 +460,22 @@ func SetupRouter(p RouterParams) *gin.Engine {
 				domains.PATCH("/:id", domainHandler.Update)
 				domains.DELETE("/:id", domainHandler.Release)
 			}
+
+			// Observability (Customer / User Observability Center)
+			obs := protected.Group("/observability")
+			{
+				obs.GET("/overview", obsHandler.UserOverview)
+				obs.GET("/metrics", obsHandler.UserMetrics)
+				obs.GET("/events", obsHandler.UserEvents)
+				obs.GET("/alerts", obsHandler.UserAlerts)
+				obs.POST("/alerts", obsHandler.CreateUserAlertRule)
+				obs.PATCH("/alerts/:id", obsHandler.UpdateUserAlertRule)
+				obs.DELETE("/alerts/:id", obsHandler.DeleteUserAlertRule)
+				obs.GET("/instances/:id", obsHandler.UserInstanceObservability)
+				obs.GET("/instances/:id/metrics", obsHandler.UserInstanceMetrics)
+				obs.GET("/instances/:id/events", obsHandler.UserInstanceEvents)
+				obs.GET("/stream", obsHandler.Stream)
+			}
 		}
 
 		// Authenticated administrator endpoints
@@ -474,6 +493,33 @@ func SetupRouter(p RouterParams) *gin.Engine {
 			admin.POST("/jobs/:id/retry", adminHandler.RetryJob)
 			admin.GET("/nodes", adminHandler.ListNodes)
 			admin.GET("/audit-logs", adminHandler.ListAuditLogs)
+
+			// Admin Observability Center
+			adminObs := admin.Group("/observability")
+			{
+				adminObs.GET("/overview", obsHandler.AdminOverview)
+				adminObs.GET("/infrastructure", obsHandler.AdminInfrastructure)
+				adminObs.GET("/nodes", obsHandler.AdminNodes)
+				adminObs.GET("/nodes/:id", obsHandler.AdminNodeDetail)
+				adminObs.GET("/storage", obsHandler.AdminStorage)
+				adminObs.GET("/vms", obsHandler.AdminVMs)
+				adminObs.GET("/vms/:id", obsHandler.AdminVMDetail)
+				adminObs.GET("/api", obsHandler.AdminAPI)
+				adminObs.GET("/jobs", obsHandler.AdminJobs)
+				adminObs.GET("/tenants", obsHandler.AdminTenants)
+				adminObs.GET("/events", obsHandler.AdminEvents)
+				adminObs.GET("/logs", obsHandler.AdminLogs)
+				adminObs.GET("/alerts", obsHandler.AdminAlerts)
+				adminObs.POST("/alerts/:id/acknowledge", obsHandler.AdminAcknowledgeAlert)
+				adminObs.POST("/alerts/:id/resolve", obsHandler.AdminResolveAlert)
+				adminObs.GET("/incidents", obsHandler.AdminIncidents)
+				adminObs.POST("/incidents", obsHandler.AdminCreateIncident)
+				adminObs.GET("/incidents/:id", obsHandler.AdminGetIncident)
+				adminObs.PATCH("/incidents/:id", obsHandler.AdminUpdateIncident)
+				adminObs.GET("/capacity", obsHandler.AdminCapacity)
+				adminObs.GET("/ai", obsHandler.AdminAI)
+				adminObs.POST("/ai/investigate", obsHandler.AdminAIInvestigate)
+			}
 
 			// Templates governance
 			admin.GET("/templates", adminHandler.ListTemplates)
