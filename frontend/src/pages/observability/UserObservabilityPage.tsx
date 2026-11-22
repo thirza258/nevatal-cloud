@@ -223,9 +223,14 @@ export const UserObservabilityPage: React.FC<UserObservabilityPageProps> = ({ on
     );
   }
 
-  const filteredEvents = events.filter((ev) => {
+  const safeEvents = Array.isArray(events) ? events : [];
+  const safeInstances = Array.isArray(instances) ? instances : [];
+  const safeAlerts = Array.isArray(alertsData?.active_alerts) ? alertsData.active_alerts : [];
+  const safeRules = Array.isArray(alertsData?.rules) ? alertsData.rules : [];
+
+  const filteredEvents = safeEvents.filter((ev) => {
     if (eventSeverityFilter === 'all') return true;
-    return ev.severity.toLowerCase() === eventSeverityFilter.toLowerCase();
+    return ev?.severity?.toLowerCase() === eventSeverityFilter.toLowerCase();
   });
 
   return (
@@ -357,10 +362,10 @@ export const UserObservabilityPage: React.FC<UserObservabilityPageProps> = ({ on
       <div className="flex border-b border-zinc-800 space-x-1">
         {[
           { id: 'overview', label: 'Overview', icon: Shield },
-          { id: 'servers', label: 'Servers Health', icon: Server, badge: instances.length },
+          { id: 'servers', label: 'Servers Health', icon: Server, badge: safeInstances.length },
           { id: 'metrics', label: 'Metrics Explorer', icon: TrendingUp },
-          { id: 'events', label: 'Events Feed', icon: Activity, badge: events.length },
-          { id: 'alerts', label: 'Alerts & Rules', icon: Bell, badge: alertsData.active_alerts.length },
+          { id: 'events', label: 'Events Feed', icon: Activity, badge: safeEvents.length },
+          { id: 'alerts', label: 'Alerts & Rules', icon: Bell, badge: safeAlerts.length },
           { id: 'activity', label: 'Activity Timeline', icon: Clock },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -393,7 +398,7 @@ export const UserObservabilityPage: React.FC<UserObservabilityPageProps> = ({ on
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* Active Alerts Banner if any */}
-          {alertsData.active_alerts.length > 0 && (
+          {safeAlerts.length > 0 && (
             <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-4">
               <div className="flex items-center gap-2 text-rose-400 font-semibold text-sm">
                 <AlertTriangle className="w-4 h-4" />
@@ -533,7 +538,7 @@ export const UserObservabilityPage: React.FC<UserObservabilityPageProps> = ({ on
                     </span>
                   </div>
                 ))}
-                {alertsData.rules.length === 0 && (
+                {safeRules.length === 0 && (
                   <div className="text-center py-4">
                     <p className="text-xs text-zinc-400 mb-2">No custom alert rules configured yet.</p>
                     <button
@@ -555,7 +560,7 @@ export const UserObservabilityPage: React.FC<UserObservabilityPageProps> = ({ on
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-white">All Instances Health &amp; Telemetry</h3>
-            <span className="text-xs text-zinc-400 font-mono">{instances.length} Virtual Machines</span>
+            <span className="text-xs text-zinc-400 font-mono">{safeInstances.length} Virtual Machines</span>
           </div>
 
           <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg overflow-hidden">
@@ -827,14 +832,14 @@ export const UserObservabilityPage: React.FC<UserObservabilityPageProps> = ({ on
           </div>
 
           {/* Triggered Alerts Section */}
-          {alertsData.active_alerts.length > 0 && (
+          {safeAlerts.length > 0 && (
             <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-5">
               <h4 className="text-xs font-semibold text-rose-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" />
-                Active Fired Alerts ({alertsData.active_alerts.length})
+                Active Fired Alerts ({safeAlerts.length})
               </h4>
               <div className="space-y-2">
-                {alertsData.active_alerts.map((al) => (
+                {safeAlerts.map((al) => (
                   <div key={al.id} className="flex items-center justify-between bg-zinc-900/90 border border-rose-500/30 p-3 rounded-lg text-xs">
                     <div>
                       <span className="font-semibold text-white">{al.title}</span>
@@ -912,7 +917,7 @@ export const UserObservabilityPage: React.FC<UserObservabilityPageProps> = ({ on
                       </td>
                     </tr>
                   ))}
-                  {alertsData.rules.length === 0 && (
+                  {safeRules.length === 0 && (
                     <tr>
                       <td colSpan={8} className="text-center py-8 text-zinc-400 font-sans">
                         No alert rules created yet. Click "+ New Alert Rule" to configure notifications.

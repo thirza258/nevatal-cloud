@@ -93,7 +93,7 @@ function normalizeConfig(raw: unknown): SystemConfig {
       social_login: strictTrue(auth.social_login),
       registration: notFalse(auth.registration),
     },
-    telemetry: Object.keys(telemetry).length > 0 ? (telemetry as any) : undefined,
+    telemetry: Object.keys(telemetry || {}).length > 0 ? (telemetry as any) : undefined,
   };
 }
 

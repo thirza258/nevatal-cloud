@@ -21,7 +21,8 @@ import type {
 // ==========================================
 
 export async function listNetworks(): Promise<PrivateNetwork[]> {
-  return apiRequest<PrivateNetwork[]>('/networks');
+  const res = await apiRequest<any>('/networks');
+  return Array.isArray(res) ? res : (res?.networks || []);
 }
 
 export async function createNetwork(data: { name: string; cidr: string; description?: string; project_id?: string }): Promise<PrivateNetwork> {
@@ -59,7 +60,8 @@ export async function detachNetwork(attachmentId: string): Promise<{ success: bo
 // ==========================================
 
 export async function listFirewalls(): Promise<CloudFirewall[]> {
-  return apiRequest<CloudFirewall[]>('/firewalls');
+  const res = await apiRequest<any>('/firewalls');
+  return Array.isArray(res) ? res : (res?.firewalls || []);
 }
 
 export async function createFirewall(data: { name: string; description?: string; project_id?: string }): Promise<CloudFirewall> {
@@ -118,7 +120,8 @@ export async function detachFirewall(attachmentId: string): Promise<{ success: b
 // ==========================================
 
 export async function listFloatingIPs(): Promise<FloatingIP[]> {
-  return apiRequest<FloatingIP[]>('/floating-ips');
+  const res = await apiRequest<any>('/floating-ips');
+  return Array.isArray(res) ? res : (res?.floating_ips || []);
 }
 
 export async function createFloatingIP(data: { description?: string; project_id?: string }): Promise<FloatingIP> {
@@ -146,7 +149,8 @@ export async function releaseFloatingIP(id: string): Promise<{ success: boolean 
 // ==========================================
 
 export async function listDNSZones(): Promise<DNSZone[]> {
-  return apiRequest<DNSZone[]>('/dns/zones');
+  const res = await apiRequest<any>('/dns/zones');
+  return Array.isArray(res) ? res : (res?.zones || []);
 }
 
 export async function createDNSZone(data: { name: string; description?: string; project_id?: string }): Promise<DNSZone> {
@@ -167,7 +171,8 @@ export async function deleteDNSZone(id: string): Promise<{ success: boolean }> {
 }
 
 export async function listDNSRecords(zoneId: string): Promise<DNSRecord[]> {
-  return apiRequest<DNSRecord[]>(`/dns/zones/${zoneId}/records`);
+  const res = await apiRequest<any>(`/dns/zones/${zoneId}/records`);
+  return Array.isArray(res) ? res : (res?.records || []);
 }
 
 export async function createDNSRecord(zoneId: string, data: {
@@ -194,7 +199,8 @@ export async function deleteDNSRecord(recordId: string): Promise<{ success: bool
 // ==========================================
 
 export async function listLoadBalancers(): Promise<LoadBalancer[]> {
-  return apiRequest<LoadBalancer[]>('/load-balancers');
+  const res = await apiRequest<any>('/load-balancers');
+  return Array.isArray(res) ? res : (res?.load_balancers || []);
 }
 
 export async function createLoadBalancer(data: {
@@ -291,7 +297,8 @@ export async function getLoadBalancerMetrics(loadBalancerId: string): Promise<{
 // ==========================================
 
 export async function listAPIKeys(): Promise<APIKey[]> {
-  return apiRequest<APIKey[]>('/api-keys');
+  const res = await apiRequest<any>('/api-keys');
+  return Array.isArray(res) ? res : (res?.api_keys || []);
 }
 
 export async function createAPIKey(data: {
@@ -313,7 +320,8 @@ export async function revokeAPIKey(id: string): Promise<{ success: boolean }> {
 }
 
 export async function listWebhooks(): Promise<WebhookEndpoint[]> {
-  return apiRequest<WebhookEndpoint[]>('/webhooks');
+  const res = await apiRequest<any>('/webhooks');
+  return Array.isArray(res) ? res : (res?.webhooks || []);
 }
 
 export async function createWebhook(data: {
@@ -347,7 +355,8 @@ export async function pingWebhook(id: string): Promise<{ message: string; respon
 }
 
 export async function listWebhookDeliveries(endpointId: string): Promise<WebhookDelivery[]> {
-  return apiRequest<WebhookDelivery[]>(`/webhooks/${endpointId}/deliveries`);
+  const res = await apiRequest<any>(`/webhooks/${endpointId}/deliveries`);
+  return Array.isArray(res) ? res : (res?.deliveries || []);
 }
 
 export async function retryWebhookDelivery(deliveryId: string): Promise<{ message: string }> {

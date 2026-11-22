@@ -61,9 +61,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ email, password: pass }),
     });
 
-    localStorage.setItem('nevatal_token', res.token);
-    setToken(res.token);
-    setUser(res.user);
+    if (res?.token) {
+      localStorage.setItem('nevatal_token', res.token);
+      setToken(res.token);
+      setUser(res.user);
+    }
   };
 
   const register = async (email: string, pass: string, name?: string) => {
@@ -73,9 +75,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ email, password: pass, display_name: displayName }),
     });
 
-    localStorage.setItem('nevatal_token', res.token);
-    setToken(res.token);
-    setUser(res.user);
+    if (res?.token) {
+      localStorage.setItem('nevatal_token', res.token);
+      setToken(res.token);
+      setUser(res.user);
+    }
   };
 
   const loginWithOAuth = async (provider: 'google' | 'github' | 'wordpress', payload?: any) => {
@@ -84,9 +88,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify(payload || {}),
     });
 
-    localStorage.setItem('nevatal_token', res.token);
-    setToken(res.token);
-    setUser(res.user);
+    if (res?.token) {
+      localStorage.setItem('nevatal_token', res.token);
+      setToken(res.token);
+      setUser(res.user);
+    }
   };
 
   const logout = () => {

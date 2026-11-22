@@ -71,6 +71,9 @@ func (h *ObservabilityHandler) UserEvents(c *gin.Context) {
 		writeError(c, err, http.StatusInternalServerError, "INTERNAL_ERROR")
 		return
 	}
+	if events == nil {
+		events = []models.ObservabilityEvent{}
+	}
 	response.OK(c, map[string]any{
 		"events": events,
 		"total":  count,
@@ -91,9 +94,26 @@ func (h *ObservabilityHandler) UserAlerts(c *gin.Context) {
 		writeError(c, err, http.StatusInternalServerError, "INTERNAL_ERROR")
 		return
 	}
+	if alerts == nil {
+		alerts = []models.ObservabilityAlert{}
+	}
+	if rules == nil {
+		rules = []models.ObservabilityAlertRule{}
+	}
+	var activeAlerts []models.ObservabilityAlert
+	for _, a := range alerts {
+		if a.Status != "resolved" {
+			activeAlerts = append(activeAlerts, a)
+		}
+	}
+	if activeAlerts == nil {
+		activeAlerts = []models.ObservabilityAlert{}
+	}
 	response.OK(c, map[string]any{
-		"alerts": alerts,
-		"rules":  rules,
+		"alerts":        alerts,
+		"all_alerts":    alerts,
+		"active_alerts": activeAlerts,
+		"rules":         rules,
 	})
 }
 
@@ -412,6 +432,9 @@ func (h *ObservabilityHandler) AdminEvents(c *gin.Context) {
 		writeError(c, err, http.StatusInternalServerError, "INTERNAL_ERROR")
 		return
 	}
+	if events == nil {
+		events = []models.ObservabilityEvent{}
+	}
 	response.OK(c, map[string]any{
 		"events": events,
 		"total":  count,
@@ -451,6 +474,9 @@ func (h *ObservabilityHandler) AdminLogs(c *gin.Context) {
 		writeError(c, err, http.StatusInternalServerError, "INTERNAL_ERROR")
 		return
 	}
+	if logs == nil {
+		logs = []models.ObservabilityLog{}
+	}
 	response.OK(c, map[string]any{
 		"logs":  logs,
 		"total": count,
@@ -470,9 +496,26 @@ func (h *ObservabilityHandler) AdminAlerts(c *gin.Context) {
 		writeError(c, err, http.StatusInternalServerError, "INTERNAL_ERROR")
 		return
 	}
+	if alerts == nil {
+		alerts = []models.ObservabilityAlert{}
+	}
+	if rules == nil {
+		rules = []models.ObservabilityAlertRule{}
+	}
+	var activeAlerts []models.ObservabilityAlert
+	for _, a := range alerts {
+		if a.Status != "resolved" {
+			activeAlerts = append(activeAlerts, a)
+		}
+	}
+	if activeAlerts == nil {
+		activeAlerts = []models.ObservabilityAlert{}
+	}
 	response.OK(c, map[string]any{
-		"alerts": alerts,
-		"rules":  rules,
+		"alerts":        alerts,
+		"all_alerts":    alerts,
+		"active_alerts": activeAlerts,
+		"rules":         rules,
 	})
 }
 
@@ -519,6 +562,9 @@ func (h *ObservabilityHandler) AdminIncidents(c *gin.Context) {
 	if err != nil {
 		writeError(c, err, http.StatusInternalServerError, "INTERNAL_ERROR")
 		return
+	}
+	if incs == nil {
+		incs = []models.ObservabilityIncident{}
 	}
 	response.OK(c, incs)
 }

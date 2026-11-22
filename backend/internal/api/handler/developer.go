@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nevatal/cloud/internal/api/middleware"
 	"github.com/nevatal/cloud/internal/api/response"
+	"github.com/nevatal/cloud/internal/models"
 	"github.com/nevatal/cloud/internal/usecase"
 )
 
@@ -28,7 +29,10 @@ func (h *DeveloperHandler) ListAPIKeys(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, keys)
+	if keys == nil {
+		keys = []models.APIKey{}
+	}
+	response.OK(c, keys)
 }
 
 func (h *DeveloperHandler) CreateAPIKey(c *gin.Context) {
@@ -43,7 +47,7 @@ func (h *DeveloperHandler) CreateAPIKey(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, res)
+	response.Created(c, res)
 }
 
 func (h *DeveloperHandler) RevokeAPIKey(c *gin.Context) {
@@ -57,7 +61,7 @@ func (h *DeveloperHandler) RevokeAPIKey(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "revoked"})
+	response.OK(c, map[string]string{"status": "revoked"})
 }
 
 // Webhooks
@@ -69,7 +73,10 @@ func (h *DeveloperHandler) ListWebhooks(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, eps)
+	if eps == nil {
+		eps = []models.WebhookEndpoint{}
+	}
+	response.OK(c, eps)
 }
 
 func (h *DeveloperHandler) CreateWebhook(c *gin.Context) {
@@ -88,7 +95,7 @@ func (h *DeveloperHandler) CreateWebhook(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, ep)
+	response.Created(c, ep)
 }
 
 func (h *DeveloperHandler) GetWebhook(c *gin.Context) {
@@ -103,7 +110,7 @@ func (h *DeveloperHandler) GetWebhook(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, ep)
+	response.OK(c, ep)
 }
 
 func (h *DeveloperHandler) UpdateWebhook(c *gin.Context) {
@@ -123,7 +130,7 @@ func (h *DeveloperHandler) UpdateWebhook(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, ep)
+	response.OK(c, ep)
 }
 
 func (h *DeveloperHandler) DeleteWebhook(c *gin.Context) {
@@ -137,7 +144,7 @@ func (h *DeveloperHandler) DeleteWebhook(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "deleted"})
+	response.OK(c, map[string]string{"status": "deleted"})
 }
 
 func (h *DeveloperHandler) RotateSecret(c *gin.Context) {
@@ -152,7 +159,7 @@ func (h *DeveloperHandler) RotateSecret(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"secret": newSecret})
+	response.OK(c, map[string]string{"secret": newSecret})
 }
 
 func (h *DeveloperHandler) TestPing(c *gin.Context) {
@@ -167,7 +174,7 @@ func (h *DeveloperHandler) TestPing(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, del)
+	response.OK(c, del)
 }
 
 func (h *DeveloperHandler) ListDeliveries(c *gin.Context) {
@@ -184,7 +191,10 @@ func (h *DeveloperHandler) ListDeliveries(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, deliveries)
+	if deliveries == nil {
+		deliveries = []models.WebhookDelivery{}
+	}
+	response.OK(c, deliveries)
 }
 
 func (h *DeveloperHandler) RetryDelivery(c *gin.Context) {
@@ -199,7 +209,7 @@ func (h *DeveloperHandler) RetryDelivery(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, del)
+	response.OK(c, del)
 }
 
 // OpenAPI Specification Endpoint

@@ -45,5 +45,8 @@ export async function apiRequest<T>(
     throw new ApiError(message, code, errorInfo?.details, response.status);
   }
 
-  return data?.data as T;
+  if (data !== null && typeof data === 'object' && 'data' in data && (data as any).data !== undefined) {
+    return (data as any).data as T;
+  }
+  return data as T;
 }

@@ -750,7 +750,7 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
               </h3>
 
               <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
-                {activity.length === 0 ? (
+                {(activity || []).length === 0 ? (
                   <p className="text-xs text-slate-500 text-center py-4">No events logged yet.</p>
                 ) : (
                   activity.map((item) => (
@@ -917,7 +917,7 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ instanceId, on
                         Loading snapshots from hypervisor...
                       </td>
                     </tr>
-                  ) : snapshots.length === 0 ? (
+                  ) : (snapshots || []).length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-12 text-center text-slate-500">
                         No snapshots taken for this instance yet.

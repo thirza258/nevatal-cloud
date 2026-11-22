@@ -77,10 +77,12 @@ export const InstancesList: React.FC<InstancesListProps> = ({ onNavigate }) => {
     }
   };
 
-  const filteredInstances = instances.filter((inst) => {
+  const safeInstances = Array.isArray(instances) ? instances : [];
+  const filteredInstances = safeInstances.filter((inst) => {
     const matchesSearch =
-      inst.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (inst.private_ip && inst.private_ip.includes(searchTerm));
+      inst.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (inst.private_ip && inst.private_ip.includes(searchTerm)) ||
+      (inst.public_ip && inst.public_ip.includes(searchTerm));
     if (!matchesSearch) return false;
 
     if (statusFilter === 'all') return true;

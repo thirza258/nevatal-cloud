@@ -280,7 +280,7 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
         {/* Left: Load Balancers List */}
         <div className="lg:col-span-1 space-y-3">
           <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Load Balancers</h2>
-          {loadBalancers.map((lb) => (
+          {(loadBalancers || []).map((lb) => (
             <div
               key={lb.id}
               onClick={() => setSelectedLB(lb)}
@@ -313,7 +313,7 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
             </div>
           ))}
 
-          {loadBalancers.length === 0 && !loading && (
+          {(loadBalancers || []).length === 0 && !loading && (
             <div className="p-8 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-400">
               No load balancers configured. Click &quot;Create Load Balancer&quot; to begin.
             </div>

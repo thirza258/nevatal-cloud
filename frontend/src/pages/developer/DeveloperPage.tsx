@@ -272,7 +272,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
           }`}
         >
           <Key className="w-4 h-4" />
-          API Keys ({apiKeys.length})
+          API Keys ({(apiKeys || []).length})
         </button>
         <button
           onClick={() => setActiveTab('webhooks')}
@@ -283,7 +283,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
           }`}
         >
           <Webhook className="w-4 h-4" />
-          Webhooks ({webhooks.length})
+          Webhooks ({(webhooks || []).length})
         </button>
         <button
           onClick={() => setActiveTab('sdk')}
@@ -403,7 +403,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
                       </td>
                     </tr>
                   ))}
-                  {apiKeys.length === 0 && !loading && (
+                  {(apiKeys || []).length === 0 && !loading && (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-slate-500 italic font-sans text-xs">
                         No API keys generated yet.
@@ -437,7 +437,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
             {/* Endpoints List */}
             <div className="lg:col-span-1 space-y-3">
               <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Webhook Endpoints</h2>
-              {webhooks.map((ep) => (
+              {(webhooks || []).map((ep) => (
                 <div
                   key={ep.id}
                   onClick={() => handleSelectEndpoint(ep)}
@@ -477,7 +477,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
                   </div>
                 </div>
               ))}
-              {webhooks.length === 0 && !loading && (
+              {(webhooks || []).length === 0 && !loading && (
                 <div className="p-6 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-500">
                   No webhook endpoints registered.
                 </div>
@@ -487,7 +487,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
             {/* Deliveries Stream */}
             <div className="lg:col-span-2 space-y-3">
               <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                {selectedEndpoint ? `Delivery History (${deliveries.length})` : 'Select an Endpoint'}
+                {selectedEndpoint ? `Delivery History (${(deliveries || []).length})` : 'Select an Endpoint'}
               </h2>
 
               {selectedEndpoint ? (
@@ -505,7 +505,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800">
-                        {deliveries.map((del) => (
+                        {(deliveries || []).map((del) => (
                           <tr key={del.id} className="hover:bg-slate-800/30">
                             <td className="py-2 px-3">
                               <span
@@ -536,7 +536,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
                             </td>
                           </tr>
                         ))}
-                        {deliveries.length === 0 && (
+                        {(deliveries || []).length === 0 && (
                           <tr>
                             <td colSpan={6} className="py-6 text-center text-slate-500 italic font-sans text-xs">
                               No deliveries recorded for this endpoint yet.

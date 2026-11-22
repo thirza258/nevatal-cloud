@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nevatal/cloud/internal/api/middleware"
 	"github.com/nevatal/cloud/internal/api/response"
+	"github.com/nevatal/cloud/internal/models"
 	"github.com/nevatal/cloud/internal/usecase"
 )
 
@@ -27,7 +28,10 @@ func (h *NetworkHandler) ListNetworks(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, nets)
+	if nets == nil {
+		nets = []models.Network{}
+	}
+	response.OK(c, nets)
 }
 
 func (h *NetworkHandler) CreateNetwork(c *gin.Context) {
@@ -50,7 +54,7 @@ func (h *NetworkHandler) CreateNetwork(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, net)
+	response.Created(c, net)
 }
 
 func (h *NetworkHandler) GetNetwork(c *gin.Context) {
@@ -65,7 +69,7 @@ func (h *NetworkHandler) GetNetwork(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, net)
+	response.OK(c, net)
 }
 
 func (h *NetworkHandler) UpdateNetwork(c *gin.Context) {
@@ -85,7 +89,7 @@ func (h *NetworkHandler) UpdateNetwork(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, net)
+	response.OK(c, net)
 }
 
 func (h *NetworkHandler) DeleteNetwork(c *gin.Context) {
@@ -99,7 +103,7 @@ func (h *NetworkHandler) DeleteNetwork(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "DELETE_FAILED", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "deleted"})
+	response.OK(c, map[string]string{"status": "deleted"})
 }
 
 func (h *NetworkHandler) AttachInstance(c *gin.Context) {
@@ -129,7 +133,7 @@ func (h *NetworkHandler) AttachInstance(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, att)
+	response.Created(c, att)
 }
 
 func (h *NetworkHandler) DetachInstance(c *gin.Context) {
@@ -148,7 +152,7 @@ func (h *NetworkHandler) DetachInstance(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "detached"})
+	response.OK(c, map[string]string{"status": "detached"})
 }
 
 func (h *NetworkHandler) GetNetworkTraffic(c *gin.Context) {
@@ -164,7 +168,7 @@ func (h *NetworkHandler) GetNetworkTraffic(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, metrics)
+	response.OK(c, metrics)
 }
 
 // Firewalls
@@ -176,7 +180,10 @@ func (h *NetworkHandler) ListFirewalls(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, fws)
+	if fws == nil {
+		fws = []models.Firewall{}
+	}
+	response.OK(c, fws)
 }
 
 func (h *NetworkHandler) CreateFirewall(c *gin.Context) {
@@ -191,7 +198,7 @@ func (h *NetworkHandler) CreateFirewall(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, fw)
+	response.Created(c, fw)
 }
 
 func (h *NetworkHandler) GetFirewall(c *gin.Context) {
@@ -206,7 +213,7 @@ func (h *NetworkHandler) GetFirewall(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, fw)
+	response.OK(c, fw)
 }
 
 func (h *NetworkHandler) UpdateFirewall(c *gin.Context) {
@@ -226,7 +233,7 @@ func (h *NetworkHandler) UpdateFirewall(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, fw)
+	response.OK(c, fw)
 }
 
 func (h *NetworkHandler) DeleteFirewall(c *gin.Context) {
@@ -240,7 +247,7 @@ func (h *NetworkHandler) DeleteFirewall(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "deleted"})
+	response.OK(c, map[string]string{"status": "deleted"})
 }
 
 func (h *NetworkHandler) AddFirewallRule(c *gin.Context) {
@@ -264,7 +271,7 @@ func (h *NetworkHandler) AddFirewallRule(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, rule)
+	response.Created(c, rule)
 }
 
 func (h *NetworkHandler) UpdateFirewallRule(c *gin.Context) {
@@ -289,7 +296,7 @@ func (h *NetworkHandler) UpdateFirewallRule(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, rule)
+	response.OK(c, rule)
 }
 
 func (h *NetworkHandler) DeleteFirewallRule(c *gin.Context) {
@@ -308,7 +315,7 @@ func (h *NetworkHandler) DeleteFirewallRule(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "deleted"})
+	response.OK(c, map[string]string{"status": "deleted"})
 }
 
 func (h *NetworkHandler) AttachFirewall(c *gin.Context) {
@@ -332,7 +339,7 @@ func (h *NetworkHandler) AttachFirewall(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, att)
+	response.Created(c, att)
 }
 
 func (h *NetworkHandler) DetachFirewall(c *gin.Context) {
@@ -351,7 +358,7 @@ func (h *NetworkHandler) DetachFirewall(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "detached"})
+	response.OK(c, map[string]string{"status": "detached"})
 }
 
 // Floating IPs
@@ -363,7 +370,7 @@ func (h *NetworkHandler) ListFloatingIPs(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, fips)
+	response.OK(c, fips)
 }
 
 func (h *NetworkHandler) AllocateFloatingIP(c *gin.Context) {
@@ -382,7 +389,7 @@ func (h *NetworkHandler) AllocateFloatingIP(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, fip)
+	response.Created(c, fip)
 }
 
 func (h *NetworkHandler) AssignFloatingIP(c *gin.Context) {
@@ -408,7 +415,7 @@ func (h *NetworkHandler) AssignFloatingIP(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, fip)
+	response.OK(c, fip)
 }
 
 func (h *NetworkHandler) UnassignFloatingIP(c *gin.Context) {
@@ -423,7 +430,7 @@ func (h *NetworkHandler) UnassignFloatingIP(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, fip)
+	response.OK(c, fip)
 }
 
 func (h *NetworkHandler) ReleaseFloatingIP(c *gin.Context) {
@@ -437,7 +444,7 @@ func (h *NetworkHandler) ReleaseFloatingIP(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "released"})
+	response.OK(c, map[string]string{"status": "released"})
 }
 
 // DNS
@@ -449,7 +456,10 @@ func (h *NetworkHandler) ListDNSZones(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, zones)
+	if zones == nil {
+		zones = []models.DNSZone{}
+	}
+	response.OK(c, zones)
 }
 
 func (h *NetworkHandler) CreateDNSZone(c *gin.Context) {
@@ -464,7 +474,7 @@ func (h *NetworkHandler) CreateDNSZone(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, zone)
+	response.Created(c, zone)
 }
 
 func (h *NetworkHandler) DeleteDNSZone(c *gin.Context) {
@@ -478,7 +488,7 @@ func (h *NetworkHandler) DeleteDNSZone(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "deleted"})
+	response.OK(c, map[string]string{"status": "deleted"})
 }
 
 func (h *NetworkHandler) ListDNSRecords(c *gin.Context) {
@@ -493,7 +503,7 @@ func (h *NetworkHandler) ListDNSRecords(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, records)
+	response.OK(c, records)
 }
 
 func (h *NetworkHandler) CreateDNSRecord(c *gin.Context) {
@@ -513,7 +523,7 @@ func (h *NetworkHandler) CreateDNSRecord(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, rec)
+	response.Created(c, rec)
 }
 
 func (h *NetworkHandler) UpdateDNSRecord(c *gin.Context) {
@@ -538,7 +548,7 @@ func (h *NetworkHandler) UpdateDNSRecord(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, rec)
+	response.OK(c, rec)
 }
 
 func (h *NetworkHandler) DeleteDNSRecord(c *gin.Context) {
@@ -557,5 +567,5 @@ func (h *NetworkHandler) DeleteDNSRecord(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "deleted"})
+	response.OK(c, map[string]string{"status": "deleted"})
 }

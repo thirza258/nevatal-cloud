@@ -407,7 +407,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
           }`}
         >
           <Layers className="w-4 h-4" />
-          Private Networks ({networks.length})
+          Private Networks ({(networks || []).length})
         </button>
         <button
           onClick={() => setActiveTab('firewalls')}
@@ -418,7 +418,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
           }`}
         >
           <Shield className="w-4 h-4" />
-          Cloud Firewalls ({firewalls.length})
+          Cloud Firewalls ({(firewalls || []).length})
         </button>
         <button
           onClick={() => setActiveTab('floating_ips')}
@@ -429,7 +429,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
           }`}
         >
           <Radio className="w-4 h-4" />
-          Floating IPs ({floatingIPs.length})
+          Floating IPs ({(floatingIPs || []).length})
         </button>
         <button
           onClick={() => setActiveTab('dns')}
@@ -440,7 +440,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
           }`}
         >
           <Globe className="w-4 h-4" />
-          DNS Zones ({dnsZones.length})
+          DNS Zones ({(dnsZones || []).length})
         </button>
       </div>
 
@@ -534,7 +534,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
               </div>
             ))}
 
-            {networks.length === 0 && !loading && (
+            {(networks || []).length === 0 && !loading && (
               <div className="col-span-2 p-8 text-center bg-slate-900 border border-slate-800 rounded-xl">
                 <p className="text-xs text-slate-400">No private networks configured. Create your first VPC network.</p>
               </div>
@@ -649,7 +649,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
               </div>
             ))}
 
-            {firewalls.length === 0 && !loading && (
+            {(firewalls || []).length === 0 && !loading && (
               <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-xl">
                 <p className="text-xs text-slate-400">No cloud firewalls created yet.</p>
               </div>
@@ -725,7 +725,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
                       </td>
                     </tr>
                   ))}
-                  {floatingIPs.length === 0 && !loading && (
+                  {(floatingIPs || []).length === 0 && !loading && (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-slate-500 italic">
                         No floating IPs allocated.
@@ -784,7 +784,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
                   </button>
                 </div>
               ))}
-              {dnsZones.length === 0 && !loading && (
+              {(dnsZones || []).length === 0 && !loading && (
                 <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-500">
                   No DNS zones found.
                 </div>
@@ -837,7 +837,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
                           </td>
                         </tr>
                       ))}
-                      {zoneRecords.length === 0 && (
+                      {(zoneRecords || []).length === 0 && (
                         <tr>
                           <td colSpan={5} className="py-6 text-center text-slate-500 italic">
                             No DNS records yet.

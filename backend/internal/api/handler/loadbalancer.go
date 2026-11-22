@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nevatal/cloud/internal/api/middleware"
 	"github.com/nevatal/cloud/internal/api/response"
+	"github.com/nevatal/cloud/internal/models"
 	"github.com/nevatal/cloud/internal/usecase"
 )
 
@@ -25,7 +26,10 @@ func (h *LoadBalancerHandler) ListLoadBalancers(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, lbs)
+	if lbs == nil {
+		lbs = []models.LoadBalancer{}
+	}
+	response.OK(c, lbs)
 }
 
 func (h *LoadBalancerHandler) CreateLoadBalancer(c *gin.Context) {
@@ -44,7 +48,7 @@ func (h *LoadBalancerHandler) CreateLoadBalancer(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, lb)
+	response.Created(c, lb)
 }
 
 func (h *LoadBalancerHandler) GetLoadBalancer(c *gin.Context) {
@@ -59,7 +63,7 @@ func (h *LoadBalancerHandler) GetLoadBalancer(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, lb)
+	response.OK(c, lb)
 }
 
 func (h *LoadBalancerHandler) UpdateLoadBalancer(c *gin.Context) {
@@ -79,7 +83,7 @@ func (h *LoadBalancerHandler) UpdateLoadBalancer(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, lb)
+	response.OK(c, lb)
 }
 
 func (h *LoadBalancerHandler) DeleteLoadBalancer(c *gin.Context) {
@@ -93,7 +97,7 @@ func (h *LoadBalancerHandler) DeleteLoadBalancer(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "deleted"})
+	response.OK(c, map[string]string{"status": "deleted"})
 }
 
 func (h *LoadBalancerHandler) AddListener(c *gin.Context) {
@@ -117,7 +121,7 @@ func (h *LoadBalancerHandler) AddListener(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, listener)
+	response.Created(c, listener)
 }
 
 func (h *LoadBalancerHandler) DeleteListener(c *gin.Context) {
@@ -136,7 +140,7 @@ func (h *LoadBalancerHandler) DeleteListener(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "deleted"})
+	response.OK(c, map[string]string{"status": "deleted"})
 }
 
 func (h *LoadBalancerHandler) AddPool(c *gin.Context) {
@@ -156,7 +160,7 @@ func (h *LoadBalancerHandler) AddPool(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, pool)
+	response.Created(c, pool)
 }
 
 func (h *LoadBalancerHandler) UpdatePool(c *gin.Context) {
@@ -181,7 +185,7 @@ func (h *LoadBalancerHandler) UpdatePool(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, pool)
+	response.OK(c, pool)
 }
 
 func (h *LoadBalancerHandler) DeletePool(c *gin.Context) {
@@ -200,7 +204,7 @@ func (h *LoadBalancerHandler) DeletePool(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "deleted"})
+	response.OK(c, map[string]string{"status": "deleted"})
 }
 
 func (h *LoadBalancerHandler) AddMember(c *gin.Context) {
@@ -225,7 +229,7 @@ func (h *LoadBalancerHandler) AddMember(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "ADD_MEMBER_FAILED", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, member)
+	response.Created(c, member)
 }
 
 func (h *LoadBalancerHandler) UpdateMember(c *gin.Context) {
@@ -255,7 +259,7 @@ func (h *LoadBalancerHandler) UpdateMember(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, member)
+	response.OK(c, member)
 }
 
 func (h *LoadBalancerHandler) DeleteMember(c *gin.Context) {
@@ -279,7 +283,7 @@ func (h *LoadBalancerHandler) DeleteMember(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "deleted"})
+	response.OK(c, map[string]string{"status": "deleted"})
 }
 
 func (h *LoadBalancerHandler) GetHealth(c *gin.Context) {
@@ -294,7 +298,7 @@ func (h *LoadBalancerHandler) GetHealth(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, health)
+	response.OK(c, health)
 }
 
 func (h *LoadBalancerHandler) GetMetrics(c *gin.Context) {
@@ -309,7 +313,7 @@ func (h *LoadBalancerHandler) GetMetrics(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, metrics)
+	response.OK(c, metrics)
 }
 
 func (h *LoadBalancerHandler) ListCertificates(c *gin.Context) {
@@ -319,7 +323,10 @@ func (h *LoadBalancerHandler) ListCertificates(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, certs)
+	if certs == nil {
+		certs = []models.LoadBalancerCertificate{}
+	}
+	response.OK(c, certs)
 }
 
 func (h *LoadBalancerHandler) AddCertificate(c *gin.Context) {
@@ -343,7 +350,7 @@ func (h *LoadBalancerHandler) AddCertificate(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusCreated, cert)
+	response.Created(c, cert)
 }
 
 func (h *LoadBalancerHandler) DeleteCertificate(c *gin.Context) {
@@ -357,5 +364,5 @@ func (h *LoadBalancerHandler) DeleteCertificate(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
-	response.JSON(c, http.StatusOK, map[string]string{"status": "deleted"})
+	response.OK(c, map[string]string{"status": "deleted"})
 }

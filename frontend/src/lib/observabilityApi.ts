@@ -54,17 +54,28 @@ export async function getUserEvents(params?: {
   if (params?.event_type) query.set('event_type', params.event_type);
   if (params?.limit) query.set('limit', String(params.limit));
   const qStr = query.toString();
-  return apiRequest<ObservabilityEvent[]>(`/observability/events${qStr ? `?${qStr}` : ''}`);
+  const res = await apiRequest<any>(`/observability/events${qStr ? `?${qStr}` : ''}`);
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.events)) return res.events;
+  return [];
 }
 
 export async function getUserAlerts(): Promise<{
   active_alerts: ObservabilityAlert[];
+  all_alerts: ObservabilityAlert[];
   rules: ObservabilityAlertRule[];
 }> {
-  return apiRequest<{
-    active_alerts: ObservabilityAlert[];
-    rules: ObservabilityAlertRule[];
-  }>('/observability/alerts');
+  const res = await apiRequest<any>('/observability/alerts');
+  const all = Array.isArray(res) ? res : (res?.all_alerts || res?.alerts || []);
+  const active = Array.isArray(res?.active_alerts)
+    ? res.active_alerts
+    : all.filter((a: any) => a.status !== 'resolved');
+  const rules = Array.isArray(res?.rules) ? res.rules : [];
+  return {
+    active_alerts: active,
+    all_alerts: all,
+    rules: rules,
+  };
 }
 
 export async function createUserAlertRule(
@@ -126,7 +137,8 @@ export async function getAdminInfrastructure(): Promise<InfrastructureHealth> {
 }
 
 export async function getAdminNodes(): Promise<any[]> {
-  return apiRequest<any[]>('/admin/observability/nodes');
+  const res = await apiRequest<any>('/admin/observability/nodes');
+  return Array.isArray(res) ? res : (res?.nodes || []);
 }
 
 export async function getAdminNodeDetail(nodeId: string): Promise<any> {
@@ -138,7 +150,8 @@ export async function getAdminStorage(): Promise<any> {
 }
 
 export async function getAdminVMs(): Promise<VMDetailObservability[]> {
-  return apiRequest<VMDetailObservability[]>('/admin/observability/vms');
+  const res = await apiRequest<any>('/admin/observability/vms');
+  return Array.isArray(res) ? res : (res?.vms || []);
 }
 
 export async function getAdminVMDetail(vmId: string): Promise<VMDetailObservability> {
@@ -154,7 +167,8 @@ export async function getAdminJobs(): Promise<JobObservabilitySummary> {
 }
 
 export async function getAdminTenants(): Promise<TenantObservabilityDetail[]> {
-  return apiRequest<TenantObservabilityDetail[]>('/admin/observability/tenants');
+  const res = await apiRequest<any>('/admin/observability/tenants');
+  return Array.isArray(res) ? res : (res?.tenants || []);
 }
 
 export async function getAdminEvents(params?: {
@@ -171,7 +185,10 @@ export async function getAdminEvents(params?: {
   if (params?.correlation_id) query.set('correlation_id', params.correlation_id);
   if (params?.limit) query.set('limit', String(params.limit));
   const qStr = query.toString();
-  return apiRequest<ObservabilityEvent[]>(`/admin/observability/events${qStr ? `?${qStr}` : ''}`);
+  const res = await apiRequest<any>(`/admin/observability/events${qStr ? `?${qStr}` : ''}`);
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.events)) return res.events;
+  return [];
 }
 
 export async function getAdminLogs(params?: {
@@ -188,7 +205,10 @@ export async function getAdminLogs(params?: {
   if (params?.job_id) query.set('job_id', params.job_id);
   if (params?.limit) query.set('limit', String(params.limit));
   const qStr = query.toString();
-  return apiRequest<ObservabilityLog[]>(`/admin/observability/logs${qStr ? `?${qStr}` : ''}`);
+  const res = await apiRequest<any>(`/admin/observability/logs${qStr ? `?${qStr}` : ''}`);
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.logs)) return res.logs;
+  return [];
 }
 
 export async function getAdminAlerts(): Promise<{
@@ -196,11 +216,17 @@ export async function getAdminAlerts(): Promise<{
   all_alerts: ObservabilityAlert[];
   rules: ObservabilityAlertRule[];
 }> {
-  return apiRequest<{
-    active_alerts: ObservabilityAlert[];
-    all_alerts: ObservabilityAlert[];
-    rules: ObservabilityAlertRule[];
-  }>('/admin/observability/alerts');
+  const res = await apiRequest<any>('/admin/observability/alerts');
+  const all = Array.isArray(res) ? res : (res?.all_alerts || res?.alerts || []);
+  const active = Array.isArray(res?.active_alerts)
+    ? res.active_alerts
+    : all.filter((a: any) => a.status !== 'resolved');
+  const rules = Array.isArray(res?.rules) ? res.rules : [];
+  return {
+    active_alerts: active,
+    all_alerts: all,
+    rules: rules,
+  };
 }
 
 export async function acknowledgeAlert(alertId: string): Promise<ObservabilityAlert> {
@@ -220,7 +246,10 @@ export async function resolveAlert(
 }
 
 export async function getAdminIncidents(): Promise<ObservabilityIncident[]> {
-  return apiRequest<ObservabilityIncident[]>('/admin/observability/incidents');
+  const res = await apiRequest<any>('/admin/observability/incidents');
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.incidents)) return res.incidents;
+  return [];
 }
 
 export async function createAdminIncident(

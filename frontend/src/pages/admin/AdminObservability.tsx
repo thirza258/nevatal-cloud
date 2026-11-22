@@ -288,6 +288,14 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
     }
   };
 
+  const safeActiveAlerts = Array.isArray(alertsData?.active_alerts) ? alertsData.active_alerts : [];
+  const safeAllAlerts = Array.isArray(alertsData?.all_alerts) ? alertsData.all_alerts : [];
+  const safeIncidents = Array.isArray(incidents) ? incidents : [];
+  const safeVMs = Array.isArray(vms) ? vms : [];
+  const safeTenants = Array.isArray(tenantsData) ? tenantsData : [];
+  const safeEvents = Array.isArray(events) ? events : [];
+  const safeLogs = Array.isArray(logs) ? logs : [];
+
   return (
     <div className="space-y-6 pb-16">
       {/* Platform Status Bar */}
@@ -334,8 +342,8 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
           { id: 'tenants', label: 'Tenants Matrix', icon: Users },
           { id: 'events', label: 'Platform Events', icon: Activity },
           { id: 'logs', label: 'Evidence Logs', icon: FileText },
-          { id: 'alerts', label: 'Alerts', icon: AlertTriangle, badge: alertsData.active_alerts.length },
-          { id: 'incidents', label: 'Incidents', icon: AlertOctagon, badge: incidents.filter((i) => i.status !== 'resolved').length },
+          { id: 'alerts', label: 'Alerts', icon: AlertTriangle, badge: safeActiveAlerts.length },
+          { id: 'incidents', label: 'Incidents', icon: AlertOctagon, badge: safeIncidents.filter((i) => i?.status !== 'resolved').length },
           { id: 'capacity', label: 'Capacity Forecast', icon: Sliders },
           { id: 'investigation', label: 'AI Investigation', icon: Sparkles },
         ].map((tab) => {
@@ -454,7 +462,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                 </button>
               </div>
               <div className="space-y-2.5">
-                {incidents.filter((i) => i.status !== 'resolved').slice(0, 3).map((inc) => (
+                {safeIncidents.filter((i) => i?.status !== 'resolved').slice(0, 3).map((inc) => (
                   <div key={inc.id} className="p-3 rounded-lg bg-zinc-900/80 border border-rose-500/30 text-xs">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -468,7 +476,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                     <p className="text-zinc-400 text-[11px] mt-1.5">{inc.root_cause || 'Investigating impact...'}</p>
                   </div>
                 ))}
-                {incidents.filter((i) => i.status !== 'resolved').length === 0 && (
+                {safeIncidents.filter((i) => i?.status !== 'resolved').length === 0 && (
                   <div className="text-center py-6 text-zinc-400 text-xs">
                     <CheckCircle2 className="w-5 h-5 text-emerald-400 mx-auto mb-1.5" />
                     Zero open incidents detected. All services operational.
@@ -491,7 +499,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                 </button>
               </div>
               <div className="space-y-2.5">
-                {alertsData.active_alerts.slice(0, 3).map((al) => (
+                {safeActiveAlerts.slice(0, 3).map((al) => (
                   <div key={al.id} className="p-3 rounded-lg bg-zinc-900/80 border border-amber-500/30 text-xs flex items-center justify-between">
                     <div>
                       <span className="font-semibold text-white">{al.title}</span>
@@ -505,7 +513,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                     </button>
                   </div>
                 ))}
-                {alertsData.active_alerts.length === 0 && (
+                {safeActiveAlerts.length === 0 && (
                   <div className="text-center py-6 text-zinc-400 text-xs">
                     <CheckCircle2 className="w-5 h-5 text-emerald-400 mx-auto mb-1.5" />
                     No active threshold triggers firing.
@@ -705,7 +713,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-white">Cluster Fleet Observability</h3>
-            <span className="text-xs text-zinc-400 font-mono">{vms.length} Instances</span>
+            <span className="text-xs text-zinc-400 font-mono">{safeVMs.length} Instances</span>
           </div>
 
           <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg overflow-hidden">
@@ -724,7 +732,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60 font-mono">
-                  {vms.map((v) => (
+                  {safeVMs.map((v) => (
                     <tr key={v.instance.id} className="hover:bg-zinc-900/40 transition">
                       <td className="px-4 py-3 font-sans">
                         <div className="font-semibold text-white">{v.instance.name}</div>
@@ -762,7 +770,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                       </td>
                     </tr>
                   ))}
-                  {vms.length === 0 && (
+                  {safeVMs.length === 0 && (
                     <tr>
                       <td colSpan={8} className="text-center py-8 text-zinc-400 font-sans">
                         No instances found.
@@ -935,7 +943,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-white">Multi-Tenant Resource Consumption &amp; Noise Matrix</h3>
-            <span className="text-xs text-zinc-400 font-mono">{tenantsData.length} Tenants</span>
+            <span className="text-xs text-zinc-400 font-mono">{safeTenants.length} Tenants</span>
           </div>
 
           <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg overflow-hidden">
@@ -954,7 +962,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60 font-mono">
-                  {tenantsData.map((t) => (
+                  {safeTenants.map((t) => (
                     <tr key={t.tenant_id} className="hover:bg-zinc-900/40 transition">
                       <td className="px-4 py-3 font-sans">
                         <div className="font-semibold text-white">{t.email}</div>
@@ -969,7 +977,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                       <td className="px-4 py-3">{renderStatusPill(t.health || 'Healthy')}</td>
                     </tr>
                   ))}
-                  {tenantsData.length === 0 && (
+                  {safeTenants.length === 0 && (
                     <tr>
                       <td colSpan={8} className="text-center py-8 text-zinc-400 font-sans">
                         No tenant telemetry available.
@@ -1015,7 +1023,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60 font-mono">
-                  {events
+                  {safeEvents
                     .filter((e) => eventSeverityFilter === 'all' || e.severity.toLowerCase() === eventSeverityFilter.toLowerCase())
                     .map((ev) => (
                       <tr key={ev.id} className="hover:bg-zinc-900/40 transition">
@@ -1029,7 +1037,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                         <td className="px-4 py-3 text-zinc-400 text-[11px]">{ev.correlation_id ? ev.correlation_id.slice(0, 8) + '...' : '—'}</td>
                       </tr>
                     ))}
-                  {events.length === 0 && (
+                  {safeEvents.length === 0 && (
                     <tr>
                       <td colSpan={6} className="text-center py-8 text-zinc-400 font-sans">
                         No events recorded.
@@ -1073,7 +1081,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
           </div>
 
           <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 font-mono text-xs overflow-x-auto max-h-[600px] overflow-y-auto space-y-2">
-            {logs
+            {safeLogs
               .filter((l) => logLevelFilter === 'all' || l.level.toUpperCase() === logLevelFilter.toUpperCase())
               .filter((l) => !logSearchQuery || l.message.toLowerCase().includes(logSearchQuery.toLowerCase()))
               .map((l) => (
@@ -1092,7 +1100,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                   <div className="text-zinc-200 mt-1 font-sans">{l.message}</div>
                 </div>
               ))}
-            {logs.length === 0 && (
+            {safeLogs.length === 0 && (
               <p className="text-center py-8 text-zinc-500">No operational logs recorded.</p>
             )}
           </div>
@@ -1104,7 +1112,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-white">Central Alert Management</h3>
-            <span className="text-xs text-zinc-400 font-mono">{alertsData.active_alerts.length} Active / {alertsData.all_alerts.length} Total</span>
+            <span className="text-xs text-zinc-400 font-mono">{safeActiveAlerts.length} Active / {safeAllAlerts.length} Total</span>
           </div>
 
           <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg overflow-hidden">
@@ -1121,7 +1129,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60 font-mono">
-                  {alertsData.all_alerts.map((al) => (
+                  {safeAllAlerts.map((al) => (
                     <tr key={al.id} className="hover:bg-zinc-900/40 transition">
                       <td className="px-4 py-3 font-sans font-semibold text-white">{al.title}</td>
                       <td className="px-4 py-3">{renderStatusPill(al.severity)}</td>
@@ -1148,7 +1156,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                       </td>
                     </tr>
                   ))}
-                  {alertsData.all_alerts.length === 0 && (
+                  {safeAllAlerts.length === 0 && (
                     <tr>
                       <td colSpan={6} className="text-center py-8 text-zinc-400 font-sans">
                         Zero alerts generated.
@@ -1180,7 +1188,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
           </div>
 
           <div className="space-y-4">
-            {incidents.map((inc) => (
+            {safeIncidents.map((inc) => (
               <div key={inc.id} className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -1205,7 +1213,7 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                 </div>
               </div>
             ))}
-            {incidents.length === 0 && (
+            {safeIncidents.length === 0 && (
               <div className="text-center py-12 text-zinc-400 text-xs bg-zinc-900/40 border border-zinc-800 rounded-lg">
                 <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
                 No active or historical incidents recorded.
