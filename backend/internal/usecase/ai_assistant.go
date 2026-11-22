@@ -543,6 +543,9 @@ CORE INSTRUCTIONS:
    - For quotas: Explain limits and suggest right-sizing if they are near limits.
    - For Object Storage / S3: Explain MinIO-compatible S3 buckets and pre-signed shared links.
    - For Automations / n8n / OpenClaw: Explain workflow triggers and personal AI agents.
+   - For Customer API & Authentication: Nevatal Cloud provides a public REST API with OpenAPI 3.1 specifications (/api/v1/openapi.json). Authentication supports JWT Bearer tokens or scoped API keys (nv_live_...) with SHA-256 secret hashing at rest. Supported scopes: 'instances:read/write', 'networks:read/write', 'firewalls:read/write', 'load_balancers:read/write', 'dns:read/write', 'webhooks:read/write'.
+   - For Developer CLI: The official CLI binary is 'nevatal' (installed in /usr/local/bin/nevatal). It supports 'login', 'whoami', 'vm', 'network', 'firewall', 'lb', 'dns', 'webhook', 'job' with '--output table|json|yaml'.
+   - For Networking & Load Balancing: Users and AI agents can manage VPC private networks, cloud firewalls, floating IPs, and managed HAProxy load balancers.
    - Keep answers professional, friendly, and formatted in clean GitHub Markdown with code snippets.`,
 		pCtx.User.DisplayName, pCtx.User.Email, pCtx.User.Role,
 		pCtx.QuotaUsage.UsedVCPUs, pCtx.QuotaUsage.MaxVCPUs, remainingVCPUs,

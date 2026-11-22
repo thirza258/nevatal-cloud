@@ -55,6 +55,9 @@ type OrchestratorServices struct {
 	Audit         *AuditUsecase
 	Notifications *NotificationUsecase
 	Policies      *AutomationPolicyUsecase
+	Network       *NetworkUsecase
+	LoadBalancer  *LoadBalancerUsecase
+	Developer     *DeveloperUsecase
 }
 
 // OrchestratorUsecase is the approval manager and the API of the AI

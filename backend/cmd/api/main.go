@@ -140,6 +140,9 @@ func main() {
 	databaseUC := usecase.NewDatabaseUsecase(managedDBRepo, auditUC, quotaUC, cfg, secretCipher)
 	resourceUC := usecase.NewResourceUsecase(instanceUC, appUC, automationUC, openClawUC, storageUC, gameServerUC, androidUC, databaseUC, quotaUC)
 	policiesUC := usecase.NewAutomationPolicyUsecase(policyRepo, notificationUC, auditUC)
+	networkUC := usecase.NewNetworkUsecase(networkRepo, instanceRepo)
+	loadBalancerUC := usecase.NewLoadBalancerUsecase(loadBalancerRepo, instanceRepo, secretCipher)
+	developerUC := usecase.NewDeveloperUsecase(developerRepo, secretCipher)
 	orchUC := usecase.NewOrchestratorUsecase(tx, usecase.OrchestratorRepos{
 		Orch:           orchRepo,
 		Agent:          aiAgentRepo,
@@ -170,6 +173,9 @@ func main() {
 		Audit:         auditUC,
 		Notifications: notificationUC,
 		Policies:      policiesUC,
+		Network:       networkUC,
+		LoadBalancer:  loadBalancerUC,
+		Developer:     developerUC,
 	}, cfg, pveClient)
 	policiesUC.SetPlans(orchUC)
 	monitoringUC := usecase.NewMonitoringUsecase(infraCheckRepo, notificationUC, policiesUC,
@@ -218,9 +224,6 @@ func main() {
 		Orchestrator:  orchRepo,
 		Audits:        auditRepo,
 	}, cfg, pveClient)
-	networkUC := usecase.NewNetworkUsecase(networkRepo, instanceRepo)
-	loadBalancerUC := usecase.NewLoadBalancerUsecase(loadBalancerRepo, instanceRepo, secretCipher)
-	developerUC := usecase.NewDeveloperUsecase(developerRepo, secretCipher)
 	if cfg.DomainsEnabled() {
 		log.Printf("Nevatal Domains enabled: customers publish at https://<subdomain>.%s (edge targets: %v)", cfg.PublicDomainRoot, cfg.EdgeTargetCIDRs)
 	}

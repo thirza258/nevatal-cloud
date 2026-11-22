@@ -177,6 +177,19 @@ const (
 	ToolDiagnosticsResource  = "diagnostics.resource"
 	ToolAdvisorOptimize      = "advisor.optimize"
 	ToolTopology             = "infra.topology"
+
+	// Phase 5 tool ids: Networking, Load Balancing & Developer Platform.
+	ToolNetworkList        = "network.list"
+	ToolNetworkCreate      = "network.create"
+	ToolNetworkAttach      = "network.attach"
+	ToolFirewallList       = "firewall.list"
+	ToolFirewallCreate     = "firewall.create"
+	ToolFirewallRuleAdd    = "firewall.rule.add"
+	ToolLoadBalancerList   = "loadbalancer.list"
+	ToolLoadBalancerCreate = "loadbalancer.create"
+	ToolDNSList            = "dns.list"
+	ToolAPIKeyList         = "developer.apikey.list"
+	ToolWebhookList        = "developer.webhook.list"
 )
 
 // Patterns shared by schemas and the planner.
@@ -240,6 +253,9 @@ func DefaultRegistry() *Registry {
 		r.Register(d)
 	}
 	for _, d := range phase2Tools() {
+		r.Register(d)
+	}
+	for _, d := range phase5NetworkingTools() {
 		r.Register(d)
 	}
 	for k, tool := range defaultActions {
@@ -545,5 +561,56 @@ func phase2Tools() []ToolDef {
 				"object_id": uuidStr("Object id"),
 				"name":      str("Object key (informational)"),
 			}, "bucket_id", "object_id")},
+	}
+}
+
+func phase5NetworkingTools() []ToolDef {
+	return []ToolDef{
+		// Networking & Developer Platform tools (Available for AI Agents and MCP).
+		{ID: ToolNetworkList, Title: "List private networks", Description: "List the caller's private VPC networks and attached instances.", Risk: RiskRead,
+			ResourceTypes: []string{"network"}, Idempotent: true, TimeoutSeconds: 30, InputSchema: obj(nil)},
+		{ID: ToolNetworkCreate, Title: "Create private network", Description: "Create a private VPC network with CIDR block (e.g. 10.100.0.0/24).", Risk: RiskMedium,
+			ResourceTypes: []string{"network"}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
+				"name":        strPattern("Network name", `^[a-zA-Z0-9_\-\.]{1,64}$`, 64),
+				"cidr":        strPattern("IPv4 CIDR block", `^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$`, 32),
+				"description": str("Optional description"),
+			}, "name", "cidr")},
+		{ID: ToolNetworkAttach, Title: "Attach instance to network", Description: "Attach a virtual machine instance to a private network.", Risk: RiskMedium,
+			ResourceTypes: []string{"network"}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
+				"network_id":  uuidStr("Network id"),
+				"instance_id": uuidStr("Instance id"),
+				"ip_address":  str("Optional specific IP"),
+			}, "network_id", "instance_id")},
+		{ID: ToolFirewallList, Title: "List cloud firewalls", Description: "List the caller's cloud firewalls and their rules.", Risk: RiskRead,
+			ResourceTypes: []string{"firewall"}, Idempotent: true, TimeoutSeconds: 30, InputSchema: obj(nil)},
+		{ID: ToolFirewallCreate, Title: "Create cloud firewall", Description: "Create a cloud firewall for securing instance network interfaces.", Risk: RiskMedium,
+			ResourceTypes: []string{"firewall"}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
+				"name":        strPattern("Firewall name", `^[a-zA-Z0-9_\-\.]{1,64}$`, 64),
+				"description": str("Optional description"),
+			}, "name")},
+		{ID: ToolFirewallRuleAdd, Title: "Add firewall rule", Description: "Add an allow or deny security rule to a cloud firewall.", Risk: RiskMedium,
+			ResourceTypes: []string{"firewall"}, Idempotent: true, TimeoutSeconds: 60, InputSchema: obj(map[string]any{
+				"firewall_id": uuidStr("Firewall id"),
+				"direction":   enum("Rule direction", "inbound", "outbound"),
+				"action":      enum("Rule action", "allow", "deny"),
+				"protocol":    enum("Protocol", "tcp", "udp", "icmp", "all"),
+				"port_range":  str("Port or port range (e.g. 80, 443, 8000-9000)"),
+				"cidr":        str("CIDR block (e.g. 0.0.0.0/0)"),
+				"description": str("Rule description"),
+			}, "firewall_id", "direction", "action", "protocol", "cidr")},
+		{ID: ToolLoadBalancerList, Title: "List load balancers", Description: "List the caller's managed HAProxy load balancers.", Risk: RiskRead,
+			ResourceTypes: []string{"load_balancer"}, Idempotent: true, TimeoutSeconds: 30, InputSchema: obj(nil)},
+		{ID: ToolLoadBalancerCreate, Title: "Create load balancer", Description: "Create a managed HAProxy load balancer.", Risk: RiskMedium,
+			ResourceTypes: []string{"load_balancer"}, Idempotent: true, TimeoutSeconds: 120, InputSchema: obj(map[string]any{
+				"name":       strPattern("Load balancer name", `^[a-zA-Z0-9_\-\.]{1,64}$`, 64),
+				"network_id": uuidStr("Optional VPC network id"),
+				"algorithm":  enum("Balancing algorithm", "round_robin", "least_conn", "source_ip", "weighted_round_robin"),
+			}, "name")},
+		{ID: ToolDNSList, Title: "List DNS zones", Description: "List the caller's authoritative DNS zones and records.", Risk: RiskRead,
+			ResourceTypes: []string{"dns"}, Idempotent: true, TimeoutSeconds: 30, InputSchema: obj(nil)},
+		{ID: ToolAPIKeyList, Title: "List API keys", Description: "List caller's scoped API key metadata (secrets remain masked).", Risk: RiskRead,
+			ResourceTypes: []string{"developer"}, Idempotent: true, TimeoutSeconds: 30, InputSchema: obj(nil)},
+		{ID: ToolWebhookList, Title: "List webhooks", Description: "List caller's registered webhook endpoints.", Risk: RiskRead,
+			ResourceTypes: []string{"developer"}, Idempotent: true, TimeoutSeconds: 30, InputSchema: obj(nil)},
 	}
 }

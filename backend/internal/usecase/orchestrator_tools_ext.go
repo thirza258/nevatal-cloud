@@ -40,6 +40,19 @@ func (s *OrchestratorUsecase) bindToolsExt() {
 	bind(orchestrator.ToolDiagnosticsResource, s.toolDiagnosticsResource)
 	bind(orchestrator.ToolAdvisorOptimize, s.toolAdvisorOptimize)
 	bind(orchestrator.ToolTopology, s.toolTopology)
+
+	// Phase 5: Networking & Developer Platform tools (Available for AI Agents and MCP).
+	bind(orchestrator.ToolNetworkList, s.toolNetworkList)
+	bind(orchestrator.ToolNetworkCreate, s.toolNetworkCreate)
+	bind(orchestrator.ToolNetworkAttach, s.toolNetworkAttach)
+	bind(orchestrator.ToolFirewallList, s.toolFirewallList)
+	bind(orchestrator.ToolFirewallCreate, s.toolFirewallCreate)
+	bind(orchestrator.ToolFirewallRuleAdd, s.toolFirewallRuleAdd)
+	bind(orchestrator.ToolLoadBalancerList, s.toolLoadBalancerList)
+	bind(orchestrator.ToolLoadBalancerCreate, s.toolLoadBalancerCreate)
+	bind(orchestrator.ToolDNSList, s.toolDNSList)
+	bind(orchestrator.ToolAPIKeyList, s.toolAPIKeyList)
+	bind(orchestrator.ToolWebhookList, s.toolWebhookList)
 }
 
 func serviceStatus(v any) string {
@@ -886,4 +899,165 @@ func (s *OrchestratorUsecase) linkAppDependencies(ctx context.Context, tc *orche
 			}
 		}
 	}
+}
+
+// --- Phase 5: Networking & Developer Platform Tool Handlers (for AI Agents & MCP) ---
+
+func (s *OrchestratorUsecase) toolNetworkList(ctx context.Context, tc *orchestrator.TaskContext) (map[string]any, error) {
+	if s.svc.Network == nil {
+		return nil, errors.New("networking service not configured")
+	}
+	nets, err := s.svc.Network.ListNetworks(ctx, tc.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"networks": nets, "count": len(nets)}, nil
+}
+
+func (s *OrchestratorUsecase) toolNetworkCreate(ctx context.Context, tc *orchestrator.TaskContext) (map[string]any, error) {
+	if s.svc.Network == nil {
+		return nil, errors.New("networking service not configured")
+	}
+	name := orchestrator.String(tc.Input, "name")
+	cidr := orchestrator.String(tc.Input, "cidr")
+	desc := orchestrator.String(tc.Input, "description")
+	net, err := s.svc.Network.CreateNetwork(ctx, tc.UserID, CreateNetworkInput{
+		Name: name, CIDR: cidr, Description: desc,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"id": net.ID.String(), "name": net.Name, "cidr": net.CIDR}, nil
+}
+
+func (s *OrchestratorUsecase) toolNetworkAttach(ctx context.Context, tc *orchestrator.TaskContext) (map[string]any, error) {
+	if s.svc.Network == nil {
+		return nil, errors.New("networking service not configured")
+	}
+	netID, err := uuid.Parse(orchestrator.String(tc.Input, "network_id"))
+	if err != nil {
+		return nil, errors.New("invalid network_id")
+	}
+	instID, err := uuid.Parse(orchestrator.String(tc.Input, "instance_id"))
+	if err != nil {
+		return nil, errors.New("invalid instance_id")
+	}
+	att, err := s.svc.Network.AttachInstance(ctx, tc.UserID, netID, instID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"attachment_id": att.ID.String(), "ip_address": att.IPAddress}, nil
+}
+
+func (s *OrchestratorUsecase) toolFirewallList(ctx context.Context, tc *orchestrator.TaskContext) (map[string]any, error) {
+	if s.svc.Network == nil {
+		return nil, errors.New("networking service not configured")
+	}
+	fws, err := s.svc.Network.ListFirewalls(ctx, tc.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"firewalls": fws, "count": len(fws)}, nil
+}
+
+func (s *OrchestratorUsecase) toolFirewallCreate(ctx context.Context, tc *orchestrator.TaskContext) (map[string]any, error) {
+	if s.svc.Network == nil {
+		return nil, errors.New("networking service not configured")
+	}
+	name := orchestrator.String(tc.Input, "name")
+	desc := orchestrator.String(tc.Input, "description")
+	fw, err := s.svc.Network.CreateFirewall(ctx, tc.UserID, CreateFirewallInput{
+		Name: name, Description: desc,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"id": fw.ID.String(), "name": fw.Name}, nil
+}
+
+func (s *OrchestratorUsecase) toolFirewallRuleAdd(ctx context.Context, tc *orchestrator.TaskContext) (map[string]any, error) {
+	if s.svc.Network == nil {
+		return nil, errors.New("networking service not configured")
+	}
+	fwID, err := uuid.Parse(orchestrator.String(tc.Input, "firewall_id"))
+	if err != nil {
+		return nil, errors.New("invalid firewall_id")
+	}
+	rule, err := s.svc.Network.AddFirewallRule(ctx, tc.UserID, fwID, CreateFirewallRuleInput{
+		Direction:  orchestrator.String(tc.Input, "direction"),
+		Action:     orchestrator.String(tc.Input, "action"),
+		Protocol:   orchestrator.String(tc.Input, "protocol"),
+		SourceCIDR: orchestrator.String(tc.Input, "cidr"),
+		PortMin:    1,
+		PortMax:    65535,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"rule_id": rule.ID.String(), "action": rule.Action, "protocol": rule.Protocol}, nil
+}
+
+func (s *OrchestratorUsecase) toolLoadBalancerList(ctx context.Context, tc *orchestrator.TaskContext) (map[string]any, error) {
+	if s.svc.LoadBalancer == nil {
+		return nil, errors.New("load balancing service not configured")
+	}
+	lbs, err := s.svc.LoadBalancer.ListLoadBalancers(ctx, tc.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"load_balancers": lbs, "count": len(lbs)}, nil
+}
+
+func (s *OrchestratorUsecase) toolLoadBalancerCreate(ctx context.Context, tc *orchestrator.TaskContext) (map[string]any, error) {
+	if s.svc.LoadBalancer == nil {
+		return nil, errors.New("load balancing service not configured")
+	}
+	name := orchestrator.String(tc.Input, "name")
+	algo := orchestrator.String(tc.Input, "algorithm")
+	var netID *uuid.UUID
+	if netStr := orchestrator.String(tc.Input, "network_id"); netStr != "" {
+		if parsed, err := uuid.Parse(netStr); err == nil {
+			netID = &parsed
+		}
+	}
+	lb, err := s.svc.LoadBalancer.CreateLoadBalancer(ctx, tc.UserID, CreateLoadBalancerInput{
+		Name: name, Algorithm: algo, NetworkID: netID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"id": lb.ID.String(), "name": lb.Name, "public_ip": lb.PublicIP}, nil
+}
+
+func (s *OrchestratorUsecase) toolDNSList(ctx context.Context, tc *orchestrator.TaskContext) (map[string]any, error) {
+	if s.svc.Network == nil {
+		return nil, errors.New("dns service not configured")
+	}
+	zones, err := s.svc.Network.ListDNSZones(ctx, tc.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"zones": zones, "count": len(zones)}, nil
+}
+
+func (s *OrchestratorUsecase) toolAPIKeyList(ctx context.Context, tc *orchestrator.TaskContext) (map[string]any, error) {
+	if s.svc.Developer == nil {
+		return nil, errors.New("developer service not configured")
+	}
+	keys, err := s.svc.Developer.ListAPIKeys(ctx, tc.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"api_keys": keys, "count": len(keys)}, nil
+}
+
+func (s *OrchestratorUsecase) toolWebhookList(ctx context.Context, tc *orchestrator.TaskContext) (map[string]any, error) {
+	if s.svc.Developer == nil {
+		return nil, errors.New("developer service not configured")
+	}
+	whs, err := s.svc.Developer.ListWebhookEndpoints(ctx, tc.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"webhooks": whs, "count": len(whs)}, nil
 }

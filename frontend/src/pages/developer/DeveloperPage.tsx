@@ -18,6 +18,9 @@ import {
   Send,
   Eye,
   Lock,
+  Bot,
+  Sparkles,
+  Layers,
 } from 'lucide-react';
 import {
   listAPIKeys,
@@ -41,7 +44,7 @@ interface DeveloperPageProps {
   onNavigate?: (path: string) => void;
 }
 
-type TabType = 'api_keys' | 'webhooks' | 'docs' | 'cli';
+type TabType = 'api_keys' | 'webhooks' | 'sdk' | 'ai_agents' | 'docs' | 'cli';
 
 const AVAILABLE_SCOPES = [
   'instances:read',
@@ -281,6 +284,28 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
         >
           <Webhook className="w-4 h-4" />
           Webhooks ({webhooks.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('sdk')}
+          className={`pb-3 px-4 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors ${
+            activeTab === 'sdk'
+              ? 'border-indigo-500 text-indigo-400'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Code className="w-4 h-4" />
+          TypeScript SDK
+        </button>
+        <button
+          onClick={() => setActiveTab('ai_agents')}
+          className={`pb-3 px-4 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors ${
+            activeTab === 'ai_agents'
+              ? 'border-indigo-500 text-indigo-400'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Bot className="w-4 h-4 text-purple-400" />
+          AI Agents &amp; MCP
         </button>
         <button
           onClick={() => setActiveTab('docs')}
@@ -532,7 +557,220 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* 3. API REFERENCE TAB */}
+      {/* 3. TYPESCRIPT SDK TAB */}
+      {activeTab === 'sdk' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-sm font-semibold text-white">Nevatal Cloud TypeScript / JavaScript SDK</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Full-featured, type-safe client library with complete autocomplete for VMs, VPC Networks, Cloud Firewalls, and Load Balancers.
+              </p>
+            </div>
+            <button
+              onClick={() => copyToClipboard(`import { NevatalClient } from './nevatalSdk';\n\nconst client = new NevatalClient({\n  apiKey: 'nv_live_xxxxxxxxxxxxxxxxxxxx',\n  baseUrl: 'https://cloud.nevatal.id/api/v1'\n});`)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              Copy Starter Snippet
+            </button>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-5">
+            <div>
+              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">1. Installation</h3>
+              <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-emerald-400 font-mono overflow-x-auto">
+{`# Available for Node.js, Bun, and Deno
+npm install @nevatal/sdk
+# or import local module:
+import { NevatalClient } from '@/lib/nevatalSdk';`}
+              </pre>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">2. Client Initialization</h3>
+              <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-indigo-300 font-mono overflow-x-auto">
+{`import { NevatalClient } from '@nevatal/sdk';
+
+// Initialize with your scoped API key (nv_live_...)
+const nevatal = new NevatalClient({
+  apiKey: process.env.NEVATAL_API_KEY, // 'nv_live_xxxxxxxxxxxxxxxxxxxx'
+  baseUrl: 'https://cloud.nevatal.id/api/v1',
+  timeoutMs: 15000,
+});`}
+              </pre>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">3. Example Infrastructure Operations</h3>
+              <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-300 font-mono overflow-x-auto">
+{`// 1. List Virtual Machines
+const instances = await nevatal.instances.list();
+console.log('Active instances:', instances.map(i => ({ name: i.name, ip: i.private_ip })));
+
+// 2. Provision a Private VPC Network
+const network = await nevatal.networks.create({
+  name: 'prod-backend-vpc',
+  cidr: '10.200.0.0/24',
+  description: 'Private backend database subnet'
+});
+
+// 3. Attach a Virtual Machine to the Private Network
+const attachment = await nevatal.networks.attach(network.id, {
+  instance_id: instances[0].id,
+  ip_address: '10.200.0.10'
+});
+
+// 4. Create a Stateful Cloud Firewall & Security Rules
+const firewall = await nevatal.firewalls.create({
+  name: 'web-ingress-policy'
+});
+
+await nevatal.firewalls.addRule(firewall.id, {
+  direction: 'inbound',
+  action: 'allow',
+  protocol: 'tcp',
+  port_range: '443',
+  cidr: '0.0.0.0/0',
+  description: 'Public HTTPS traffic'
+});
+
+// 5. Deploy a Managed HAProxy Load Balancer
+const lb = await nevatal.loadBalancers.create({
+  name: 'api-gateway-lb',
+  algorithm: 'round_robin',
+  network_id: network.id
+});
+
+// Create Backend Pool with Health Check
+const pool = await nevatal.loadBalancers.createPool(lb.id, {
+  name: 'api-pool',
+  protocol: 'http',
+  health_check_type: 'http',
+  health_check_path: '/health'
+});
+
+// Add Backend VM Member
+await nevatal.loadBalancers.addMember(pool.id, {
+  instance_id: instances[0].id,
+  ip_address: '10.200.0.10',
+  port: 8080,
+  weight: 100
+});`}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. AI AGENTS & MCP INTEGRATION TAB */}
+      {activeTab === 'ai_agents' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-sm font-semibold text-white">AI Agent &amp; MCP Integration</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Equip autonomous agents (OpenClaw, Claude Code, Cursor, LangChain) with tools to control Nevatal Cloud.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-5">
+            <div>
+              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                1. Model Context Protocol (MCP) Configuration
+              </h3>
+              <p className="text-xs text-slate-400 mb-2">
+                Configure your local Claude Desktop, Cursor, or OpenClaw agent to access Nevatal Cloud tools via CLI or HTTP:
+              </p>
+              <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-purple-300 font-mono overflow-x-auto">
+{`// claude_desktop_config.json or .cursor/mcp.json
+{
+  "mcpServers": {
+    "nevatal-cloud": {
+      "command": "nevatal",
+      "args": ["--api-url", "https://cloud.nevatal.id", "--output", "json"],
+      "env": {
+        "NEVATAL_API_KEY": "nv_live_xxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  }
+}`}
+              </pre>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                2. Direct Agentic Tool Execution API
+              </h3>
+              <p className="text-xs text-slate-400 mb-2">
+                AI agents can query the registry and call tools programmatically with Scoped API Keys:
+              </p>
+              <div className="space-y-2">
+                <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs font-mono">
+                  <span className="text-emerald-400">GET</span> <span className="text-slate-300">/api/v1/ai/tools</span>
+                  <p className="text-slate-500 font-sans mt-1">Lists all registered tools with JSONSchema input specifications.</p>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs font-mono">
+                  <span className="text-indigo-400">POST</span> <span className="text-slate-300">/api/v1/ai/tools/call</span>
+                  <p className="text-slate-500 font-sans mt-1">Executes or plans a tool invocation (e.g. create network, check quota).</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                3. Registered Tools Available for AI Agents
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-500 uppercase text-[10px]">
+                      <th className="py-2 px-3">Tool ID</th>
+                      <th className="py-2 px-3">Risk Level</th>
+                      <th className="py-2 px-3 font-sans">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    <tr className="hover:bg-slate-800/30">
+                      <td className="py-2 px-3 text-indigo-400">vps.list</td>
+                      <td className="py-2 px-3 text-emerald-400">Read</td>
+                      <td className="py-2 px-3 font-sans text-slate-300">List user&apos;s virtual machines and statuses.</td>
+                    </tr>
+                    <tr className="hover:bg-slate-800/30">
+                      <td className="py-2 px-3 text-indigo-400">network.list</td>
+                      <td className="py-2 px-3 text-emerald-400">Read</td>
+                      <td className="py-2 px-3 font-sans text-slate-300">List caller&apos;s VPC private networks.</td>
+                    </tr>
+                    <tr className="hover:bg-slate-800/30">
+                      <td className="py-2 px-3 text-indigo-400">network.create</td>
+                      <td className="py-2 px-3 text-amber-400">Medium</td>
+                      <td className="py-2 px-3 font-sans text-slate-300">Create private network with CIDR block.</td>
+                    </tr>
+                    <tr className="hover:bg-slate-800/30">
+                      <td className="py-2 px-3 text-indigo-400">firewall.rule.add</td>
+                      <td className="py-2 px-3 text-amber-400">Medium</td>
+                      <td className="py-2 px-3 font-sans text-slate-300">Add allow/deny security policy rule.</td>
+                    </tr>
+                    <tr className="hover:bg-slate-800/30">
+                      <td className="py-2 px-3 text-indigo-400">loadbalancer.create</td>
+                      <td className="py-2 px-3 text-amber-400">Medium</td>
+                      <td className="py-2 px-3 font-sans text-slate-300">Deploy HAProxy managed load balancer.</td>
+                    </tr>
+                    <tr className="hover:bg-slate-800/30">
+                      <td className="py-2 px-3 text-indigo-400">developer.apikey.list</td>
+                      <td className="py-2 px-3 text-emerald-400">Read</td>
+                      <td className="py-2 px-3 font-sans text-slate-300">List active API keys and scopes.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. API REFERENCE TAB */}
       {activeTab === 'docs' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
