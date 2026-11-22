@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -63,6 +64,10 @@ func (s *AuthUsecase) createWithDefaultQuota(ctx context.Context, user *models.U
 // returns a session token.
 func (s *AuthUsecase) Register(ctx context.Context, email, password, displayName, clientIP string) (*models.User, string, error) {
 	ctx = context.WithoutCancel(ctx)
+
+	if s.cfg != nil && s.cfg.AdminEmail != "" && strings.EqualFold(email, s.cfg.AdminEmail) {
+		return nil, "", errors.New("this account is reserved for the platform administrator; please sign in")
+	}
 
 	count, _ := s.users.CountByEmail(ctx, email)
 	if count > 0 {

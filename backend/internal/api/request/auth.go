@@ -6,7 +6,7 @@ import "github.com/nevatal/cloud/internal/usecase"
 type RegisterRequest struct {
 	Email       string `json:"email" binding:"required,email"`
 	Password    string `json:"password" binding:"required,min=8"`
-	DisplayName string `json:"display_name" binding:"required"`
+	DisplayName string `json:"display_name"`
 }
 
 // LoginRequest is the body of POST /auth/login.

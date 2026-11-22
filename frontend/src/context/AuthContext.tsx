@@ -16,7 +16,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<void>;
-  register: (email: string, pass: string, name: string) => Promise<void>;
+  register: (email: string, pass: string, name?: string) => Promise<void>;
   loginWithOAuth: (provider: 'google' | 'github' | 'wordpress', payload?: any) => Promise<void>;
   logout: () => void;
   /** Signs in as a seeded demo account. Rejects unless the backend reports demo_mode. */
@@ -66,10 +66,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(res.user);
   };
 
-  const register = async (email: string, pass: string, name: string) => {
+  const register = async (email: string, pass: string, name?: string) => {
+    const displayName = name?.trim() || email.split('@')[0] || 'User';
     const res = await apiRequest<{ user: User; token: string }>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password: pass, display_name: name }),
+      body: JSON.stringify({ email, password: pass, display_name: displayName }),
     });
 
     localStorage.setItem('nevatal_token', res.token);

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nevatal/cloud/internal/api/middleware"
@@ -36,6 +37,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if err := request.BindJSON(c, &req); err != nil {
 		response.Error(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		return
+	}
+
+	if req.DisplayName == "" {
+		parts := strings.Split(req.Email, "@")
+		if len(parts) > 0 {
+			req.DisplayName = parts[0]
+		}
 	}
 
 	user, token, err := h.auth.Register(c.Request.Context(), req.Email, req.Password, req.DisplayName, c.ClientIP())
