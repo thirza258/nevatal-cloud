@@ -76,4 +76,30 @@ func TestMockProxmoxClient(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected error getting deleted VM status, got nil")
 	}
+
+	// Regression: operations on a deleted VM must fail instead of resurrecting it
+	if err := client.ConfigVM(ctx, "pve-dell-r640", newVMID, VMConfig{Cores: 4}); err == nil {
+		t.Errorf("Expected ConfigVM on deleted VM to fail")
+	}
+	if err := client.ResizeDisk(ctx, "pve-dell-r640", newVMID, "scsi0", 10); err == nil {
+		t.Errorf("Expected ResizeDisk on deleted VM to fail")
+	}
+	if _, err := client.StartVM(ctx, "pve-dell-r640", newVMID); err == nil {
+		t.Errorf("Expected StartVM on deleted VM to fail")
+	}
+	if _, err := client.ShutdownVM(ctx, "pve-dell-r640", newVMID); err == nil {
+		t.Errorf("Expected ShutdownVM on deleted VM to fail")
+	}
+	if _, err := client.StopVM(ctx, "pve-dell-r640", newVMID); err == nil {
+		t.Errorf("Expected StopVM on deleted VM to fail")
+	}
+	if _, err := client.ResetVM(ctx, "pve-dell-r640", newVMID); err == nil {
+		t.Errorf("Expected ResetVM on deleted VM to fail")
+	}
+	if _, err := client.GetVMInterfaces(ctx, "pve-dell-r640", newVMID); err == nil {
+		t.Errorf("Expected GetVMInterfaces on deleted VM to fail")
+	}
+	if _, err := client.CreateSnapshot(ctx, "pve-dell-r640", newVMID, "s1", "desc", false); err == nil {
+		t.Errorf("Expected CreateSnapshot on deleted VM to fail")
+	}
 }

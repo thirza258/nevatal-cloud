@@ -31,6 +31,7 @@ type LoadBalancerRepository interface {
 	DeleteMember(ctx context.Context, tenantID uuid.UUID, poolID uuid.UUID, memberID uuid.UUID) error
 
 	AddCertificate(ctx context.Context, c *models.LoadBalancerCertificate) error
+	GetCertificateByID(ctx context.Context, tenantID uuid.UUID, certID uuid.UUID) (*models.LoadBalancerCertificate, error)
 	ListCertificatesByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.LoadBalancerCertificate, error)
 	DeleteCertificate(ctx context.Context, tenantID uuid.UUID, certID uuid.UUID) error
 
@@ -39,21 +40,21 @@ type LoadBalancerRepository interface {
 	GetActiveRevision(ctx context.Context, tenantID uuid.UUID, lbID uuid.UUID) (*models.LoadBalancerConfigRevision, error)
 }
 
-type loadBalancerRepository struct {
-	db *gorm.DB
-}
+type loadBalancerRepository struct{ base }
+
+var _ LoadBalancerRepository = (*loadBalancerRepository)(nil)
 
 func NewLoadBalancerRepository(db *gorm.DB) LoadBalancerRepository {
-	return &loadBalancerRepository{db: db}
+	return &loadBalancerRepository{base{db}}
 }
 
 func (r *loadBalancerRepository) Create(ctx context.Context, lb *models.LoadBalancer) error {
-	return r.db.WithContext(ctx).Create(lb).Error
+	return r.conn(ctx).Create(lb).Error
 }
 
 func (r *loadBalancerRepository) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.LoadBalancer, error) {
 	var lbs []models.LoadBalancer
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("tenant_id = ?", tenantID).
 		Preload("Listeners").
 		Preload("Pools").
@@ -67,7 +68,7 @@ func (r *loadBalancerRepository) ListByTenant(ctx context.Context, tenantID uuid
 
 func (r *loadBalancerRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*models.LoadBalancer, error) {
 	var lb models.LoadBalancer
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("id = ? AND tenant_id = ?", id, tenantID).
 		Preload("Listeners").
 		Preload("Pools").
@@ -79,55 +80,55 @@ func (r *loadBalancerRepository) GetByID(ctx context.Context, tenantID uuid.UUID
 		}).
 		First(&lb).Error
 	if err != nil {
-		return nil, err
+		return nil, mapErr(err)
 	}
 	return &lb, nil
 }
 
 func (r *loadBalancerRepository) Update(ctx context.Context, lb *models.LoadBalancer) error {
-	return r.db.WithContext(ctx).Save(lb).Error
+	return r.conn(ctx).Save(lb).Error
 }
 
 func (r *loadBalancerRepository) Delete(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error {
-	return r.db.WithContext(ctx).
+	return deleteChecked(r.conn(ctx).
 		Where("id = ? AND tenant_id = ?", id, tenantID).
-		Delete(&models.LoadBalancer{}).Error
+		Delete(&models.LoadBalancer{}))
 }
 
 func (r *loadBalancerRepository) AddListener(ctx context.Context, l *models.LoadBalancerListener) error {
-	return r.db.WithContext(ctx).Create(l).Error
+	return r.conn(ctx).Create(l).Error
 }
 
 func (r *loadBalancerRepository) UpdateListener(ctx context.Context, l *models.LoadBalancerListener) error {
-	return r.db.WithContext(ctx).Save(l).Error
+	return r.conn(ctx).Save(l).Error
 }
 
 func (r *loadBalancerRepository) DeleteListener(ctx context.Context, tenantID uuid.UUID, lbID uuid.UUID, listenerID uuid.UUID) error {
-	return r.db.WithContext(ctx).
+	return deleteChecked(r.conn(ctx).
 		Where("id = ? AND load_balancer_id = ? AND tenant_id = ?", listenerID, lbID, tenantID).
-		Delete(&models.LoadBalancerListener{}).Error
+		Delete(&models.LoadBalancerListener{}))
 }
 
 func (r *loadBalancerRepository) AddPool(ctx context.Context, p *models.LoadBalancerPool) error {
-	return r.db.WithContext(ctx).Create(p).Error
+	return r.conn(ctx).Create(p).Error
 }
 
 func (r *loadBalancerRepository) GetPoolByID(ctx context.Context, tenantID uuid.UUID, poolID uuid.UUID) (*models.LoadBalancerPool, error) {
 	var pool models.LoadBalancerPool
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("id = ? AND tenant_id = ?", poolID, tenantID).
 		Preload("Members").
 		Preload("Members.Instance").
 		First(&pool).Error
 	if err != nil {
-		return nil, err
+		return nil, mapErr(err)
 	}
 	return &pool, nil
 }
 
 func (r *loadBalancerRepository) ListPoolsByLB(ctx context.Context, tenantID uuid.UUID, lbID uuid.UUID) ([]models.LoadBalancerPool, error) {
 	var pools []models.LoadBalancerPool
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("load_balancer_id = ? AND tenant_id = ?", lbID, tenantID).
 		Preload("Members").
 		Preload("Members.Instance").
@@ -136,36 +137,44 @@ func (r *loadBalancerRepository) ListPoolsByLB(ctx context.Context, tenantID uui
 }
 
 func (r *loadBalancerRepository) UpdatePool(ctx context.Context, p *models.LoadBalancerPool) error {
-	return r.db.WithContext(ctx).Save(p).Error
+	return r.conn(ctx).Save(p).Error
 }
 
 func (r *loadBalancerRepository) DeletePool(ctx context.Context, tenantID uuid.UUID, lbID uuid.UUID, poolID uuid.UUID) error {
-	return r.db.WithContext(ctx).
+	return deleteChecked(r.conn(ctx).
 		Where("id = ? AND load_balancer_id = ? AND tenant_id = ?", poolID, lbID, tenantID).
-		Delete(&models.LoadBalancerPool{}).Error
+		Delete(&models.LoadBalancerPool{}))
 }
 
 func (r *loadBalancerRepository) AddMember(ctx context.Context, m *models.LoadBalancerMember) error {
-	return r.db.WithContext(ctx).Create(m).Error
+	return r.conn(ctx).Create(m).Error
 }
 
 func (r *loadBalancerRepository) UpdateMember(ctx context.Context, m *models.LoadBalancerMember) error {
-	return r.db.WithContext(ctx).Save(m).Error
+	return r.conn(ctx).Save(m).Error
 }
 
 func (r *loadBalancerRepository) DeleteMember(ctx context.Context, tenantID uuid.UUID, poolID uuid.UUID, memberID uuid.UUID) error {
-	return r.db.WithContext(ctx).
+	return deleteChecked(r.conn(ctx).
 		Where("id = ? AND pool_id = ? AND tenant_id = ?", memberID, poolID, tenantID).
-		Delete(&models.LoadBalancerMember{}).Error
+		Delete(&models.LoadBalancerMember{}))
 }
 
 func (r *loadBalancerRepository) AddCertificate(ctx context.Context, c *models.LoadBalancerCertificate) error {
-	return r.db.WithContext(ctx).Create(c).Error
+	return r.conn(ctx).Create(c).Error
+}
+
+func (r *loadBalancerRepository) GetCertificateByID(ctx context.Context, tenantID uuid.UUID, certID uuid.UUID) (*models.LoadBalancerCertificate, error) {
+	var cert models.LoadBalancerCertificate
+	if err := r.conn(ctx).Where("id = ? AND tenant_id = ?", certID, tenantID).First(&cert).Error; err != nil {
+		return nil, mapErr(err)
+	}
+	return &cert, nil
 }
 
 func (r *loadBalancerRepository) ListCertificatesByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.LoadBalancerCertificate, error) {
 	var certs []models.LoadBalancerCertificate
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("tenant_id = ?", tenantID).
 		Order("created_at DESC").
 		Find(&certs).Error
@@ -173,18 +182,18 @@ func (r *loadBalancerRepository) ListCertificatesByTenant(ctx context.Context, t
 }
 
 func (r *loadBalancerRepository) DeleteCertificate(ctx context.Context, tenantID uuid.UUID, certID uuid.UUID) error {
-	return r.db.WithContext(ctx).
+	return deleteChecked(r.conn(ctx).
 		Where("id = ? AND tenant_id = ?", certID, tenantID).
-		Delete(&models.LoadBalancerCertificate{}).Error
+		Delete(&models.LoadBalancerCertificate{}))
 }
 
 func (r *loadBalancerRepository) SaveRevision(ctx context.Context, rev *models.LoadBalancerConfigRevision) error {
-	return r.db.WithContext(ctx).Create(rev).Error
+	return r.conn(ctx).Create(rev).Error
 }
 
 func (r *loadBalancerRepository) ListRevisions(ctx context.Context, tenantID uuid.UUID, lbID uuid.UUID) ([]models.LoadBalancerConfigRevision, error) {
 	var revs []models.LoadBalancerConfigRevision
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("load_balancer_id = ? AND tenant_id = ?", lbID, tenantID).
 		Order("version DESC").
 		Find(&revs).Error
@@ -193,7 +202,7 @@ func (r *loadBalancerRepository) ListRevisions(ctx context.Context, tenantID uui
 
 func (r *loadBalancerRepository) GetActiveRevision(ctx context.Context, tenantID uuid.UUID, lbID uuid.UUID) (*models.LoadBalancerConfigRevision, error) {
 	var rev models.LoadBalancerConfigRevision
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("load_balancer_id = ? AND tenant_id = ? AND deployment_status = 'applied'", lbID, tenantID).
 		Order("version DESC").
 		First(&rev).Error

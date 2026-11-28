@@ -49,8 +49,11 @@ export async function attachNetwork(networkId: string, data: { instance_id: stri
   });
 }
 
-export async function detachNetwork(attachmentId: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/networks/attachments/${attachmentId}`, {
+export async function detachNetwork(
+  networkId: string,
+  attachmentId: string
+): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/networks/${networkId}/attachments/${attachmentId}`, {
     method: 'DELETE',
   });
 }
@@ -84,10 +87,11 @@ export async function deleteFirewall(id: string): Promise<{ success: boolean }> 
 export async function createFirewallRule(firewallId: string, data: {
   direction: 'inbound' | 'outbound';
   action: 'allow' | 'deny';
-  protocol: 'tcp' | 'udp' | 'icmp' | 'all';
-  port_range?: string;
-  cidr: string;
-  description?: string;
+  protocol: 'tcp' | 'udp' | 'icmp' | 'any';
+  port_min?: number;
+  port_max?: number;
+  source_cidr?: string;
+  destination_cidr?: string;
   priority?: number;
 }): Promise<FirewallRule> {
   return apiRequest<FirewallRule>(`/firewalls/${firewallId}/rules`, {
@@ -96,21 +100,25 @@ export async function createFirewallRule(firewallId: string, data: {
   });
 }
 
-export async function deleteFirewallRule(ruleId: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/firewalls/rules/${ruleId}`, {
+export async function deleteFirewallRule(firewallId: string, ruleId: string): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/firewalls/${firewallId}/rules/${ruleId}`, {
     method: 'DELETE',
   });
 }
 
-export async function attachFirewall(firewallId: string, instanceId: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/firewalls/${firewallId}/attachments`, {
+export async function attachFirewall(
+  firewallId: string,
+  resourceId: string,
+  resourceType: 'vm' | 'network' = 'vm'
+): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/firewalls/${firewallId}/attachments`, {
     method: 'POST',
-    body: JSON.stringify({ instance_id: instanceId }),
+    body: JSON.stringify({ resource_id: resourceId, resource_type: resourceType }),
   });
 }
 
-export async function detachFirewall(attachmentId: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/firewalls/attachments/${attachmentId}`, {
+export async function detachFirewall(firewallId: string, attachmentId: string): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/firewalls/${firewallId}/attachments/${attachmentId}`, {
     method: 'DELETE',
   });
 }
@@ -153,19 +161,20 @@ export async function listDNSZones(): Promise<DNSZone[]> {
   return Array.isArray(res) ? res : (res?.zones || []);
 }
 
-export async function createDNSZone(data: { name: string; description?: string; project_id?: string }): Promise<DNSZone> {
+export async function createDNSZone(data: { domain: string; project_id?: string }): Promise<DNSZone> {
   return apiRequest<DNSZone>('/dns/zones', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function getDNSZone(id: string): Promise<DNSZone> {
-  return apiRequest<DNSZone>(`/dns/zones/${id}`);
+export async function getDNSZone(id: string): Promise<DNSZone | undefined> {
+  const zones = await listDNSZones();
+  return zones.find((z) => z.id === id);
 }
 
-export async function deleteDNSZone(id: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/dns/zones/${id}`, {
+export async function deleteDNSZone(id: string): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/dns/zones/${id}`, {
     method: 'DELETE',
   });
 }
@@ -177,10 +186,9 @@ export async function listDNSRecords(zoneId: string): Promise<DNSRecord[]> {
 
 export async function createDNSRecord(zoneId: string, data: {
   name: string;
-  type: string;
-  content: string;
+  record_type: string;
+  value: string;
   ttl?: number;
-  priority?: number;
 }): Promise<DNSRecord> {
   return apiRequest<DNSRecord>(`/dns/zones/${zoneId}/records`, {
     method: 'POST',
@@ -188,8 +196,8 @@ export async function createDNSRecord(zoneId: string, data: {
   });
 }
 
-export async function deleteDNSRecord(recordId: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/dns/records/${recordId}`, {
+export async function deleteDNSRecord(zoneId: string, recordId: string): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/dns/zones/${zoneId}/records/${recordId}`, {
     method: 'DELETE',
   });
 }
@@ -226,11 +234,10 @@ export async function deleteLoadBalancer(id: string): Promise<{ success: boolean
 }
 
 export async function createListener(loadBalancerId: string, data: {
-  name: string;
   protocol: 'tcp' | 'http' | 'https';
-  port: number;
-  ssl_enabled?: boolean;
-  pool_id?: string;
+  frontend_port: number;
+  certificate_id?: string;
+  default_pool_id?: string;
 }): Promise<LoadBalancerListener> {
   return apiRequest<LoadBalancerListener>(`/load-balancers/${loadBalancerId}/listeners`, {
     method: 'POST',
@@ -238,8 +245,8 @@ export async function createListener(loadBalancerId: string, data: {
   });
 }
 
-export async function deleteListener(listenerId: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/load-balancers/listeners/${listenerId}`, {
+export async function deleteListener(loadBalancerId: string, listenerId: string): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/load-balancers/${loadBalancerId}/listeners/${listenerId}`, {
     method: 'DELETE',
   });
 }
@@ -247,11 +254,9 @@ export async function deleteListener(listenerId: string): Promise<{ success: boo
 export async function createPool(loadBalancerId: string, data: {
   name: string;
   protocol: 'tcp' | 'http' | 'https';
+  port?: number;
   algorithm?: 'round_robin' | 'least_conn' | 'source_ip' | 'weighted_round_robin';
-  health_check_type?: 'tcp' | 'http';
-  health_check_path?: string;
-  health_check_interval?: number;
-  health_check_timeout?: number;
+  health_check_config?: string;
 }): Promise<LoadBalancerPool> {
   return apiRequest<LoadBalancerPool>(`/load-balancers/${loadBalancerId}/pools`, {
     method: 'POST',
@@ -259,26 +264,26 @@ export async function createPool(loadBalancerId: string, data: {
   });
 }
 
-export async function deletePool(poolId: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/load-balancers/pools/${poolId}`, {
+export async function deletePool(loadBalancerId: string, poolId: string): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/load-balancers/${loadBalancerId}/pools/${poolId}`, {
     method: 'DELETE',
   });
 }
 
-export async function createMember(poolId: string, data: {
-  instance_id?: string;
-  ip_address: string;
+export async function createMember(loadBalancerId: string, poolId: string, data: {
+  instance_id: string;
+  address?: string;
   port: number;
   weight?: number;
 }): Promise<LoadBalancerMember> {
-  return apiRequest<LoadBalancerMember>(`/load-balancers/pools/${poolId}/members`, {
+  return apiRequest<LoadBalancerMember>(`/load-balancers/${loadBalancerId}/pools/${poolId}/members`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function deleteMember(memberId: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/load-balancers/members/${memberId}`, {
+export async function deleteMember(loadBalancerId: string, poolId: string, memberId: string): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/load-balancers/${loadBalancerId}/pools/${poolId}/members/${memberId}`, {
     method: 'DELETE',
   });
 }
@@ -301,20 +306,41 @@ export async function listAPIKeys(): Promise<APIKey[]> {
   return Array.isArray(res) ? res : (res?.api_keys || []);
 }
 
+export function parseAPIKeyScopes(scopes: string[] | string | undefined): string[] {
+  if (Array.isArray(scopes)) return scopes;
+  if (typeof scopes === 'string' && scopes.trim() !== '') {
+    try {
+      const parsed = JSON.parse(scopes);
+      if (Array.isArray(parsed)) return parsed.map(String);
+    } catch {
+      return scopes.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
 export async function createAPIKey(data: {
   name: string;
   scopes?: string[];
-  expires_in_days?: number;
+  expiry_days?: number;
   project_id?: string;
 }): Promise<APIKey> {
-  return apiRequest<APIKey>('/api-keys', {
+  const res = await apiRequest<{ key: APIKey; raw_key: string } | APIKey>('/api-keys', {
     method: 'POST',
     body: JSON.stringify(data),
   });
+  if (res && typeof res === 'object' && 'key' in res && res.key) {
+    return {
+      ...res.key,
+      scopes: parseAPIKeyScopes(res.key.scopes),
+      raw_key: res.raw_key,
+    };
+  }
+  return res as APIKey;
 }
 
-export async function revokeAPIKey(id: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/api-keys/${id}`, {
+export async function revokeAPIKey(id: string): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/api-keys/${id}`, {
     method: 'DELETE',
   });
 }
@@ -325,8 +351,8 @@ export async function listWebhooks(): Promise<WebhookEndpoint[]> {
 }
 
 export async function createWebhook(data: {
+  name: string;
   url: string;
-  description?: string;
   events: string[];
   project_id?: string;
 }): Promise<WebhookEndpoint> {
@@ -336,8 +362,8 @@ export async function createWebhook(data: {
   });
 }
 
-export async function deleteWebhook(id: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/webhooks/${id}`, {
+export async function deleteWebhook(id: string): Promise<{ status: string }> {
+  return apiRequest<{ status: string }>(`/webhooks/${id}`, {
     method: 'DELETE',
   });
 }
@@ -348,14 +374,14 @@ export async function rotateWebhookSecret(id: string): Promise<{ secret: string 
   });
 }
 
-export async function pingWebhook(id: string): Promise<{ message: string; response_code: number; status: string }> {
+export async function pingWebhook(id: string): Promise<WebhookDelivery> {
   return apiRequest(`/webhooks/${id}/ping`, {
     method: 'POST',
   });
 }
 
 export async function listWebhookDeliveries(endpointId: string): Promise<WebhookDelivery[]> {
-  const res = await apiRequest<any>(`/webhooks/${endpointId}/deliveries`);
+  const res = await apiRequest<any>(`/webhooks/deliveries?endpoint_id=${encodeURIComponent(endpointId)}`);
   return Array.isArray(res) ? res : (res?.deliveries || []);
 }
 

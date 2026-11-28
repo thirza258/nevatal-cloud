@@ -30,7 +30,7 @@ export const AppsList: React.FC<AppsListProps> = ({ onNavigate }) => {
     try {
       setLoading(true);
       setError(null);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch('/api/v1/apps', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -52,7 +52,7 @@ export const AppsList: React.FC<AppsListProps> = ({ onNavigate }) => {
     e.stopPropagation();
     try {
       setDeployingId(app.id);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/apps/${app.id}/deploy`, {
         method: 'POST',
         headers: {

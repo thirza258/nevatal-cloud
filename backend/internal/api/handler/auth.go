@@ -48,7 +48,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	user, token, err := h.auth.Register(c.Request.Context(), req.Email, req.Password, req.DisplayName, c.ClientIP())
 	if err != nil {
-		response.Error(c, http.StatusConflict, "REGISTRATION_FAILED", err.Error())
+		writeError(c, err, http.StatusConflict, "REGISTRATION_FAILED")
 		return
 	}
 

@@ -83,11 +83,11 @@ export const CreateGameServer: React.FC<CreateGameServerProps> = ({ onNavigate }
       setSelectedVersion('1.21.4');
       setServerName('minecraft-java-server');
     } else if (game === 'minecraft_bedrock') {
-      setSelectedSoftware('official_bedrock');
+      setSelectedSoftware('bedrock');
       setSelectedVersion('1.21.50');
       setServerName('bedrock-realm-server');
     } else {
-      setSelectedSoftware('official_terraria');
+      setSelectedSoftware('terraria_vanilla');
       setSelectedVersion('1.4.4.9');
       setServerName('terraria-world-server');
     }
@@ -106,11 +106,11 @@ export const CreateGameServer: React.FC<CreateGameServerProps> = ({ onNavigate }
     }
     if (selectedGame === 'minecraft_bedrock') {
       return [
-        { id: 'official_bedrock', name: 'Official Bedrock Dedicated Server', desc: 'Direct support for Windows 10/11, iOS, Android, and consoles' },
+        { id: 'bedrock', name: 'Official Bedrock Dedicated Server', desc: 'Direct support for Windows 10/11, iOS, Android, and consoles' },
       ];
     }
     return [
-      { id: 'official_terraria', name: 'Official Terraria Dedicated Server', desc: 'Standard vanilla dedicated server' },
+      { id: 'terraria_vanilla', name: 'Official Terraria Dedicated Server', desc: 'Standard vanilla dedicated server' },
       { id: 'tmodloader', name: 'tModLoader Server', desc: 'Support for community mods and Steam Workshop content' },
     ];
   };
@@ -152,19 +152,22 @@ export const CreateGameServer: React.FC<CreateGameServerProps> = ({ onNavigate }
         server_software: selectedSoftware,
         game_version: selectedVersion.split(' ')[0],
         plan_name: selectedPlan,
-        vcpus: vcpu,
+        cpu_cores: vcpu,
         memory_mb: ram,
         storage_gb: disk,
-        max_players: playerSlots,
+        player_slots: playerSlots,
         motd: motd,
         difficulty: difficulty,
-        gamemode: gamemode,
-        pvp: pvpEnabled,
-        whitelist: whitelistEnabled,
-        auto_backup_enabled: autoBackup,
-        backup_schedule: backupSchedule,
-        custom_domain: customDomain.trim() || undefined,
         world_size: worldSize,
+        custom_domain: customDomain.trim() || undefined,
+        settings: {
+          difficulty,
+          gamemode,
+          pvp: pvpEnabled,
+          'white-list': whitelistEnabled,
+          auto_backup_enabled: autoBackup,
+          backup_schedule: backupSchedule,
+        },
       };
 
       const res = await apiRequest<{ id: string }>('/game-servers', {

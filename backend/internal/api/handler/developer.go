@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -88,11 +89,18 @@ func (h *DeveloperHandler) CreateWebhook(c *gin.Context) {
 	}
 	ep, err := h.devUc.CreateWebhookEndpoint(c.Request.Context(), tenantID, input)
 	if err != nil {
-		if err == usecase.ErrSSRFProtectionBlocked {
+		switch err {
+		case usecase.ErrSSRFProtectionBlocked:
 			response.Error(c, http.StatusBadRequest, "SSRF_PROTECTION_BLOCKED", err.Error())
-			return
+		case usecase.ErrInvalidWebhookURL:
+			response.Error(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		default:
+			if strings.Contains(err.Error(), "required") || strings.Contains(err.Error(), "resolve webhook") {
+				response.Error(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+			} else {
+				response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+			}
 		}
-		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 	response.Created(c, ep)
@@ -127,7 +135,16 @@ func (h *DeveloperHandler) UpdateWebhook(c *gin.Context) {
 	}
 	ep, err := h.devUc.UpdateWebhookEndpoint(c.Request.Context(), tenantID, id, input)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		switch err {
+		case usecase.ErrWebhookEndpointNotFound:
+			response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		case usecase.ErrSSRFProtectionBlocked:
+			response.Error(c, http.StatusBadRequest, "SSRF_PROTECTION_BLOCKED", err.Error())
+		case usecase.ErrInvalidWebhookURL:
+			response.Error(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		default:
+			response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		}
 		return
 	}
 	response.OK(c, ep)
@@ -181,11 +198,25 @@ func (h *DeveloperHandler) ListDeliveries(c *gin.Context) {
 	tenantID := middleware.GetCurrentUserID(c)
 	var endpointID *uuid.UUID
 	if epParam := c.Query("endpoint_id"); epParam != "" {
-		if u, err := uuid.Parse(epParam); err == nil {
-			endpointID = &u
+		u, err := uuid.Parse(epParam)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "invalid endpoint_id")
+			return
 		}
+		endpointID = &u
 	}
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	limit := 50
+	if lParam := c.Query("limit"); lParam != "" {
+		parsed, err := strconv.Atoi(lParam)
+		if err != nil || parsed <= 0 {
+			response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "invalid limit")
+			return
+		}
+		if parsed > 200 {
+			parsed = 200
+		}
+		limit = parsed
+	}
 	deliveries, err := h.devUc.ListDeliveries(c.Request.Context(), tenantID, endpointID, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
@@ -206,6 +237,10 @@ func (h *DeveloperHandler) RetryDelivery(c *gin.Context) {
 	}
 	del, err := h.devUc.RetryDelivery(c.Request.Context(), tenantID, deliveryID)
 	if err != nil {
+		if err == usecase.ErrWebhookDeliveryNotFound || err == usecase.ErrWebhookEndpointNotFound {
+			response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}

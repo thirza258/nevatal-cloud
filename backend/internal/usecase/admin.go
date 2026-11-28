@@ -153,14 +153,15 @@ func (s *AdminUsecase) Overview(ctx context.Context) *PlatformOverview {
 	ov.FailedJobs, _ = s.repos.Jobs.CountByStatus(ctx, models.JobStatusFailed)
 
 	// Fetch primary node status
-	node, _ := s.repos.Nodes.First(ctx)
-	ov.Node = *node
+	if node, err := s.repos.Nodes.First(ctx); err == nil && node != nil {
+		ov.Node = *node
 
-	pveCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+		pveCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
 
-	ov.NodeStatus, _ = s.proxmox.GetNodeStatus(pveCtx, node.ProxmoxNodeName)
-	ov.Storage, _ = s.proxmox.GetStorage(pveCtx, node.ProxmoxNodeName)
+		ov.NodeStatus, _ = s.proxmox.GetNodeStatus(pveCtx, node.ProxmoxNodeName)
+		ov.Storage, _ = s.proxmox.GetStorage(pveCtx, node.ProxmoxNodeName)
+	}
 	return &ov
 }
 
@@ -220,25 +221,44 @@ func (s *AdminUsecase) ListJobs(ctx context.Context) ([]models.ProvisioningJob, 
 func (s *AdminUsecase) RetryJob(ctx context.Context, adminID, jobID uuid.UUID, clientIP string) (*models.ProvisioningJob, error) {
 	ctx = context.WithoutCancel(ctx)
 
-	job, err := s.repos.Jobs.FindByID(ctx, jobID, nil)
+	existing, err := s.repos.Jobs.FindByID(ctx, jobID, nil)
 	if err != nil {
 		return nil, errAdminJobNotFound
 	}
-
-	if job.Status != models.JobStatusFailed {
+	if existing.Status != models.JobStatusFailed {
 		return nil, errAdminJobNotFailed
 	}
 
-	job.Status = models.JobStatusQueued
-	job.CurrentStep = "retry_requested"
-	job.ErrorCode = nil
-	job.ErrorMessage = nil
-	_ = s.repos.Jobs.Save(ctx, job)
+	job, err := s.repos.Jobs.RequeueFailed(ctx, jobID)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			return nil, errAdminJobNotFailed
+		}
+		return nil, err
+	}
 
 	s.auditService.Log(ctx, &adminID, "admin.job.retry", "provisioning_job", &jobID, "success", clientIP, nil)
 
 	retryID := job.ID
-	s.worker.Go(func() { s.worker.ProcessJob(retryID, nil) })
+	switch job.OperationType {
+	case models.OpDelete:
+		s.worker.Go(func() { s.worker.ProcessDeleteJob(retryID) })
+	case models.OpStart, models.OpShutdown, models.OpRestart:
+		op := job.OperationType
+		s.worker.Go(func() { s.worker.ProcessPowerJob(retryID, op) })
+	default:
+		if job.InstanceID != nil {
+			if inst, instErr := s.repos.Instances.FindByID(ctx, *job.InstanceID, nil); instErr == nil && inst != nil {
+				_, _ = s.repos.Instances.TransitionStatus(ctx, inst.ID, []string{models.StateFailed, models.StateUnknown}, models.StateQueued)
+				if s.quotaService != nil {
+					if usage, uErr := s.quotaService.GetUsage(ctx, job.OwnerID); uErr == nil {
+						_, _ = s.quotaService.Reserve(ctx, usage, job.OwnerID, job.ID, inst.VCPUs, inst.MemoryMB, inst.DiskGB)
+					}
+				}
+			}
+		}
+		s.worker.Go(func() { s.worker.ProcessJob(retryID, nil) })
+	}
 	return job, nil
 }
 

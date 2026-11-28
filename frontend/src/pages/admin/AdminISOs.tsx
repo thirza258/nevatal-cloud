@@ -39,7 +39,7 @@ export const AdminISOs: React.FC = () => {
   const fetchISOs = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch('/api/v1/admin/isos?all=true', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -66,7 +66,7 @@ export const AdminISOs: React.FC = () => {
 
     try {
       setUploading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const formData = new FormData();
       formData.append('file', file);
       formData.append('name', name.trim());
@@ -102,7 +102,7 @@ export const AdminISOs: React.FC = () => {
   const handleTogglePublish = async (img: OSImage) => {
     const newVis = img.visibility === 'published' ? 'unpublished' : 'published';
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/admin/isos/${img.id}/publish`, {
         method: 'PATCH',
         headers: {
@@ -121,7 +121,7 @@ export const AdminISOs: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to remove this ISO image?')) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/admin/isos/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }

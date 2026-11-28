@@ -27,7 +27,7 @@ export const OpenClawList: React.FC<OpenClawListProps> = ({ onNavigate }) => {
   const fetchInstances = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch('/api/v1/ai-agents/openclaw/instances', {
         headers: { Authorization: `Bearer ${token}` }
       });

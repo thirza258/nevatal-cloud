@@ -373,7 +373,8 @@ func (h *GameServerHandler) TogglePlugin(c *gin.Context) {
 		return
 	}
 
-	if writeIfDenied(c, h.svc.TogglePlugin(c.Request.Context(), id, pluginID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c), req.Enabled)) {
+	if err := h.svc.TogglePlugin(c.Request.Context(), id, pluginID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c), req.Enabled); err != nil {
+		writeMessageError(c, err, http.StatusBadRequest)
 		return
 	}
 	response.JSON(c, http.StatusOK, response.Message{Message: "Plugin status updated"})
@@ -389,7 +390,8 @@ func (h *GameServerHandler) RemovePlugin(c *gin.Context) {
 		return
 	}
 
-	if writeIfDenied(c, h.svc.RemovePlugin(c.Request.Context(), id, pluginID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c))) {
+	if err := h.svc.RemovePlugin(c.Request.Context(), id, pluginID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c)); err != nil {
+		writeMessageError(c, err, http.StatusBadRequest)
 		return
 	}
 	response.JSON(c, http.StatusOK, response.Message{Message: "Plugin removed"})
@@ -444,7 +446,8 @@ func (h *GameServerHandler) ToggleMod(c *gin.Context) {
 		return
 	}
 
-	if writeIfDenied(c, h.svc.ToggleMod(c.Request.Context(), id, modID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c), req.Enabled)) {
+	if err := h.svc.ToggleMod(c.Request.Context(), id, modID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c), req.Enabled); err != nil {
+		writeMessageError(c, err, http.StatusBadRequest)
 		return
 	}
 	response.JSON(c, http.StatusOK, response.Message{Message: "Mod status updated"})
@@ -460,7 +463,8 @@ func (h *GameServerHandler) RemoveMod(c *gin.Context) {
 		return
 	}
 
-	if writeIfDenied(c, h.svc.RemoveMod(c.Request.Context(), id, modID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c))) {
+	if err := h.svc.RemoveMod(c.Request.Context(), id, modID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c)); err != nil {
+		writeMessageError(c, err, http.StatusBadRequest)
 		return
 	}
 	response.JSON(c, http.StatusOK, response.Message{Message: "Mod removed"})
@@ -516,7 +520,8 @@ func (h *GameServerHandler) ResetWorld(c *gin.Context) {
 		return
 	}
 
-	if writeIfDenied(c, h.svc.ResetWorld(c.Request.Context(), id, middleware.GetCurrentUserID(c), middleware.IsAdmin(c), worldID)) {
+	if err := h.svc.ResetWorld(c.Request.Context(), id, middleware.GetCurrentUserID(c), middleware.IsAdmin(c), worldID); err != nil {
+		writeMessageError(c, err, http.StatusBadRequest)
 		return
 	}
 	response.JSON(c, http.StatusOK, response.Message{Message: "World reset initiated"})
@@ -532,7 +537,8 @@ func (h *GameServerHandler) DeleteWorld(c *gin.Context) {
 		return
 	}
 
-	if writeIfDenied(c, h.svc.DeleteWorld(c.Request.Context(), id, worldID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c))) {
+	if err := h.svc.DeleteWorld(c.Request.Context(), id, worldID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c)); err != nil {
+		writeMessageError(c, err, http.StatusBadRequest)
 		return
 	}
 	response.JSON(c, http.StatusOK, response.Message{Message: "World deleted"})
@@ -597,7 +603,8 @@ func (h *GameServerHandler) DeleteBackup(c *gin.Context) {
 		return
 	}
 
-	if writeIfDenied(c, h.svc.DeleteBackup(c.Request.Context(), id, backupID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c))) {
+	if err := h.svc.DeleteBackup(c.Request.Context(), id, backupID, middleware.GetCurrentUserID(c), middleware.IsAdmin(c)); err != nil {
+		writeMessageError(c, err, http.StatusBadRequest)
 		return
 	}
 	response.JSON(c, http.StatusOK, response.Message{Message: "Backup deleted"})

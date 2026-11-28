@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -112,6 +114,13 @@ func (c *Client) doRequest(method, path string, body any) ([]byte, error) {
 
 	if resp.StatusCode >= 400 {
 		return respBody, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var env struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &env); err == nil && len(env.Data) > 0 && string(env.Data) != "null" {
+		return env.Data, nil
 	}
 
 	return respBody, nil
@@ -307,7 +316,7 @@ func handleLogin(cfg Config, args []string) {
 }
 
 func handleWhoami(client *Client) {
-	body, err := client.doRequest("GET", "/api/v1/dashboard/summary", nil)
+	body, err := client.doRequest("GET", "/api/v1/auth/me", nil)
 	if err != nil {
 		fmt.Printf("Error checking identity: %v\n", err)
 		os.Exit(1)
@@ -318,6 +327,12 @@ func handleWhoami(client *Client) {
 		fmt.Println("Authenticated successfully to:", client.BaseURL)
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 		fmt.Fprintf(w, "Endpoint:\t%s\n", client.BaseURL)
+		if email, ok := res["email"].(string); ok && email != "" {
+			fmt.Fprintf(w, "Email:\t%s\n", email)
+		}
+		if role, ok := res["role"].(string); ok && role != "" {
+			fmt.Fprintf(w, "Role:\t%s\n", role)
+		}
 		if client.APIKey != "" {
 			fmt.Fprintf(w, "Auth Method:\tAPI Key (%s...)\n", client.APIKey[:min(12, len(client.APIKey))])
 		} else if client.Token != "" {
@@ -340,8 +355,12 @@ func handleVM(client *Client, args []string) {
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 			fmt.Fprintln(w, "ID\tNAME\tSTATUS\tIP ADDRESS\tVCPU\tRAM (MB)")
 			for _, item := range list {
+				ip := item["private_ip"]
+				if ip == nil || ip == "" {
+					ip = item["public_ip"]
+				}
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
-					item["id"], item["name"], item["status"], item["ip_address"], item["vcpu"], item["ram_mb"])
+					item["id"], item["name"], item["status"], ip, item["vcpus"], item["memory_mb"])
 			}
 			w.Flush()
 		})
@@ -380,7 +399,7 @@ func handleVM(client *Client, args []string) {
 			fmt.Println("Usage: nevatal vm stop <vm-id>")
 			os.Exit(1)
 		}
-		_, err := client.doRequest("POST", "/api/v1/instances/"+args[1]+"/stop", nil)
+		_, err := client.doRequest("POST", "/api/v1/instances/"+args[1]+"/shutdown", nil)
 		if err != nil {
 			fmt.Printf("Error stopping VM: %v\n", err)
 			os.Exit(1)
@@ -589,40 +608,84 @@ func handleFirewall(client *Client, args []string) {
 			for i := 2; i < len(args); i++ {
 				switch args[i] {
 				case "--fw-id":
-					fwID = args[i+1]
-					i++
+					if i+1 < len(args) {
+						fwID = args[i+1]
+						i++
+					}
 				case "--direction":
-					dir = args[i+1]
-					i++
+					if i+1 < len(args) {
+						dir = args[i+1]
+						i++
+					}
 				case "--action":
-					act = args[i+1]
-					i++
+					if i+1 < len(args) {
+						act = args[i+1]
+						i++
+					}
 				case "--protocol":
-					proto = args[i+1]
-					i++
+					if i+1 < len(args) {
+						proto = args[i+1]
+						i++
+					}
 				case "--port":
-					port = args[i+1]
-					i++
+					if i+1 < len(args) {
+						port = args[i+1]
+						i++
+					}
 				case "--cidr":
-					cidr = args[i+1]
-					i++
+					if i+1 < len(args) {
+						cidr = args[i+1]
+						i++
+					}
 				case "--desc":
-					desc = args[i+1]
-					i++
+					if i+1 < len(args) {
+						desc = args[i+1]
+						i++
+					}
 				}
 			}
 			if fwID == "" || dir == "" || act == "" || proto == "" {
-				fmt.Println("Usage: nevatal firewall rule add <fw-id> --direction <inbound|outbound> --action <allow|deny> --protocol <tcp|udp|icmp|all> [--port <port>] [--cidr <cidr>]")
+				fmt.Println("Usage: nevatal firewall rule add <fw-id> --direction <inbound|outbound> --action <allow|deny> --protocol <tcp|udp|icmp|any> [--port <port>] [--cidr <cidr>]")
 				os.Exit(1)
 			}
-			body, err := client.doRequest("POST", fmt.Sprintf("/api/v1/firewalls/%s/rules", fwID), map[string]any{
-				"direction":   dir,
-				"action":      act,
-				"protocol":    proto,
-				"port_range":  port,
-				"cidr":        cidr,
-				"description": desc,
-			})
+			if proto == "all" {
+				proto = "any"
+			}
+			var portMin, portMax *int
+			if port != "" {
+				parts := strings.SplitN(port, "-", 2)
+				if minP, err := strconv.Atoi(strings.TrimSpace(parts[0])); err == nil {
+					portMin = &minP
+					if len(parts) == 2 {
+						if maxP, err := strconv.Atoi(strings.TrimSpace(parts[1])); err == nil {
+							portMax = &maxP
+						}
+					} else {
+						portMax = &minP
+					}
+				}
+			}
+			if cidr == "" {
+				cidr = "0.0.0.0/0"
+			}
+			payload := map[string]any{
+				"direction": dir,
+				"action":    act,
+				"protocol":  proto,
+			}
+			if dir == "outbound" {
+				payload["destination_cidr"] = cidr
+			} else {
+				payload["source_cidr"] = cidr
+			}
+			if portMin != nil {
+				payload["port_min"] = *portMin
+			}
+			if portMax != nil {
+				payload["port_max"] = *portMax
+			}
+			_ = desc
+			body, err := client.doRequest("POST", fmt.Sprintf("/api/v1/firewalls/%s/rules", fwID), payload)
 			if err != nil {
 				fmt.Printf("Error adding rule: %v\n", err)
 				os.Exit(1)
@@ -633,16 +696,16 @@ func handleFirewall(client *Client, args []string) {
 				fmt.Printf("Firewall rule added to %s: %s %s %s %s\n", fwID, act, proto, port, cidr)
 			})
 		} else if args[1] == "delete" {
-			if len(args) < 3 {
-				fmt.Println("Usage: nevatal firewall rule delete <rule-id>")
+			if len(args) < 4 {
+				fmt.Println("Usage: nevatal firewall rule delete <fw-id> <rule-id>")
 				os.Exit(1)
 			}
-			_, err := client.doRequest("DELETE", "/api/v1/firewalls/rules/"+args[2], nil)
+			_, err := client.doRequest("DELETE", fmt.Sprintf("/api/v1/firewalls/%s/rules/%s", args[2], args[3]), nil)
 			if err != nil {
 				fmt.Printf("Error deleting rule: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Printf("Firewall rule %s deleted.\n", args[2])
+			fmt.Printf("Firewall rule %s deleted.\n", args[3])
 		}
 
 	default:
@@ -667,7 +730,7 @@ func handleLoadBalancer(client *Client, args []string) {
 				listeners, _ := item["listeners"].([]any)
 				pools, _ := item["pools"].([]any)
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%d\t%d\n",
-					item["id"], item["name"], item["status"], item["algorithm"], item["vip_address"], len(listeners), len(pools))
+					item["id"], item["name"], item["status"], item["algorithm"], item["public_ip"], len(listeners), len(pools))
 			}
 			w.Flush()
 		})
@@ -750,10 +813,10 @@ func handleDNS(client *Client, args []string) {
 		_ = json.Unmarshal(body, &list)
 		client.printOutput(list, func() {
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tNAME\tRECORDS\tCREATED")
+			fmt.Fprintln(w, "ID\tDOMAIN\tRECORDS\tCREATED")
 			for _, item := range list {
 				recs, _ := item["records"].([]any)
-				fmt.Fprintf(w, "%v\t%v\t%d\t%v\n", item["id"], item["name"], len(recs), item["created_at"])
+				fmt.Fprintf(w, "%v\t%v\t%d\t%v\n", item["id"], item["domain"], len(recs), item["created_at"])
 			}
 			w.Flush()
 		})
@@ -764,7 +827,7 @@ func handleDNS(client *Client, args []string) {
 	case "create":
 		var name, desc string
 		for i := 1; i < len(args); i++ {
-			if args[i] == "--name" && i+1 < len(args) {
+			if (args[i] == "--name" || args[i] == "--domain") && i+1 < len(args) {
 				name = args[i+1]
 				i++
 			} else if args[i] == "--desc" && i+1 < len(args) {
@@ -773,12 +836,12 @@ func handleDNS(client *Client, args []string) {
 			}
 		}
 		if name == "" {
-			fmt.Println("Usage: nevatal dns create --name <example.com> [--desc <desc>]")
+			fmt.Println("Usage: nevatal dns create --domain <example.com> [--desc <desc>]")
 			os.Exit(1)
 		}
+		_ = desc
 		body, err := client.doRequest("POST", "/api/v1/dns/zones", map[string]string{
-			"name":        name,
-			"description": desc,
+			"domain": name,
 		})
 		if err != nil {
 			fmt.Printf("Error creating DNS zone: %v\n", err)
@@ -787,7 +850,7 @@ func handleDNS(client *Client, args []string) {
 		var res map[string]any
 		_ = json.Unmarshal(body, &res)
 		client.printOutput(res, func() {
-			fmt.Printf("DNS Zone created: %v (%v)\n", res["name"], res["id"])
+			fmt.Printf("DNS Zone created: %v (%v)\n", res["domain"], res["id"])
 		})
 
 	case "records":
@@ -804,10 +867,10 @@ func handleDNS(client *Client, args []string) {
 		_ = json.Unmarshal(body, &list)
 		client.printOutput(list, func() {
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tNAME\tTYPE\tCONTENT\tTTL\tPRIORITY")
+			fmt.Fprintln(w, "ID\tNAME\tTYPE\tVALUE\tTTL\tPRIORITY")
 			for _, item := range list {
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
-					item["id"], item["name"], item["type"], item["content"], item["ttl"], item["priority"])
+					item["id"], item["name"], item["record_type"], item["value"], item["ttl"], item["priority"])
 			}
 			w.Flush()
 		})
@@ -848,10 +911,13 @@ func handleWebhook(client *Client, args []string) {
 
 	switch args[0] {
 	case "create":
-		var url, eventsStr, desc string
+		var name, hookURL, eventsStr, desc string
 		for i := 1; i < len(args); i++ {
-			if args[i] == "--url" && i+1 < len(args) {
-				url = args[i+1]
+			if args[i] == "--name" && i+1 < len(args) {
+				name = args[i+1]
+				i++
+			} else if args[i] == "--url" && i+1 < len(args) {
+				hookURL = args[i+1]
 				i++
 			} else if args[i] == "--events" && i+1 < len(args) {
 				eventsStr = args[i+1]
@@ -861,18 +927,27 @@ func handleWebhook(client *Client, args []string) {
 				i++
 			}
 		}
-		if url == "" {
-			fmt.Println("Usage: nevatal webhook create --url <https://...> [--events <instance.created,instance.deleted>]")
+		if hookURL == "" {
+			fmt.Println("Usage: nevatal webhook create [--name <name>] --url <https://...> [--events <instance.created,instance.deleted>]")
 			os.Exit(1)
+		}
+		if name == "" {
+			if desc != "" {
+				name = desc
+			} else if parsed, err := neturl.Parse(hookURL); err == nil && parsed.Host != "" {
+				name = parsed.Host
+			} else {
+				name = "webhook"
+			}
 		}
 		events := []string{"*"}
 		if eventsStr != "" {
 			events = strings.Split(eventsStr, ",")
 		}
 		body, err := client.doRequest("POST", "/api/v1/webhooks", map[string]any{
-			"url":         url,
-			"events":      events,
-			"description": desc,
+			"name":   name,
+			"url":    hookURL,
+			"events": events,
 		})
 		if err != nil {
 			fmt.Printf("Error creating webhook: %v\n", err)
@@ -881,8 +956,7 @@ func handleWebhook(client *Client, args []string) {
 		var res map[string]any
 		_ = json.Unmarshal(body, &res)
 		client.printOutput(res, func() {
-			fmt.Printf("Webhook endpoint created: %v\nSigning Secret: %v (Store this safely!)\n",
-				res["url"], res["secret"])
+			fmt.Printf("Webhook endpoint created: %v (%v)\n", res["name"], res["url"])
 		})
 
 	case "deliveries":
@@ -890,7 +964,7 @@ func handleWebhook(client *Client, args []string) {
 			fmt.Println("Usage: nevatal webhook deliveries <endpoint-id>")
 			os.Exit(1)
 		}
-		body, err := client.doRequest("GET", fmt.Sprintf("/api/v1/webhooks/%s/deliveries", args[1]), nil)
+		body, err := client.doRequest("GET", fmt.Sprintf("/api/v1/webhooks/deliveries?endpoint_id=%s", neturl.QueryEscape(args[1])), nil)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
@@ -902,7 +976,7 @@ func handleWebhook(client *Client, args []string) {
 			fmt.Fprintln(w, "DELIVERY ID\tEVENT TYPE\tSTATUS\tCODE\tATTEMPTS\tCREATED")
 			for _, item := range list {
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
-					item["id"], item["event_type"], item["status"], item["response_code"], item["attempts"], item["created_at"])
+					item["id"], item["event_type"], item["status"], item["last_http_status"], item["attempt_count"], item["created_at"])
 			}
 			w.Flush()
 		})
@@ -919,7 +993,7 @@ func handleWebhook(client *Client, args []string) {
 		}
 		var res map[string]any
 		_ = json.Unmarshal(body, &res)
-		fmt.Printf("Test ping delivered: Status %v (HTTP %v)\n", res["status"], res["response_code"])
+		fmt.Printf("Test ping queued: Status %v (HTTP %v)\n", res["status"], res["last_http_status"])
 
 	default:
 		fmt.Printf("Unknown webhook command: %s\n", args[0])
@@ -941,7 +1015,7 @@ func handleJob(client *Client, args []string) {
 			fmt.Fprintln(w, "ID\tACTION\tSTATUS\tPROGRESS\tCREATED")
 			for _, item := range list {
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v%%\t%v\n",
-					item["id"], item["action"], item["status"], item["progress"], item["created_at"])
+					item["id"], item["operation_type"], item["status"], item["progress"], item["created_at"])
 			}
 			w.Flush()
 		})

@@ -159,25 +159,29 @@ func SetupRouter(p RouterParams) *gin.Engine {
 			protected.GET("/activity", templatePlanHandler.GetActivity)
 
 			// Instances (Compute VMs)
-			protected.GET("/instances", instanceHandler.List)
-			protected.POST("/instances", instanceHandler.Create)
-			protected.GET("/instances/:id", instanceHandler.Get)
-			protected.POST("/instances/:id/start", instanceHandler.Start)
-			protected.POST("/instances/:id/shutdown", instanceHandler.Shutdown)
-			protected.POST("/instances/:id/restart", instanceHandler.Restart)
-			protected.POST("/instances/:id/resize", instanceHandler.Resize)
-			protected.DELETE("/instances/:id", instanceHandler.Delete)
-			protected.GET("/instances/:id/activity", instanceHandler.GetActivity)
-			protected.GET("/instances/:id/metrics", instanceHandler.GetMetrics)
-			protected.GET("/instances/:id/console", instanceHandler.GetConsoleTicket)
-			protected.GET("/instances/:id/snapshots", instanceHandler.ListSnapshots)
-			protected.POST("/instances/:id/snapshots", instanceHandler.CreateSnapshot)
-			protected.POST("/instances/:id/snapshots/:snapname/restore", instanceHandler.RestoreSnapshot)
-			protected.DELETE("/instances/:id/snapshots/:snapname", instanceHandler.DeleteSnapshot)
+			instances := protected.Group("/instances")
+			instances.Use(middleware.RequireScope("instances"))
+			{
+				instances.GET("", instanceHandler.List)
+				instances.POST("", instanceHandler.Create)
+				instances.GET("/:id", instanceHandler.Get)
+				instances.POST("/:id/start", instanceHandler.Start)
+				instances.POST("/:id/shutdown", instanceHandler.Shutdown)
+				instances.POST("/:id/restart", instanceHandler.Restart)
+				instances.POST("/:id/resize", instanceHandler.Resize)
+				instances.DELETE("/:id", instanceHandler.Delete)
+				instances.GET("/:id/activity", instanceHandler.GetActivity)
+				instances.GET("/:id/metrics", instanceHandler.GetMetrics)
+				instances.GET("/:id/console", instanceHandler.GetConsoleTicket)
+				instances.GET("/:id/snapshots", instanceHandler.ListSnapshots)
+				instances.POST("/:id/snapshots", instanceHandler.CreateSnapshot)
+				instances.POST("/:id/snapshots/:snapname/restore", instanceHandler.RestoreSnapshot)
+				instances.DELETE("/:id/snapshots/:snapname", instanceHandler.DeleteSnapshot)
 
-			// Docker viewer (via the QEMU guest agent)
-			protected.GET("/instances/:id/docker", dockerHandler.Overview)
-			protected.GET("/instances/:id/docker/containers/:container/logs", dockerHandler.Logs)
+				// Docker viewer (via the QEMU guest agent)
+				instances.GET("/:id/docker", dockerHandler.Overview)
+				instances.GET("/:id/docker/containers/:container/logs", dockerHandler.Logs)
+			}
 
 			// Applications (Automated Git / Web Deployments)
 			protected.GET("/apps", appHandler.List)
@@ -488,6 +492,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 
 			// Private Networks
 			networks := protected.Group("/networks")
+			networks.Use(middleware.RequireScope("networks"))
 			{
 				networks.GET("", netHandler.ListNetworks)
 				networks.POST("", netHandler.CreateNetwork)
@@ -501,6 +506,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 
 			// Cloud Firewalls
 			firewalls := protected.Group("/firewalls")
+			firewalls.Use(middleware.RequireScope("firewalls"))
 			{
 				firewalls.GET("", netHandler.ListFirewalls)
 				firewalls.POST("", netHandler.CreateFirewall)
@@ -516,6 +522,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 
 			// Floating IPs
 			floatingIPs := protected.Group("/floating-ips")
+			floatingIPs.Use(middleware.RequireScope("networks"))
 			{
 				floatingIPs.GET("", netHandler.ListFloatingIPs)
 				floatingIPs.POST("", netHandler.AllocateFloatingIP)
@@ -526,6 +533,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 
 			// DNS Management
 			dns := protected.Group("/dns")
+			dns.Use(middleware.RequireScope("dns"))
 			{
 				dns.GET("/zones", netHandler.ListDNSZones)
 				dns.POST("/zones", netHandler.CreateDNSZone)
@@ -538,6 +546,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 
 			// Managed Load Balancers
 			lbs := protected.Group("/load-balancers")
+			lbs.Use(middleware.RequireScope("load_balancers"))
 			{
 				lbs.GET("", lbHandler.ListLoadBalancers)
 				lbs.POST("", lbHandler.CreateLoadBalancer)
@@ -561,6 +570,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 
 			// Developer API Keys
 			apiKeys := protected.Group("/api-keys")
+			apiKeys.Use(middleware.RequireScope("api_keys"))
 			{
 				apiKeys.GET("", devHandler.ListAPIKeys)
 				apiKeys.POST("", devHandler.CreateAPIKey)
@@ -569,6 +579,7 @@ func SetupRouter(p RouterParams) *gin.Engine {
 
 			// Webhooks & Event Integrations
 			webhooks := protected.Group("/webhooks")
+			webhooks.Use(middleware.RequireScope("webhooks"))
 			{
 				webhooks.GET("", devHandler.ListWebhooks)
 				webhooks.POST("", devHandler.CreateWebhook)

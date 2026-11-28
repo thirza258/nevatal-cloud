@@ -43,7 +43,7 @@ export const AppDetails: React.FC<AppDetailsProps> = ({ appId, onNavigate }) => 
   const fetchAppData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/apps/${appId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -66,7 +66,7 @@ export const AppDetails: React.FC<AppDetailsProps> = ({ appId, onNavigate }) => 
   const handlePower = async (action: 'start' | 'stop' | 'restart') => {
     try {
       setActionLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/apps/${appId}/power/${action}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
@@ -83,7 +83,7 @@ export const AppDetails: React.FC<AppDetailsProps> = ({ appId, onNavigate }) => 
   const handleDeploy = async () => {
     try {
       setActionLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/apps/${appId}/deploy`, {
         method: 'POST',
         headers: {
@@ -105,7 +105,7 @@ export const AppDetails: React.FC<AppDetailsProps> = ({ appId, onNavigate }) => 
     if (!confirm('Are you sure you want to rollback to this previous build?')) return;
     try {
       setActionLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/apps/${appId}/rollback/${deploymentId}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
@@ -123,7 +123,7 @@ export const AppDetails: React.FC<AppDetailsProps> = ({ appId, onNavigate }) => 
     e.preventDefault();
     if (!newKey.trim()) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/apps/${appId}/env`, {
         method: 'POST',
         headers: {
@@ -148,7 +148,7 @@ export const AppDetails: React.FC<AppDetailsProps> = ({ appId, onNavigate }) => 
 
   const handleDeleteEnvVar = async (key: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/apps/${appId}/env/${key}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
@@ -163,7 +163,7 @@ export const AppDetails: React.FC<AppDetailsProps> = ({ appId, onNavigate }) => 
   const handleDeleteApp = async () => {
     if (!confirm(`Are you sure you want to delete ${app?.name}? This cannot be undone.`)) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/apps/${appId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }

@@ -28,7 +28,7 @@ export const AutomationList: React.FC<AutomationListProps> = ({ onNavigate }) =>
   const fetchInstances = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch('/api/v1/automation/instances', {
         headers: { Authorization: `Bearer ${token}` }
       });

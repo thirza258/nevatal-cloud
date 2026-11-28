@@ -502,16 +502,23 @@ func (u *NetworkUsecase) AttachFirewall(ctx context.Context, tenantID uuid.UUID,
 		return nil, err
 	}
 
-	resType := strings.ToLower(input.ResourceType)
+	resType := strings.ToLower(strings.TrimSpace(input.ResourceType))
 	if resType == "" {
 		resType = "vm"
 	}
 
-	if resType == "vm" {
+	switch resType {
+	case "vm":
 		inst, err := u.instRepo.FindByID(ctx, input.ResourceID, &tenantID)
 		if err != nil || inst == nil {
 			return nil, ErrInstanceNotOwned
 		}
+	case "network":
+		if _, err := u.GetNetwork(ctx, tenantID, input.ResourceID); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.New("unsupported firewall attachment resource_type; expected 'vm' or 'network'")
 	}
 
 	att := &models.FirewallAttachment{

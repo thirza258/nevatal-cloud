@@ -99,10 +99,11 @@ export const GameServersList: React.FC<GameServersListProps> = ({ onNavigate }) 
   };
 
   const filteredServers = servers.filter((s) => {
+    const q = searchTerm.toLowerCase();
     const matchesSearch =
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.connection_address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.server_software.toLowerCase().includes(searchTerm.toLowerCase());
+      (s.name || '').toLowerCase().includes(q) ||
+      (s.public_address || '').toLowerCase().includes(q) ||
+      (s.server_software || '').toLowerCase().includes(q);
 
     if (!matchesSearch) return false;
 
@@ -435,14 +436,14 @@ export const GameServersList: React.FC<GameServersListProps> = ({ onNavigate }) 
                   <div className="flex items-center gap-2 overflow-hidden">
                     <span className="text-[11px] font-mono uppercase text-slate-500 font-semibold shrink-0">Address:</span>
                     <span className="text-xs font-mono text-violet-300 truncate select-all">
-                      {server.custom_domain ? server.custom_domain : server.connection_address}
+                      {server.custom_domain ? server.custom_domain : server.public_address}
                     </span>
                   </div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCopy(
-                        server.custom_domain || server.connection_address,
+                        server.custom_domain || server.public_address,
                         server.id
                       );
                     }}
@@ -462,12 +463,12 @@ export const GameServersList: React.FC<GameServersListProps> = ({ onNavigate }) 
                   <div className="flex items-center gap-1.5">
                     <Users className="w-3.5 h-3.5 text-slate-500" />
                     <span>
-                      <strong className="text-slate-200">{server.online_player_count}</strong>/{server.max_players}
+                      <strong className="text-slate-200">{server.online_player_count}</strong>/{server.player_slots}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Cpu className="w-3.5 h-3.5 text-slate-500" />
-                    <span>{server.vcpus} vCPU • {Math.round(server.memory_mb / 1024)}GB</span>
+                    <span>{server.cpu_cores} vCPU • {Math.round(server.memory_mb / 1024)}GB</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <HardDrive className="w-3.5 h-3.5 text-slate-500" />

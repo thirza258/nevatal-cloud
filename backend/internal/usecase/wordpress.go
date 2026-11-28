@@ -70,13 +70,18 @@ type WordPressProvisioned struct {
 
 // Status reports the primary node and how many instances are live.
 func (s *WordPressUsecase) Status(ctx context.Context) *WordPressStatus {
-	node, _ := s.repos.Nodes.First(ctx)
+	node, err := s.repos.Nodes.First(ctx)
+	activeInstances, _ := s.repos.Instances.CountActive(ctx)
+	if err != nil || node == nil {
+		return &WordPressStatus{
+			ActiveInstances: activeInstances,
+		}
+	}
 
 	pveCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	nodeStatus, _ := s.proxmox.GetNodeStatus(pveCtx, node.ProxmoxNodeName)
-	activeInstances, _ := s.repos.Instances.CountActive(ctx)
 
 	return &WordPressStatus{
 		HypervisorNode:  node.ProxmoxNodeName,

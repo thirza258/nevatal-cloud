@@ -6,11 +6,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/nevatal/cloud/internal/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // QuotaRepository persists per-user resource limits (resource_quotas).
 type QuotaRepository interface {
 	FindByUserID(ctx context.Context, userID uuid.UUID) (*models.ResourceQuota, error)
+	// FindByUserIDForUpdate locks the user's quota row for the duration of
+	// the transaction in ctx so concurrent allocations serialize.
+	FindByUserIDForUpdate(ctx context.Context, userID uuid.UUID) (*models.ResourceQuota, error)
 	Create(ctx context.Context, quota *models.ResourceQuota) error
 	// Save inserts the quota when it has no ID yet and updates it otherwise.
 	Save(ctx context.Context, quota *models.ResourceQuota) error
@@ -40,6 +44,14 @@ func NewQuotaRepository(db *gorm.DB) QuotaRepository {
 func (r *quotaRepository) FindByUserID(ctx context.Context, userID uuid.UUID) (*models.ResourceQuota, error) {
 	var quota models.ResourceQuota
 	if err := r.conn(ctx).Where("user_id = ?", userID).First(&quota).Error; err != nil {
+		return nil, mapErr(err)
+	}
+	return &quota, nil
+}
+
+func (r *quotaRepository) FindByUserIDForUpdate(ctx context.Context, userID uuid.UUID) (*models.ResourceQuota, error) {
+	var quota models.ResourceQuota
+	if err := r.conn(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ?", userID).First(&quota).Error; err != nil {
 		return nil, mapErr(err)
 	}
 	return &quota, nil

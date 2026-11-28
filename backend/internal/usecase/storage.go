@@ -10,6 +10,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -121,17 +123,65 @@ func (s *StorageUsecase) GetBucketByName(ctx context.Context, name string) (*mod
 	return s.storage.FindBucketByName(ctx, name)
 }
 
+var bucketNameRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$`)
+
+func (s *StorageUsecase) safeBucketDir(bucketName string) (string, error) {
+	if bucketName == "" || bucketName == "." || bucketName == ".." || strings.ContainsAny(bucketName, `/\`) {
+		return "", newError(KindInvalid, "INVALID_BUCKET", "invalid bucket name")
+	}
+	baseAbs, err := filepath.Abs(s.basePath)
+	if err != nil {
+		return "", err
+	}
+	bucketDir := filepath.Clean(filepath.Join(baseAbs, bucketName))
+	rel, err := filepath.Rel(baseAbs, bucketDir)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == "." {
+		return "", newError(KindInvalid, "INVALID_BUCKET", "invalid bucket path")
+	}
+	return bucketDir, nil
+}
+
+func (s *StorageUsecase) safeObjectPath(bucketName, key string) (string, error) {
+	bucketDir, err := s.safeBucketDir(bucketName)
+	if err != nil {
+		return "", err
+	}
+	if strings.ContainsRune(key, '\x00') || strings.Contains(key, `\`) {
+		return "", newError(KindInvalid, "INVALID_KEY", "invalid object key")
+	}
+	trimmed := strings.Trim(key, "/")
+	if trimmed == "" {
+		return "", newError(KindInvalid, "INVALID_KEY", "object key is required")
+	}
+	for _, seg := range strings.Split(trimmed, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return "", newError(KindInvalid, "INVALID_KEY", "invalid path segment in object key")
+		}
+	}
+	target := filepath.Clean(filepath.Join(bucketDir, filepath.FromSlash(trimmed)))
+	rel, err := filepath.Rel(bucketDir, target)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", newError(KindInvalid, "INVALID_KEY", "object path escapes bucket boundary")
+	}
+	return target, nil
+}
+
 func (s *StorageUsecase) CreateBucket(ctx context.Context, ownerID uuid.UUID, input CreateBucketInput) (*models.StorageBucket, error) {
 	ctx = context.WithoutCancel(ctx)
 
 	// Sanitize name according to S3 rules (lowercase, alphanumeric, hyphens)
 	name := strings.ToLower(strings.TrimSpace(input.Name))
 	if len(name) < 3 || len(name) > 63 {
-		return nil, fmt.Errorf("bucket name must be between 3 and 63 characters")
+		return nil, newError(KindInvalid, "INVALID_BUCKET", "bucket name must be between 3 and 63 characters")
+	}
+	if !bucketNameRegex.MatchString(name) {
+		return nil, newError(KindInvalid, "INVALID_BUCKET", "bucket name must contain only lowercase letters, numbers, and hyphens, and start/end with alphanumeric characters")
 	}
 
 	if _, err := s.storage.FindBucketByName(ctx, name); err == nil {
-		return nil, fmt.Errorf("bucket name '%s' is already taken", name)
+		return nil, newError(KindConflict, "BUCKET_EXISTS", fmt.Sprintf("bucket name '%s' is already taken", name))
+	} else if !errors.Is(err, repository.ErrNotFound) {
+		return nil, err
 	}
 
 	region := input.Region
@@ -141,6 +191,9 @@ func (s *StorageUsecase) CreateBucket(ctx context.Context, ownerID uuid.UUID, in
 	visibility := input.Visibility
 	if visibility == "" {
 		visibility = "private"
+	}
+	if visibility != "private" && visibility != "public" {
+		return nil, newError(KindInvalid, "INVALID_VISIBILITY", "visibility must be 'private' or 'public'")
 	}
 
 	bucket := models.StorageBucket{
@@ -156,8 +209,9 @@ func (s *StorageUsecase) CreateBucket(ctx context.Context, ownerID uuid.UUID, in
 		return nil, err
 	}
 
-	bucketDir := filepath.Join(s.basePath, bucket.Name)
-	_ = os.MkdirAll(bucketDir, 0755)
+	if bucketDir, err := s.safeBucketDir(bucket.Name); err == nil {
+		_ = os.MkdirAll(bucketDir, 0755)
+	}
 
 	return &bucket, nil
 }
@@ -205,8 +259,9 @@ func (s *StorageUsecase) DeleteBucket(ctx context.Context, id uuid.UUID, ownerID
 		return err
 	}
 
-	bucketDir := filepath.Join(s.basePath, bucket.Name)
-	_ = os.RemoveAll(bucketDir)
+	if bucketDir, err := s.safeBucketDir(bucket.Name); err == nil {
+		_ = os.RemoveAll(bucketDir)
+	}
 
 	return nil
 }
@@ -258,20 +313,27 @@ func (s *StorageUsecase) OpenObject(ctx context.Context, id, ownerID uuid.UUID) 
 func (s *StorageUsecase) SaveObject(ctx context.Context, bucket *models.StorageBucket, folderPrefix, filename, contentType string, reader io.Reader) (*models.StorageObject, error) {
 	ctx = context.WithoutCancel(ctx)
 
-	cleanPrefix := strings.Trim(folderPrefix, "/")
+	cleanName := strings.TrimSpace(filename)
+	if cleanName == "" || cleanName == "." || cleanName == ".." || strings.ContainsAny(cleanName, `/\`) {
+		return nil, newError(KindInvalid, "INVALID_FILENAME", "invalid filename")
+	}
+	cleanPrefix := strings.Trim(filepath.ToSlash(strings.TrimSpace(folderPrefix)), "/")
 	var key string
 	if cleanPrefix != "" {
-		key = cleanPrefix + "/" + filename
+		key = cleanPrefix + "/" + cleanName
 	} else {
-		key = filename
+		key = cleanName
 	}
 
-	targetDir := filepath.Join(s.basePath, bucket.Name, cleanPrefix)
+	targetPath, err := s.safeObjectPath(bucket.Name, key)
+	if err != nil {
+		return nil, err
+	}
+	targetDir := filepath.Dir(targetPath)
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
-
-	targetPath := filepath.Join(s.basePath, bucket.Name, key)
+	filename = cleanName
 	dst, err := os.Create(targetPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create destination file: %w", err)
@@ -336,17 +398,26 @@ func (s *StorageUsecase) SaveObject(ctx context.Context, bucket *models.StorageB
 func (s *StorageUsecase) CreateFolder(ctx context.Context, bucket *models.StorageBucket, folderPrefix, folderName string) (*models.StorageObject, error) {
 	ctx = context.WithoutCancel(ctx)
 
-	cleanPrefix := strings.Trim(folderPrefix, "/")
-	cleanName := strings.Trim(folderName, "/")
+	cleanPrefix := strings.Trim(filepath.ToSlash(strings.TrimSpace(folderPrefix)), "/")
+	cleanName := strings.Trim(filepath.ToSlash(strings.TrimSpace(folderName)), "/")
+	if cleanName == "" || strings.ContainsAny(cleanName, `/\`) || cleanName == "." || cleanName == ".." {
+		return nil, newError(KindInvalid, "INVALID_FOLDER", "invalid folder name")
+	}
 	var key string
 	if cleanPrefix != "" {
 		key = cleanPrefix + "/" + cleanName + "/"
 	} else {
 		key = cleanName + "/"
 	}
+	diskDir, err := s.safeObjectPath(bucket.Name, key)
+	if err != nil {
+		return nil, err
+	}
 
 	if existing, err := s.storage.FindObjectByKey(ctx, bucket.ID, key); err == nil {
 		return existing, nil
+	} else if !errors.Is(err, repository.ErrNotFound) {
+		return nil, err
 	}
 
 	obj := models.StorageObject{
@@ -363,7 +434,6 @@ func (s *StorageUsecase) CreateFolder(ctx context.Context, bucket *models.Storag
 		return nil, err
 	}
 
-	diskDir := filepath.Join(s.basePath, bucket.Name, cleanPrefix, cleanName)
 	_ = os.MkdirAll(diskDir, 0755)
 
 	return &obj, nil
@@ -392,19 +462,26 @@ func (s *StorageUsecase) DeleteObject(ctx context.Context, id, ownerID uuid.UUID
 			}
 			_ = s.storage.UpdateBucketTotals(ctx, bucket, bucket.TotalObjects, bucket.TotalSizeBytes)
 		}
-		filePath := filepath.Join(s.basePath, bucket.Name, obj.Key)
-		_ = os.RemoveAll(filePath)
+		if filePath, err := s.safeObjectPath(bucket.Name, obj.Key); err == nil {
+			_ = os.RemoveAll(filePath)
+		}
 	}
 
 	return s.storage.DeleteObject(ctx, obj)
 }
 
 func (s *StorageUsecase) OpenObjectFile(ctx context.Context, obj *models.StorageObject) (*os.File, error) {
+	if obj == nil {
+		return nil, errObjectFileMissing
+	}
 	bucket, err := s.storage.FindBucketByID(ctx, obj.BucketID)
 	if err != nil {
 		return nil, err
 	}
-	filePath := filepath.Join(s.basePath, bucket.Name, obj.Key)
+	filePath, err := s.safeObjectPath(bucket.Name, obj.Key)
+	if err != nil {
+		return nil, err
+	}
 	return os.Open(filePath)
 }
 
@@ -469,17 +546,24 @@ func (s *StorageUsecase) CreateSharedLink(ctx context.Context, ownerID uuid.UUID
 	shareURL := fmt.Sprintf("/api/v1/storage/shared/%s", token)
 
 	var expiresAt *time.Time
-	if input.ExpiresIn != "" {
-		d, err := time.ParseDuration(input.ExpiresIn)
-		if err == nil {
-			t := time.Now().Add(d)
-			expiresAt = &t
-		} else if strings.HasSuffix(input.ExpiresIn, "d") {
-			days := 7
-			fmt.Sscanf(input.ExpiresIn, "%dd", &days)
-			t := time.Now().Add(time.Duration(days) * 24 * time.Hour)
-			expiresAt = &t
+	if exp := strings.TrimSpace(input.ExpiresIn); exp != "" {
+		var d time.Duration
+		if parsed, err := time.ParseDuration(exp); err == nil {
+			d = parsed
+		} else if strings.HasSuffix(exp, "d") {
+			days, err := strconv.Atoi(strings.TrimSuffix(exp, "d"))
+			if err != nil {
+				return nil, newError(KindInvalid, "INVALID_EXPIRES_IN", "invalid expires_in duration")
+			}
+			d = time.Duration(days) * 24 * time.Hour
+		} else {
+			return nil, newError(KindInvalid, "INVALID_EXPIRES_IN", "invalid expires_in duration")
 		}
+		if d <= 0 {
+			return nil, newError(KindInvalid, "INVALID_EXPIRES_IN", "expires_in must be greater than zero")
+		}
+		t := time.Now().Add(d)
+		expiresAt = &t
 	}
 
 	hasPassword := false
@@ -548,12 +632,21 @@ func (s *StorageUsecase) OpenSharedLink(ctx context.Context, token, password str
 		}
 	}
 
+	if link.Object == nil {
+		return nil, nil, errSharedFileMissing
+	}
 	file, err := s.OpenObjectFile(ctx, link.Object)
 	if err != nil {
 		return nil, nil, errSharedFileMissing
 	}
 
-	_ = s.storage.IncrementSharedLinkDownloads(ctx, link.ID)
+	if err := s.storage.IncrementSharedLinkDownloads(ctx, link.ID); err != nil {
+		_ = file.Close()
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, nil, newError(KindNotFound, "NOT_FOUND", "maximum download limit reached")
+		}
+		return nil, nil, err
+	}
 	return link, file, nil
 }
 

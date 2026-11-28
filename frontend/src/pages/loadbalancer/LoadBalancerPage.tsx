@@ -58,7 +58,6 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
   const [lbAlgorithm, setLbAlgorithm] = useState('round_robin');
 
   const [showAddListener, setShowAddListener] = useState(false);
-  const [listenerName, setListenerName] = useState('http-80');
   const [listenerProto, setListenerProto] = useState<'http' | 'tcp' | 'https'>('http');
   const [listenerPort, setListenerPort] = useState(80);
   const [listenerPoolId, setListenerPoolId] = useState('');
@@ -144,10 +143,9 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
     if (!selectedLB) return;
     try {
       await createListener(selectedLB.id, {
-        name: listenerName,
         protocol: listenerProto,
-        port: listenerPort,
-        pool_id: listenerPoolId || undefined,
+        frontend_port: listenerPort,
+        default_pool_id: listenerPoolId || undefined,
       });
       setShowAddListener(false);
       notify('success', 'Frontend listener added');
@@ -158,8 +156,9 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
   };
 
   const handleDeleteListener = async (id: string) => {
+    if (!selectedLB) return;
     try {
-      await deleteListener(id);
+      await deleteListener(selectedLB.id, id);
       notify('success', 'Listener removed');
       loadData();
     } catch (err: any) {
@@ -175,8 +174,10 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
         name: poolName,
         protocol: poolProto,
         algorithm: poolAlgo,
-        health_check_type: poolHCType,
-        health_check_path: poolHCType === 'http' ? poolHCPath : undefined,
+        health_check_config: JSON.stringify({
+          type: poolHCType,
+          path: poolHCType === 'http' ? poolHCPath : undefined,
+        }),
       });
       setShowAddPool(false);
       notify('success', 'Backend pool added');
@@ -187,8 +188,9 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
   };
 
   const handleDeletePool = async (id: string) => {
+    if (!selectedLB) return;
     try {
-      await deletePool(id);
+      await deletePool(selectedLB.id, id);
       notify('success', 'Backend pool deleted');
       loadData();
     } catch (err: any) {
@@ -198,11 +200,15 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!memberPoolId) return;
+    if (!selectedLB || !memberPoolId) return;
+    if (!memberInstanceId) {
+      notify('error', 'Please select a VM instance for this backend member');
+      return;
+    }
     try {
-      await createMember(memberPoolId, {
-        instance_id: memberInstanceId || undefined,
-        ip_address: memberIP,
+      await createMember(selectedLB.id, memberPoolId, {
+        instance_id: memberInstanceId,
+        address: memberIP || undefined,
         port: memberPort,
         weight: memberWeight,
       });
@@ -216,9 +222,10 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
     }
   };
 
-  const handleDeleteMember = async (id: string) => {
+  const handleDeleteMember = async (poolId: string, id: string) => {
+    if (!selectedLB) return;
     try {
-      await deleteMember(id);
+      await deleteMember(selectedLB.id, poolId, id);
       notify('success', 'Backend member removed');
       loadData();
     } catch (err: any) {
@@ -293,7 +300,7 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-sm font-semibold">{lb.name}</h3>
-                  <p className="text-xs font-mono text-indigo-400 mt-0.5">VIP: {lb.vip_address || 'Allocating...'}</p>
+                  <p className="text-xs font-mono text-indigo-400 mt-0.5">VIP: {lb.public_ip || 'Allocating...'}</p>
                 </div>
                 <span
                   className={`px-2 py-0.5 text-[10px] rounded font-medium ${
@@ -335,7 +342,7 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
                       </span>
                     </h2>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      VIP Address: <span className="font-mono text-indigo-400">{selectedLB.vip_address || 'None'}</span> | Network: {selectedLB.network ? selectedLB.network.name : 'Public Edge'}
+                      VIP Address: <span className="font-mono text-indigo-400">{selectedLB.public_ip || 'None'}</span> | Network: {selectedLB.network ? selectedLB.network.name : 'Public Edge'}
                     </p>
                   </div>
                   <button
@@ -393,13 +400,15 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {selectedLB.listeners && selectedLB.listeners.length > 0 ? (
-                        selectedLB.listeners.map((lis) => (
+                        selectedLB.listeners.map((lis) => {
+                          const targetPool = selectedLB.pools?.find((p) => p.id === lis.default_pool_id);
+                          return (
                           <tr key={lis.id} className="hover:bg-slate-800/30">
-                            <td className="py-2.5 px-3 font-semibold text-white">{lis.name}</td>
+                            <td className="py-2.5 px-3 font-semibold text-white">{`${lis.protocol.toUpperCase()}-${lis.frontend_port}`}</td>
                             <td className="py-2.5 px-3 uppercase text-indigo-400">{lis.protocol}</td>
-                            <td className="py-2.5 px-3 text-slate-300">{lis.port}</td>
+                            <td className="py-2.5 px-3 text-slate-300">{lis.frontend_port}</td>
                             <td className="py-2.5 px-3 text-slate-400 font-sans">
-                              {lis.pool ? lis.pool.name : lis.pool_id ? lis.pool_id.slice(0, 8) : 'Round Robin'}
+                              {targetPool ? targetPool.name : lis.default_pool_id ? lis.default_pool_id.slice(0, 8) : 'Default'}
                             </td>
                             <td className="py-2.5 px-3 text-right">
                               <button
@@ -410,7 +419,8 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
                               </button>
                             </td>
                           </tr>
-                        ))
+                          );
+                        })
                       ) : (
                         <tr>
                           <td colSpan={5} className="py-4 text-center text-slate-500 italic font-sans">
@@ -487,24 +497,24 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
                                 pool.members.map((m) => (
                                   <tr key={m.id} className="hover:bg-slate-800/20">
                                     <td className="py-2 px-2 text-slate-300">
-                                      {m.ip_address} {m.instance ? `(${m.instance.name})` : ''}
+                                      {m.address} {m.instance ? `(${m.instance.name})` : ''}
                                     </td>
                                     <td className="py-2 px-2 text-indigo-300">{m.port}</td>
                                     <td className="py-2 px-2 text-slate-400">{m.weight}</td>
                                     <td className="py-2 px-2">
                                       <span
                                         className={`px-1.5 py-0.5 rounded text-[10px] ${
-                                          m.status === 'healthy'
+                                          m.health_status === 'healthy'
                                             ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                                             : 'bg-rose-950 text-rose-300 border border-rose-800'
                                         }`}
                                       >
-                                        {m.status}
+                                        {m.health_status}
                                       </span>
                                     </td>
                                     <td className="py-2 px-2 text-right">
                                       <button
-                                        onClick={() => handleDeleteMember(m.id)}
+                                        onClick={() => handleDeleteMember(pool.id, m.id)}
                                         className="text-slate-600 hover:text-rose-400"
                                       >
                                         <Trash2 className="w-3 h-3 inline" />
@@ -609,17 +619,6 @@ export const LoadBalancerPage: React.FC<LoadBalancerPageProps> = ({ onNavigate }
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
             <h3 className="text-base font-semibold text-white mb-3">Add Frontend Listener</h3>
             <form onSubmit={handleAddListener} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Listener Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. http-inbound"
-                  value={listenerName}
-                  onChange={(e) => setListenerName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
-                />
-              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Protocol</label>

@@ -38,21 +38,21 @@ type DeveloperRepository interface {
 	MarkOutboxEventPublished(ctx context.Context, id uuid.UUID) error
 }
 
-type developerRepository struct {
-	db *gorm.DB
-}
+type developerRepository struct{ base }
+
+var _ DeveloperRepository = (*developerRepository)(nil)
 
 func NewDeveloperRepository(db *gorm.DB) DeveloperRepository {
-	return &developerRepository{db: db}
+	return &developerRepository{base{db}}
 }
 
 func (r *developerRepository) CreateAPIKey(ctx context.Context, key *models.APIKey) error {
-	return r.db.WithContext(ctx).Create(key).Error
+	return r.conn(ctx).Create(key).Error
 }
 
 func (r *developerRepository) ListAPIKeysByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.APIKey, error) {
 	var keys []models.APIKey
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("tenant_id = ?", tenantID).
 		Order("created_at DESC").
 		Find(&keys).Error
@@ -61,22 +61,22 @@ func (r *developerRepository) ListAPIKeysByTenant(ctx context.Context, tenantID 
 
 func (r *developerRepository) GetAPIKeyByID(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*models.APIKey, error) {
 	var key models.APIKey
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("id = ? AND tenant_id = ?", id, tenantID).
 		First(&key).Error
 	if err != nil {
-		return nil, err
+		return nil, mapErr(err)
 	}
 	return &key, nil
 }
 
 func (r *developerRepository) FindAPIKeyBySecretHash(ctx context.Context, secretHash string) (*models.APIKey, error) {
 	var key models.APIKey
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("secret_hash = ? AND revoked_at IS NULL", secretHash).
 		First(&key).Error
 	if err != nil {
-		return nil, err
+		return nil, mapErr(err)
 	}
 	if key.ExpiresAt != nil && key.ExpiresAt.Before(time.Now()) {
 		return nil, errors.New("api key expired")
@@ -86,7 +86,7 @@ func (r *developerRepository) FindAPIKeyBySecretHash(ctx context.Context, secret
 
 func (r *developerRepository) UpdateAPIKeyLastUsed(ctx context.Context, id uuid.UUID) error {
 	now := time.Now()
-	return r.db.WithContext(ctx).
+	return r.conn(ctx).
 		Model(&models.APIKey{}).
 		Where("id = ?", id).
 		Update("last_used_at", &now).Error
@@ -94,19 +94,19 @@ func (r *developerRepository) UpdateAPIKeyLastUsed(ctx context.Context, id uuid.
 
 func (r *developerRepository) RevokeAPIKey(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error {
 	now := time.Now()
-	return r.db.WithContext(ctx).
+	return deleteChecked(r.conn(ctx).
 		Model(&models.APIKey{}).
 		Where("id = ? AND tenant_id = ?", id, tenantID).
-		Update("revoked_at", &now).Error
+		Update("revoked_at", &now))
 }
 
 func (r *developerRepository) CreateWebhookEndpoint(ctx context.Context, ep *models.WebhookEndpoint) error {
-	return r.db.WithContext(ctx).Create(ep).Error
+	return r.conn(ctx).Create(ep).Error
 }
 
 func (r *developerRepository) ListWebhookEndpointsByTenant(ctx context.Context, tenantID uuid.UUID) ([]models.WebhookEndpoint, error) {
 	var eps []models.WebhookEndpoint
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("tenant_id = ?", tenantID).
 		Preload("Subscriptions").
 		Order("created_at DESC").
@@ -116,43 +116,43 @@ func (r *developerRepository) ListWebhookEndpointsByTenant(ctx context.Context, 
 
 func (r *developerRepository) GetWebhookEndpointByID(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*models.WebhookEndpoint, error) {
 	var ep models.WebhookEndpoint
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("id = ? AND tenant_id = ?", id, tenantID).
 		Preload("Subscriptions").
 		First(&ep).Error
 	if err != nil {
-		return nil, err
+		return nil, mapErr(err)
 	}
 	return &ep, nil
 }
 
 func (r *developerRepository) UpdateWebhookEndpoint(ctx context.Context, ep *models.WebhookEndpoint) error {
-	return r.db.WithContext(ctx).Save(ep).Error
+	return r.conn(ctx).Save(ep).Error
 }
 
 func (r *developerRepository) DeleteWebhookEndpoint(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error {
-	return r.db.WithContext(ctx).
+	return deleteChecked(r.conn(ctx).
 		Where("id = ? AND tenant_id = ?", id, tenantID).
-		Delete(&models.WebhookEndpoint{}).Error
+		Delete(&models.WebhookEndpoint{}))
 }
 
 func (r *developerRepository) AddWebhookSubscription(ctx context.Context, sub *models.WebhookSubscription) error {
-	return r.db.WithContext(ctx).Create(sub).Error
+	return r.conn(ctx).Create(sub).Error
 }
 
 func (r *developerRepository) DeleteWebhookSubscription(ctx context.Context, tenantID uuid.UUID, endpointID uuid.UUID, eventType string) error {
-	return r.db.WithContext(ctx).
+	return deleteChecked(r.conn(ctx).
 		Where("endpoint_id = ? AND event_type = ? AND tenant_id = ?", endpointID, eventType, tenantID).
-		Delete(&models.WebhookSubscription{}).Error
+		Delete(&models.WebhookSubscription{}))
 }
 
 func (r *developerRepository) CreateWebhookDelivery(ctx context.Context, delivery *models.WebhookDelivery) error {
-	return r.db.WithContext(ctx).Create(delivery).Error
+	return r.conn(ctx).Create(delivery).Error
 }
 
 func (r *developerRepository) ListWebhookDeliveries(ctx context.Context, tenantID uuid.UUID, endpointID *uuid.UUID, limit int) ([]models.WebhookDelivery, error) {
 	var deliveries []models.WebhookDelivery
-	q := r.db.WithContext(ctx).
+	q := r.conn(ctx).
 		Where("tenant_id = ?", tenantID).
 		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
 			return db.Order("attempt_number ASC")
@@ -171,7 +171,7 @@ func (r *developerRepository) ListWebhookDeliveries(ctx context.Context, tenantI
 
 func (r *developerRepository) GetWebhookDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) (*models.WebhookDelivery, error) {
 	var delivery models.WebhookDelivery
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("id = ? AND tenant_id = ?", deliveryID, tenantID).
 		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
 			return db.Order("attempt_number ASC")
@@ -179,21 +179,21 @@ func (r *developerRepository) GetWebhookDeliveryByID(ctx context.Context, tenant
 		Preload("Endpoint").
 		First(&delivery).Error
 	if err != nil {
-		return nil, err
+		return nil, mapErr(err)
 	}
 	return &delivery, nil
 }
 
 func (r *developerRepository) UpdateWebhookDelivery(ctx context.Context, delivery *models.WebhookDelivery) error {
-	return r.db.WithContext(ctx).Save(delivery).Error
+	return r.conn(ctx).Save(delivery).Error
 }
 
 func (r *developerRepository) RecordDeliveryAttempt(ctx context.Context, attempt *models.WebhookDeliveryAttempt) error {
-	return r.db.WithContext(ctx).Create(attempt).Error
+	return r.conn(ctx).Create(attempt).Error
 }
 
 func (r *developerRepository) SaveEventToOutbox(ctx context.Context, event *models.EventOutbox) error {
-	return r.db.WithContext(ctx).Create(event).Error
+	return r.conn(ctx).Create(event).Error
 }
 
 func (r *developerRepository) GetUnpublishedOutboxEvents(ctx context.Context, limit int) ([]models.EventOutbox, error) {
@@ -201,7 +201,7 @@ func (r *developerRepository) GetUnpublishedOutboxEvents(ctx context.Context, li
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
-	err := r.db.WithContext(ctx).
+	err := r.conn(ctx).
 		Where("published_at IS NULL").
 		Order("created_at ASC").
 		Limit(limit).
@@ -211,7 +211,7 @@ func (r *developerRepository) GetUnpublishedOutboxEvents(ctx context.Context, li
 
 func (r *developerRepository) MarkOutboxEventPublished(ctx context.Context, id uuid.UUID) error {
 	now := time.Now()
-	return r.db.WithContext(ctx).
+	return r.conn(ctx).
 		Model(&models.EventOutbox{}).
 		Where("id = ?", id).
 		Update("published_at", &now).Error

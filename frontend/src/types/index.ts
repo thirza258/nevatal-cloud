@@ -719,11 +719,11 @@ export interface GameServerPlugin {
   id: string;
   server_id: string;
   name: string;
-  filename: string;
+  file_name: string;
   file_size_bytes: number;
   version: string;
-  enabled: boolean;
-  is_official: boolean;
+  is_enabled: boolean;
+  is_compatible?: boolean;
   author?: string;
   description?: string;
   created_at: string;
@@ -733,10 +733,10 @@ export interface GameServerMod {
   id: string;
   server_id: string;
   name: string;
-  filename: string;
+  file_name: string;
   file_size_bytes: number;
   version: string;
-  enabled: boolean;
+  is_enabled: boolean;
   mod_loader: string;
   author?: string;
   description?: string;
@@ -748,9 +748,9 @@ export interface GameServerWorld {
   server_id: string;
   world_name: string;
   size_bytes: number;
-  world_seed?: string;
+  seed?: string;
   difficulty?: string;
-  gamemode?: string;
+  world_size?: string;
   is_active: boolean;
   created_at: string;
 }
@@ -770,44 +770,48 @@ export interface GameServerBackup {
 }
 
 export interface GameServerMetrics {
-  cpu_percent: number;
-  memory_usage_mb: number;
-  memory_limit_mb: number;
-  disk_usage_gb: number;
-  disk_limit_gb: number;
-  online_players: number;
-  max_players: number;
+  cpu_usage_percent: number;
+  memory_usage_percent: number;
+  memory_used_mb: number;
+  memory_total_mb: number;
+  disk_used_gb: number;
+  disk_total_gb: number;
+  online_player_count: number;
   tps: number;
   mspt: number;
   uptime_seconds: number;
+  timestamp?: string;
 }
 
 export interface GameServer {
   id: string;
-  user_id: string;
+  owner_id: string;
   name: string;
   slug: string;
   game_type: GameType;
   server_software: string;
   game_version: string;
   plan_name: string;
-  vcpus: number;
+  cpu_cores: number;
   memory_mb: number;
   storage_gb: number;
   assigned_port: number;
-  protocol: string;
-  connection_address: string;
+  query_port?: number;
+  rcon_port?: number;
+  protocol?: string;
+  public_address: string;
   custom_domain?: string;
-  srv_record_hint?: string;
-  max_players: number;
+  player_slots: number;
   online_player_count: number;
   motd: string;
   status: GameServerStatus;
   uptime_seconds: number;
-  proxmox_node: string;
+  tps?: number;
+  mspt?: number;
+  node_name: string;
   auto_backup_enabled: boolean;
-  backup_schedule: string;
-  world_name: string;
+  backup_schedule?: string;
+  world_name?: string;
   created_at: string;
   updated_at: string;
   template?: GameServerTemplate;
@@ -2148,20 +2152,23 @@ export interface FirewallRule {
   firewall_id: string;
   direction: 'inbound' | 'outbound';
   action: 'allow' | 'deny';
-  protocol: 'tcp' | 'udp' | 'icmp' | 'all';
-  port_range?: string;
-  cidr: string;
-  description?: string;
+  protocol: 'tcp' | 'udp' | 'icmp' | 'any';
+  source_cidr: string;
+  destination_cidr: string;
+  port_min: number;
+  port_max: number;
   priority: number;
+  enabled: boolean;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface FirewallAttachment {
   id: string;
   firewall_id: string;
-  instance_id: string;
+  resource_type: string;
+  resource_id: string;
   created_at: string;
-  instance?: Instance;
 }
 
 export interface CloudFirewall {
@@ -2181,10 +2188,11 @@ export interface FloatingIP {
   id: string;
   tenant_id: string;
   project_id: string;
-  ip_address: string;
+  address: string;
+  ip_version?: number;
   instance_id?: string;
   status: string;
-  description?: string;
+  provider?: string;
   created_at: string;
   updated_at: string;
   instance?: Instance;
@@ -2194,10 +2202,9 @@ export interface DNSRecord {
   id: string;
   zone_id: string;
   name: string;
-  type: 'A' | 'AAAA' | 'CNAME' | 'TXT' | 'MX' | 'NS' | 'SRV';
-  content: string;
+  record_type: 'A' | 'AAAA' | 'CNAME' | 'TXT' | 'MX' | 'NS' | 'SRV' | 'PTR';
+  value: string;
   ttl: number;
-  priority?: number;
   created_at: string;
   updated_at: string;
 }
@@ -2206,8 +2213,9 @@ export interface DNSZone {
   id: string;
   tenant_id: string;
   project_id: string;
-  name: string;
-  description?: string;
+  domain: string;
+  provider?: string;
+  status?: string;
   created_at: string;
   updated_at: string;
   records?: DNSRecord[];
@@ -2228,12 +2236,13 @@ export interface NetworkTrafficMetric {
 export interface LoadBalancerMember {
   id: string;
   pool_id: string;
-  instance_id?: string;
-  ip_address: string;
+  instance_id: string;
+  address: string;
   port: number;
   weight: number;
-  status: 'healthy' | 'unhealthy' | 'draining' | 'disabled';
-  health_check_status?: string;
+  enabled: boolean;
+  health_status: 'healthy' | 'unhealthy' | 'draining';
+  last_health_check_at?: string;
   created_at: string;
   updated_at: string;
   instance?: Instance;
@@ -2244,13 +2253,9 @@ export interface LoadBalancerPool {
   load_balancer_id: string;
   name: string;
   protocol: 'tcp' | 'http' | 'https';
+  port: number;
   algorithm: 'round_robin' | 'least_conn' | 'source_ip' | 'weighted_round_robin';
-  health_check_type: 'tcp' | 'http';
-  health_check_path?: string;
-  health_check_interval: number;
-  health_check_timeout: number;
-  healthy_threshold: number;
-  unhealthy_threshold: number;
+  health_check_config?: string;
   members?: LoadBalancerMember[];
   created_at: string;
   updated_at: string;
@@ -2259,13 +2264,10 @@ export interface LoadBalancerPool {
 export interface LoadBalancerListener {
   id: string;
   load_balancer_id: string;
-  name: string;
   protocol: 'tcp' | 'http' | 'https';
-  port: number;
-  ssl_enabled: boolean;
+  frontend_port: number;
   certificate_id?: string;
-  pool_id?: string;
-  pool?: LoadBalancerPool;
+  default_pool_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -2274,9 +2276,9 @@ export interface LoadBalancerConfigRevision {
   id: string;
   load_balancer_id: string;
   version: number;
-  config_text: string;
-  applied: boolean;
-  error?: string;
+  configuration: string;
+  deployment_status: string;
+  error_message?: string;
   created_at: string;
 }
 
@@ -2285,9 +2287,9 @@ export interface LoadBalancer {
   tenant_id: string;
   project_id: string;
   name: string;
-  status: 'provisioning' | 'active' | 'updating' | 'error' | 'stopped';
+  status: 'provisioning' | 'active' | 'degraded' | 'failed';
   network_id?: string;
-  vip_address?: string;
+  public_ip?: string;
   algorithm: string;
   created_at: string;
   updated_at: string;
@@ -2302,10 +2304,10 @@ export interface APIKey {
   project_id: string;
   name: string;
   key_prefix: string;
-  scopes: string[];
+  scopes: string[] | string;
   expires_at?: string;
   last_used_at?: string;
-  revoked: boolean;
+  revoked_at?: string;
   created_at: string;
   raw_key?: string; // returned once during creation
 }
@@ -2321,12 +2323,11 @@ export interface WebhookEndpoint {
   id: string;
   tenant_id: string;
   project_id: string;
+  name: string;
   url: string;
-  description?: string;
   secret_preview?: string;
   secret?: string; // returned once on creation/rotation
   enabled: boolean;
-  rate_limit: number;
   created_at: string;
   updated_at: string;
   subscriptions?: WebhookSubscription[];
@@ -2336,11 +2337,10 @@ export interface WebhookDeliveryAttempt {
   id: string;
   delivery_id: string;
   attempt_number: number;
-  response_code?: number;
-  response_body?: string;
-  duration_ms: number;
-  error?: string;
-  created_at: string;
+  http_status?: number;
+  response_time_ms: number;
+  error_message?: string;
+  attempted_at: string;
 }
 
 export interface WebhookDelivery {
@@ -2350,11 +2350,13 @@ export interface WebhookDelivery {
   event_id: string;
   event_type: string;
   payload: string;
-  status: 'pending' | 'success' | 'failed' | 'abandoned';
-  response_code?: number;
-  attempts: number;
-  next_retry_at?: string;
+  status: 'pending' | 'delivered' | 'failed';
+  last_http_status?: number;
+  last_error?: string;
+  attempt_count: number;
+  next_attempt_at?: string;
+  last_attempt_at?: string;
+  delivered_at?: string;
   created_at: string;
-  updated_at: string;
-  attempts_log?: WebhookDeliveryAttempt[];
+  attempts?: WebhookDeliveryAttempt[];
 }

@@ -122,8 +122,8 @@ type AndroidInstance struct {
 	ADBEnabled         bool           `gorm:"not null;default:false" json:"adb_enabled"`
 	ADBPort            int            `gorm:"default:0" json:"adb_port,omitempty"`
 	ADBAuthKey         string         `gorm:"type:varchar(128)" json:"adb_auth_key,omitempty"`
-	PersistenceEnabled bool           `gorm:"not null;default:true" json:"persistence_enabled"`
-	AutoBackupEnabled  bool           `gorm:"not null;default:true" json:"auto_backup_enabled"`
+	PersistenceEnabled bool           `gorm:"not null" json:"persistence_enabled"`
+	AutoBackupEnabled  bool           `gorm:"not null" json:"auto_backup_enabled"`
 	BackupSchedule     string         `gorm:"type:varchar(50);not null;default:'daily'" json:"backup_schedule"`
 	UptimeSeconds      int64          `gorm:"not null;default:0" json:"uptime_seconds"`
 	CPUPercent         float64        `gorm:"type:numeric(5,2);not null;default:0.00" json:"cpu_percent"`

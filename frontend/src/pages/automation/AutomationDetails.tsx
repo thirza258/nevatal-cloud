@@ -36,7 +36,7 @@ export const AutomationDetails: React.FC<AutomationDetailsProps> = ({ instanceId
   const fetchInstanceData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/automation/instances/${instanceId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -65,7 +65,7 @@ export const AutomationDetails: React.FC<AutomationDetailsProps> = ({ instanceId
   const handlePower = async (action: 'start' | 'stop' | 'restart') => {
     try {
       setActionLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/automation/instances/${instanceId}/${action}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
@@ -82,7 +82,7 @@ export const AutomationDetails: React.FC<AutomationDetailsProps> = ({ instanceId
   const handleCreateBackup = async () => {
     try {
       setActionLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/automation/instances/${instanceId}/backups`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
@@ -99,7 +99,7 @@ export const AutomationDetails: React.FC<AutomationDetailsProps> = ({ instanceId
   const handleDelete = async () => {
     if (!confirm(`Are you sure you want to delete ${inst?.name}? All workflows and executions will be permanently removed.`)) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/automation/instances/${instanceId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
@@ -284,7 +284,8 @@ export const AutomationDetails: React.FC<AutomationDetailsProps> = ({ instanceId
               n8n encrypts all saved API credentials, OAuth tokens, and sensitive workflow parameters with this persistent key. Keep it safe in case of disaster recovery.
             </p>
             <div className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs">
-              <span className="flex-1 text-slate-300 truncate">{inst.encryption_key || '••••••••••••••••••••••••••••••••'}</span>
+              <span className="flex-1 text-slate-300 truncate">{inst.encryption_key || '•••••••••••••••••••••••••••••••• (hidden at rest)'}</span>
+              {inst.encryption_key && (
               <button
                 onClick={copyEncryptionKey}
                 className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1 transition cursor-pointer"
@@ -292,6 +293,7 @@ export const AutomationDetails: React.FC<AutomationDetailsProps> = ({ instanceId
                 {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 {copiedKey ? 'Copied' : 'Copy'}
               </button>
+              )}
             </div>
           </div>
 

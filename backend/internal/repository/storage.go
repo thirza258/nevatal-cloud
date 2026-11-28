@@ -221,7 +221,16 @@ func (r *storageRepository) FindSharedLinkByToken(ctx context.Context, token str
 }
 
 func (r *storageRepository) IncrementSharedLinkDownloads(ctx context.Context, id uuid.UUID) error {
-	return r.conn(ctx).Model(&models.StorageSharedLink{}).Where("id = ?", id).UpdateColumn("downloads", gorm.Expr("downloads + 1")).Error
+	res := r.conn(ctx).Model(&models.StorageSharedLink{}).
+		Where("id = ? AND (max_downloads IS NULL OR downloads < max_downloads)", id).
+		UpdateColumn("downloads", gorm.Expr("downloads + 1"))
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *storageRepository) ListSharedLinks(ctx context.Context, ownerID uuid.UUID) ([]models.StorageSharedLink, error) {

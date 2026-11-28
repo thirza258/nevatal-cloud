@@ -180,13 +180,25 @@ func (u *DeveloperUsecase) ValidateRawAPIKey(ctx context.Context, rawKey string,
 
 // --- Webhooks & SSRF Protection ---
 
-func (u *DeveloperUsecase) ValidateWebhookURL(rawURL string) error {
+func isBlockedWebhookIP(ip net.IP) bool {
+	return ip.IsLoopback() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsPrivate() ||
+		ip.IsUnspecified() ||
+		ip.IsMulticast() ||
+		ip.String() == "169.254.169.254"
+}
+
+// ValidatePublicWebhookURL validates that rawURL is an http/https URL resolving
+// only to public routable IP addresses.
+func ValidatePublicWebhookURL(rawURL string) error {
 	parsed, err := url.ParseRequestURI(rawURL)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 		return ErrInvalidWebhookURL
 	}
 
-	hostname := parsed.Hostname()
+	hostname := strings.ToLower(parsed.Hostname())
 	if hostname == "" {
 		return ErrInvalidWebhookURL
 	}
@@ -203,15 +215,15 @@ func (u *DeveloperUsecase) ValidateWebhookURL(rawURL string) error {
 	}
 
 	for _, ip := range ips {
-		if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() {
-			return ErrSSRFProtectionBlocked
-		}
-		// Block AWS / GCP / Cloud metadata 169.254.169.254
-		if ip.String() == "169.254.169.254" {
+		if isBlockedWebhookIP(ip) {
 			return ErrSSRFProtectionBlocked
 		}
 	}
 	return nil
+}
+
+func (u *DeveloperUsecase) ValidateWebhookURL(rawURL string) error {
+	return ValidatePublicWebhookURL(rawURL)
 }
 
 func (u *DeveloperUsecase) CreateWebhookEndpoint(ctx context.Context, tenantID uuid.UUID, input CreateWebhookEndpointInput) (*models.WebhookEndpoint, error) {
@@ -232,9 +244,11 @@ func (u *DeveloperUsecase) CreateWebhookEndpoint(ctx context.Context, tenantID u
 
 	encSecret := secretHex
 	if u.cipher != nil && u.cipher.Enabled() {
-		if enc, err := u.cipher.Encrypt(secretHex); err == nil {
-			encSecret = enc
+		enc, err := u.cipher.Encrypt(secretHex)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt webhook secret: %w", err)
 		}
+		encSecret = enc
 	}
 
 	projID := input.ProjectID
@@ -320,6 +334,9 @@ func (u *DeveloperUsecase) UpdateWebhookEndpoint(ctx context.Context, tenantID u
 			}
 			_ = u.devRepo.AddWebhookSubscription(ctx, sub)
 		}
+		if refreshed, err := u.GetWebhookEndpoint(ctx, tenantID, id); err == nil {
+			ep = refreshed
+		}
 	}
 
 	return ep, nil
@@ -345,9 +362,11 @@ func (u *DeveloperUsecase) RotateWebhookSecret(ctx context.Context, tenantID uui
 
 	encSecret := newSecret
 	if u.cipher != nil && u.cipher.Enabled() {
-		if enc, err := u.cipher.Encrypt(newSecret); err == nil {
-			encSecret = enc
+		enc, err := u.cipher.Encrypt(newSecret)
+		if err != nil {
+			return "", fmt.Errorf("failed to encrypt webhook secret: %w", err)
 		}
+		encSecret = enc
 	}
 
 	ep.SecretEncrypted = encSecret
@@ -379,8 +398,10 @@ func (u *DeveloperUsecase) TestWebhookPing(ctx context.Context, tenantID uuid.UU
 		return nil, err
 	}
 
-	// Dispatch delivery in background
-	go u.DeliverWebhook(context.Background(), delivery, ep)
+	// Dispatch a copy in the background to avoid mutating the returned struct concurrently.
+	deliveryCopy := *delivery
+	epCopy := *ep
+	go u.DeliverWebhook(context.Background(), &deliveryCopy, &epCopy)
 
 	return delivery, nil
 }
@@ -400,10 +421,11 @@ func (u *DeveloperUsecase) RetryDelivery(ctx context.Context, tenantID uuid.UUID
 	}
 
 	delivery.Status = "pending"
-	delivery.AttemptCount++
 	_ = u.devRepo.UpdateWebhookDelivery(ctx, delivery)
 
-	go u.DeliverWebhook(context.Background(), delivery, ep)
+	deliveryCopy := *delivery
+	epCopy := *ep
+	go u.DeliverWebhook(context.Background(), &deliveryCopy, &epCopy)
 
 	return delivery, nil
 }
@@ -424,9 +446,14 @@ func (u *DeveloperUsecase) DeliverWebhook(ctx context.Context, delivery *models.
 	// 2. Compute HMAC-SHA256 signature
 	rawSecret := ep.SecretEncrypted
 	if u.cipher != nil && u.cipher.Enabled() {
-		if dec, err := u.cipher.Decrypt(ep.SecretEncrypted); err == nil {
-			rawSecret = dec
+		dec, err := u.cipher.Decrypt(ep.SecretEncrypted)
+		if err != nil {
+			delivery.Status = "failed"
+			delivery.LastError = "failed to decrypt webhook signing secret"
+			_ = u.devRepo.UpdateWebhookDelivery(ctx, delivery)
+			return
 		}
+		rawSecret = dec
 	}
 
 	timestamp := fmt.Sprintf("%d", time.Now().Unix())
@@ -434,9 +461,29 @@ func (u *DeveloperUsecase) DeliverWebhook(ctx context.Context, delivery *models.
 	mac.Write([]byte(timestamp + "." + delivery.Payload))
 	signature := hex.EncodeToString(mac.Sum(nil))
 
-	// 3. Send HTTP POST request
+	// 3. Send HTTP POST request using a DNS-rebinding-safe DialContext
+	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	transport := &http.Transport{
+		DialContext: func(dialCtx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+			ips, err := net.DefaultResolver.LookupIP(dialCtx, "ip", host)
+			if err != nil || len(ips) == 0 {
+				return nil, errors.New("cannot resolve webhook destination host")
+			}
+			for _, ip := range ips {
+				if isBlockedWebhookIP(ip) {
+					return nil, ErrSSRFProtectionBlocked
+				}
+			}
+			return dialer.DialContext(dialCtx, network, net.JoinHostPort(ips[0].String(), port))
+		},
+	}
 	client := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout:   10 * time.Second,
+		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			// Prevent redirect-based SSRF
 			return http.ErrUseLastResponse

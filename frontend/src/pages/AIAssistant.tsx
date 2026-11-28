@@ -244,14 +244,24 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onNavigate }) => {
     setTestingKey(true);
     setKeyTestStatus(null);
     try {
-      const res = await apiRequest<{ valid: boolean; data?: any }>('/ai-assistant/verify-key', {
+      const token = localStorage.getItem('nevatal_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const response = await fetch('/api/v1/ai-assistant/verify-key', {
         method: 'POST',
+        headers,
         body: JSON.stringify({ api_key: tempApiKey.trim() }),
       });
-      if (res.valid) {
+      const res = await response.json().catch(() => null);
+      if (!response.ok) {
+        const msg = res?.error?.message || `Verification failed with status ${response.status}`;
+        setKeyTestStatus({ valid: false, message: msg });
+        return;
+      }
+      if (res?.valid) {
         setKeyTestStatus({ valid: true, message: 'Valid OpenRouter API Key! Connected successfully.' });
       } else {
-        setKeyTestStatus({ valid: false, message: 'Invalid API Key or unauthorized.' });
+        setKeyTestStatus({ valid: false, message: res?.error?.message || 'Invalid API Key or unauthorized.' });
       }
     } catch (err: any) {
       setKeyTestStatus({ valid: false, message: err.message || 'Verification failed' });

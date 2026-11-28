@@ -38,7 +38,7 @@ func (r *reservationRepository) SumActiveByOwner(ctx context.Context, ownerID uu
 	var sum ResourceTotals
 	err := r.conn(ctx).Model(&models.ResourceReservation{}).
 		Where("owner_id = ? AND status = ?", ownerID, models.ReservationActive).
-		Select("COALESCE(SUM(reserved_vcpus), 0) as total_vcpus, COALESCE(SUM(reserved_memory_mb), 0) as total_memory, COALESCE(SUM(reserved_storage_gb), 0) as total_storage").
+		Select("COALESCE(SUM(reserved_vcpus), 0) as total_vcpus, COALESCE(SUM(reserved_memory_mb), 0) as total_memory, COALESCE(SUM(reserved_storage_gb), 0) as total_storage, COUNT(id) as count").
 		Scan(&sum).Error
 	return sum, err
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -98,7 +99,7 @@ func (c *httpPVEClient) send(ctx context.Context, method, endpoint string, body 
 }
 
 func (c *httpPVEClient) GetNodeStatus(ctx context.Context, node string) (*NodeStatus, error) {
-	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/status", node), nil)
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/status", url.PathEscape(node)), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +112,7 @@ func (c *httpPVEClient) GetNodeStatus(ctx context.Context, node string) (*NodeSt
 }
 
 func (c *httpPVEClient) GetStorage(ctx context.Context, node string) ([]StorageInfo, error) {
-	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/storage", node), nil)
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/storage", url.PathEscape(node)), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +153,7 @@ func (c *httpPVEClient) CloneVM(ctx context.Context, node string, templateVMID, 
 		params.Set("storage", targetStorage)
 	}
 
-	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/clone", node, templateVMID), params)
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/clone", url.PathEscape(node), templateVMID), params)
 	if err != nil {
 		return "", err
 	}
@@ -207,7 +208,7 @@ func (c *httpPVEClient) ConfigVM(ctx context.Context, node string, vmid int, cfg
 		params.Set("agent", strconv.Itoa(cfg.Agent))
 	}
 
-	_, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/config", node, vmid), params)
+	_, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/config", url.PathEscape(node), vmid), params)
 	return err
 }
 
@@ -216,55 +217,63 @@ func (c *httpPVEClient) ResizeDisk(ctx context.Context, node string, vmid int, d
 	params.Set("disk", disk)
 	params.Set("size", fmt.Sprintf("+%dG", sizeGB))
 
-	_, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/nodes/%s/qemu/%d/resize", node, vmid), params)
+	_, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/nodes/%s/qemu/%d/resize", url.PathEscape(node), vmid), params)
 	return err
 }
 
 func (c *httpPVEClient) StartVM(ctx context.Context, node string, vmid int) (string, error) {
-	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/status/start", node, vmid), nil)
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/status/start", url.PathEscape(node), vmid), nil)
 	if err != nil {
 		return "", err
 	}
 	var res struct {
 		Data string `json:"data"`
 	}
-	_ = json.Unmarshal(data, &res)
+	if err := json.Unmarshal(data, &res); err != nil {
+		return "", fmt.Errorf("unmarshal start upid failed: %w", err)
+	}
 	return res.Data, nil
 }
 
 func (c *httpPVEClient) ShutdownVM(ctx context.Context, node string, vmid int) (string, error) {
-	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/status/shutdown", node, vmid), nil)
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/status/shutdown", url.PathEscape(node), vmid), nil)
 	if err != nil {
 		return "", err
 	}
 	var res struct {
 		Data string `json:"data"`
 	}
-	_ = json.Unmarshal(data, &res)
+	if err := json.Unmarshal(data, &res); err != nil {
+		return "", fmt.Errorf("unmarshal shutdown upid failed: %w", err)
+	}
 	return res.Data, nil
 }
 
 func (c *httpPVEClient) StopVM(ctx context.Context, node string, vmid int) (string, error) {
-	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/status/stop", node, vmid), nil)
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/status/stop", url.PathEscape(node), vmid), nil)
 	if err != nil {
 		return "", err
 	}
 	var res struct {
 		Data string `json:"data"`
 	}
-	_ = json.Unmarshal(data, &res)
+	if err := json.Unmarshal(data, &res); err != nil {
+		return "", fmt.Errorf("unmarshal stop upid failed: %w", err)
+	}
 	return res.Data, nil
 }
 
 func (c *httpPVEClient) ResetVM(ctx context.Context, node string, vmid int) (string, error) {
-	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/status/reboot", node, vmid), nil)
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/status/reboot", url.PathEscape(node), vmid), nil)
 	if err != nil {
 		return "", err
 	}
 	var res struct {
 		Data string `json:"data"`
 	}
-	_ = json.Unmarshal(data, &res)
+	if err := json.Unmarshal(data, &res); err != nil {
+		return "", fmt.Errorf("unmarshal reset upid failed: %w", err)
+	}
 	return res.Data, nil
 }
 
@@ -273,19 +282,21 @@ func (c *httpPVEClient) DeleteVM(ctx context.Context, node string, vmid int) (st
 	params.Set("purge", "1")
 	params.Set("destroy-unreferenced-disks", "1")
 
-	data, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/nodes/%s/qemu/%d", node, vmid), params)
+	data, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/nodes/%s/qemu/%d", url.PathEscape(node), vmid), params)
 	if err != nil {
 		return "", err
 	}
 	var res struct {
 		Data string `json:"data"`
 	}
-	_ = json.Unmarshal(data, &res)
+	if err := json.Unmarshal(data, &res); err != nil {
+		return "", fmt.Errorf("unmarshal delete upid failed: %w", err)
+	}
 	return res.Data, nil
 }
 
 func (c *httpPVEClient) GetVMStatus(ctx context.Context, node string, vmid int) (*VMCurrentStatus, error) {
-	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/qemu/%d/status/current", node, vmid), nil)
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/qemu/%d/status/current", url.PathEscape(node), vmid), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +309,7 @@ func (c *httpPVEClient) GetVMStatus(ctx context.Context, node string, vmid int) 
 }
 
 func (c *httpPVEClient) GetVMInterfaces(ctx context.Context, node string, vmid int) ([]NetworkInterface, error) {
-	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/qemu/%d/agent/network-get-interfaces", node, vmid), nil)
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/qemu/%d/agent/network-get-interfaces", url.PathEscape(node), vmid), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -324,19 +335,21 @@ func (c *httpPVEClient) CreateSnapshot(ctx context.Context, node string, vmid in
 		params.Set("vmstate", "1")
 	}
 
-	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot", node, vmid), params)
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot", url.PathEscape(node), vmid), params)
 	if err != nil {
 		return "", err
 	}
 	var res struct {
 		Data string `json:"data"`
 	}
-	_ = json.Unmarshal(data, &res)
+	if err := json.Unmarshal(data, &res); err != nil {
+		return "", fmt.Errorf("unmarshal snapshot upid failed: %w", err)
+	}
 	return res.Data, nil
 }
 
 func (c *httpPVEClient) ListSnapshots(ctx context.Context, node string, vmid int) ([]SnapshotInfo, error) {
-	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot", node, vmid), nil)
+	data, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot", url.PathEscape(node), vmid), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -349,31 +362,35 @@ func (c *httpPVEClient) ListSnapshots(ctx context.Context, node string, vmid int
 }
 
 func (c *httpPVEClient) RollbackSnapshot(ctx context.Context, node string, vmid int, snapname string) (string, error) {
-	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot/%s/rollback", node, vmid, url.PathEscape(snapname)), nil)
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot/%s/rollback", url.PathEscape(node), vmid, url.PathEscape(snapname)), nil)
 	if err != nil {
 		return "", err
 	}
 	var res struct {
 		Data string `json:"data"`
 	}
-	_ = json.Unmarshal(data, &res)
+	if err := json.Unmarshal(data, &res); err != nil {
+		return "", fmt.Errorf("unmarshal rollback upid failed: %w", err)
+	}
 	return res.Data, nil
 }
 
 func (c *httpPVEClient) DeleteSnapshot(ctx context.Context, node string, vmid int, snapname string) (string, error) {
-	data, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot/%s", node, vmid, url.PathEscape(snapname)), nil)
+	data, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/nodes/%s/qemu/%d/snapshot/%s", url.PathEscape(node), vmid, url.PathEscape(snapname)), nil)
 	if err != nil {
 		return "", err
 	}
 	var res struct {
 		Data string `json:"data"`
 	}
-	_ = json.Unmarshal(data, &res)
+	if err := json.Unmarshal(data, &res); err != nil {
+		return "", fmt.Errorf("unmarshal delete snapshot upid failed: %w", err)
+	}
 	return res.Data, nil
 }
 
 func (c *httpPVEClient) GetVNCProxy(ctx context.Context, node string, vmid int) (*VNCProxyTicket, error) {
-	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/termproxy", node, vmid), nil)
+	data, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/qemu/%d/termproxy", url.PathEscape(node), vmid), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -398,10 +415,14 @@ func (c *httpPVEClient) WaitForTask(ctx context.Context, node string, upid strin
 		case <-timeout:
 			return fmt.Errorf("timeout waiting for proxmox task %s", upid)
 		case <-ticker.C:
-			endpoint := fmt.Sprintf("/nodes/%s/tasks/%s/status", node, url.PathEscape(upid))
+			endpoint := fmt.Sprintf("/nodes/%s/tasks/%s/status", url.PathEscape(node), url.PathEscape(upid))
 			data, err := c.doRequest(ctx, http.MethodGet, endpoint, nil)
 			if err != nil {
-				// Retry on transient network errors
+				var apiErr *APIError
+				if errors.As(err, &apiErr) && apiErr.StatusCode >= 400 && apiErr.StatusCode < 500 {
+					return err
+				}
+				// Retry on transient network / 5xx errors
 				continue
 			}
 

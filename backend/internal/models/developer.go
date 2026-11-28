@@ -39,7 +39,7 @@ type WebhookEndpoint struct {
 	Name            string                `gorm:"type:varchar(120);not null" json:"name"`
 	URL             string                `gorm:"type:varchar(512);not null" json:"url"`
 	SecretEncrypted string                `gorm:"type:text;not null" json:"-"`
-	Enabled         bool                  `gorm:"not null;default:true" json:"enabled"`
+	Enabled         bool                  `gorm:"not null" json:"enabled"`
 	CreatedAt       time.Time             `json:"created_at"`
 	UpdatedAt       time.Time             `json:"updated_at"`
 	Subscriptions   []WebhookSubscription `gorm:"foreignKey:EndpointID" json:"subscriptions,omitempty"`

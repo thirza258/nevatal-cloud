@@ -370,6 +370,9 @@ func (h *NetworkHandler) ListFloatingIPs(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
+	if fips == nil {
+		fips = []models.FloatingIP{}
+	}
 	response.OK(c, fips)
 }
 

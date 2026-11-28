@@ -132,7 +132,7 @@ func (s *InstanceUsecase) GetMetrics(ctx context.Context, id uuid.UUID, userID u
 		return nil, err
 	}
 
-	if inst.Status != models.StateRunning || inst.ProxmoxVMID <= 0 {
+	if inst.Status != models.StateRunning || inst.ProxmoxVMID <= 0 || inst.Node == nil {
 		return &InstanceMetrics{Reason: "Metrics are only available while the instance is running."}, nil
 	}
 
@@ -220,9 +220,11 @@ func (s *InstanceUsecase) Create(ctx context.Context, userID uuid.UUID, input Cr
 			return err
 		}
 
-		// Reserve resources. Current usage is read with ctx, i.e. outside the
-		// transaction, exactly as before the layered refactor.
-		usage, err := s.quotaService.GetUsage(ctx, userID)
+		// Serialize quota checks per owner and read usage inside the transaction.
+		if _, err := s.quotaService.LockUserQuota(txCtx, userID); err != nil {
+			return err
+		}
+		usage, err := s.quotaService.GetUsage(txCtx, userID)
 		if err != nil {
 			return err
 		}
@@ -305,7 +307,7 @@ func (s *InstanceUsecase) Resize(ctx context.Context, instanceID, userID uuid.UU
 	deltaDisk := input.DiskGB - inst.DiskGB
 
 	if deltaVCPUs > 0 || deltaMemory > 0 || deltaDisk > 0 {
-		usage, err := s.quotaService.GetUsage(ctx, userID)
+		usage, err := s.quotaService.GetUsage(ctx, inst.OwnerID)
 		if err != nil {
 			return err
 		}
@@ -512,20 +514,35 @@ func (s *InstanceUsecase) GetConsoleTicket(ctx context.Context, instanceID, user
 // queuePowerJob records a power or delete job for inst, moves the instance to
 // transitionState and audits the action. The caller starts the worker. An
 // empty key gets a random one.
-func (s *InstanceUsecase) queuePowerJob(ctx context.Context, inst *models.Instance, userID uuid.UUID, op, step, transitionState, action, key, clientIP string) (*models.ProvisioningJob, error) {
+func (s *InstanceUsecase) queuePowerJob(ctx context.Context, inst *models.Instance, userID uuid.UUID, op, step, transitionState, action, key, clientIP string, allowedFrom []string) (*models.ProvisioningJob, error) {
 	if key == "" {
 		key = uuid.New().String()
 	}
-	job := models.ProvisioningJob{
-		OwnerID:         inst.OwnerID,
-		InstanceID:      &inst.ID,
-		IdempotencyKey:  key,
-		OperationType:   op,
-		Status:          models.JobStatusQueued,
-		CurrentStep:     step,
-		ProgressPercent: 10,
-	}
-	if err := s.repos.Jobs.Create(ctx, &job); err != nil {
+	var job models.ProvisioningJob
+	err := s.tx.WithinTransaction(ctx, func(txCtx context.Context) error {
+		job = models.ProvisioningJob{
+			OwnerID:         inst.OwnerID,
+			InstanceID:      &inst.ID,
+			IdempotencyKey:  key,
+			OperationType:   op,
+			Status:          models.JobStatusQueued,
+			CurrentStep:     step,
+			ProgressPercent: 10,
+		}
+		if err := s.repos.Jobs.Create(txCtx, &job); err != nil {
+			return err
+		}
+		ok, err := s.repos.Instances.TransitionStatus(txCtx, inst.ID, allowedFrom, transitionState)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errors.New("instance state changed concurrently, please retry")
+		}
+		inst.Status = transitionState
+		return nil
+	})
+	if err != nil {
 		if errors.Is(err, repository.ErrDuplicate) {
 			if existing, findErr := s.repos.Jobs.FindByIdempotencyKey(ctx, inst.OwnerID, key); findErr == nil {
 				return existing, errDuplicateOperation
@@ -534,7 +551,6 @@ func (s *InstanceUsecase) queuePowerJob(ctx context.Context, inst *models.Instan
 		return nil, err
 	}
 
-	_ = s.repos.Instances.UpdateStatus(ctx, inst, transitionState)
 	s.auditService.Log(ctx, &userID, action, "instance", &inst.ID, "success", clientIP, nil)
 	return &job, nil
 }
@@ -559,7 +575,9 @@ func checkOperation(inst *models.Instance, op string) error {
 		if inst.Status == models.StateRunning {
 			return errors.New("instance is already running")
 		}
-		if inst.Status == models.StateProvisioning || inst.Status == models.StateStarting {
+		if inst.Status == models.StateQueued || inst.Status == models.StateProvisioning ||
+			inst.Status == models.StateStarting || inst.Status == models.StateStopping ||
+			inst.Status == models.StateRestarting || inst.Status == models.StateDeleting {
 			return errors.New("instance is currently transitioning state")
 		}
 	case models.OpShutdown:
@@ -574,6 +592,9 @@ func checkOperation(inst *models.Instance, op string) error {
 		if inst.Status == models.StateDeleting {
 			return errors.New("instance is already being deleted")
 		}
+		if inst.Status == models.StateQueued || inst.Status == models.StateProvisioning {
+			return errors.New("instance is currently provisioning and cannot be deleted yet")
+		}
 	default:
 		return fmt.Errorf("unsupported instance operation %q", op)
 	}
@@ -587,17 +608,25 @@ func (s *InstanceUsecase) queueOperation(ctx context.Context, inst *models.Insta
 		return nil, err
 	}
 	var step, transition, action string
+	var allowedFrom []string
 	switch op {
 	case models.OpStart:
 		step, transition, action = "starting_vm", models.StateStarting, "instance.start"
+		allowedFrom = []string{models.StateStopped, models.StateFailed, models.StateUnknown}
 	case models.OpShutdown:
 		step, transition, action = "stopping_vm", models.StateStopping, "instance.shutdown"
+		allowedFrom = []string{models.StateRunning}
 	case models.OpRestart:
 		step, transition, action = "restarting_vm", models.StateRestarting, "instance.restart"
+		allowedFrom = []string{models.StateRunning}
 	case models.OpDelete:
 		step, transition, action = "deleting_vm", models.StateDeleting, "instance.delete"
+		allowedFrom = []string{
+			models.StateRunning, models.StateStopped, models.StateFailed, models.StateUnknown,
+			models.StateStarting, models.StateStopping, models.StateRestarting,
+		}
 	}
-	job, err := s.queuePowerJob(ctx, inst, userID, op, step, transition, action, key, clientIP)
+	job, err := s.queuePowerJob(ctx, inst, userID, op, step, transition, action, key, clientIP, allowedFrom)
 	if errors.Is(err, errDuplicateOperation) {
 		return job, nil
 	}

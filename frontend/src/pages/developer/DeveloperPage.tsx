@@ -26,6 +26,7 @@ import {
   listAPIKeys,
   createAPIKey,
   revokeAPIKey,
+  parseAPIKeyScopes,
   listWebhooks,
   createWebhook,
   deleteWebhook,
@@ -149,8 +150,8 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
     e.preventDefault();
     try {
       const endpoint = await createWebhook({
+        name: webhookDesc.trim() || 'Webhook Endpoint',
         url: webhookURL,
-        description: webhookDesc,
         events: webhookEvents,
       });
       setShowCreateWebhook(false);
@@ -182,7 +183,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
   const handlePingWebhook = async (id: string) => {
     try {
       const res = await pingWebhook(id);
-      notify('success', `Ping delivered: HTTP ${res.response_code} (${res.status})`);
+      notify('success', `Ping queued: ${res.status}${res.last_http_status ? ` (HTTP ${res.last_http_status})` : ''}`);
       if (selectedEndpoint?.id === id) {
         const dels = await listWebhookDeliveries(id);
         setDeliveries(dels);
@@ -369,8 +370,8 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
                       </td>
                       <td className="py-3 px-4 font-sans">
                         <div className="flex flex-wrap gap-1 max-w-xs">
-                          {key.scopes && key.scopes.length > 0 ? (
-                            key.scopes.map((s) => (
+                          {parseAPIKeyScopes(key.scopes).length > 0 ? (
+                            parseAPIKeyScopes(key.scopes).map((s) => (
                               <span
                                 key={s}
                                 className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]"
@@ -390,7 +391,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
                         {new Date(key.created_at).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-4 text-right font-sans">
-                        {key.revoked ? (
+                        {key.revoked_at ? (
                           <span className="text-rose-400 text-xs">Revoked</span>
                         ) : (
                           <button
@@ -461,7 +462,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <p className="text-xs text-slate-400">{ep.description || 'No description'}</p>
+                  <p className="text-xs text-slate-400">{ep.name || 'No name'}</p>
                   <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
                     <span>Secret: {ep.secret_preview}••••</span>
                     <button
@@ -510,7 +511,7 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
                             <td className="py-2 px-3">
                               <span
                                 className={`px-2 py-0.5 rounded text-[10px] ${
-                                  del.status === 'success'
+                                  del.status === 'delivered'
                                     ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                                     : 'bg-rose-950 text-rose-300 border border-rose-800'
                                 }`}
@@ -519,13 +520,13 @@ export const DeveloperPage: React.FC<DeveloperPageProps> = ({ onNavigate }) => {
                               </span>
                             </td>
                             <td className="py-2 px-3 text-slate-200">{del.event_type}</td>
-                            <td className="py-2 px-3 text-indigo-300">{del.response_code || '-'}</td>
-                            <td className="py-2 px-3 text-slate-400">{del.attempts}</td>
+                            <td className="py-2 px-3 text-indigo-300">{del.last_http_status || '-'}</td>
+                            <td className="py-2 px-3 text-slate-400">{del.attempt_count}</td>
                             <td className="py-2 px-3 text-slate-400 font-sans">
                               {new Date(del.created_at).toLocaleTimeString()}
                             </td>
                             <td className="py-2 px-3 text-right">
-                              {del.status !== 'success' && (
+                              {del.status !== 'delivered' && (
                                 <button
                                   onClick={() => handleRetryDelivery(del.id)}
                                   className="text-[11px] text-indigo-400 hover:text-indigo-300 font-sans underline"

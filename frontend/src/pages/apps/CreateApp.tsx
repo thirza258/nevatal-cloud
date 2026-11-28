@@ -88,7 +88,7 @@ export const CreateApp: React.FC<CreateAppProps> = ({ onNavigate }) => {
     try {
       setLoading(true);
       setError(null);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
 
       const envMap: Record<string, string> = {};
       envVars.forEach((ev) => {

@@ -52,7 +52,7 @@ export const CreateOpenClaw: React.FC<CreateOpenClawProps> = ({ onNavigate }) =>
     try {
       setLoading(true);
       setError(null);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch('/api/v1/ai-agents/openclaw/instances', {
         method: 'POST',
         headers: {

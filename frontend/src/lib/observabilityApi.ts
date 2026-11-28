@@ -121,7 +121,11 @@ export async function getUserInstanceMetrics(
 export async function getUserInstanceEvents(
   instanceId: string
 ): Promise<ObservabilityEvent[]> {
-  return apiRequest<ObservabilityEvent[]>(`/observability/instances/${instanceId}/events`);
+  const res = await apiRequest<{ events?: ObservabilityEvent[] } | ObservabilityEvent[]>(
+    `/observability/instances/${instanceId}/events`
+  );
+  if (Array.isArray(res)) return res;
+  return res?.events || [];
 }
 
 // ==========================================

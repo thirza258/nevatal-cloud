@@ -57,7 +57,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ bucketId, onNavigate }
   const fetchBucketAndObjects = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const [bRes, oRes] = await Promise.all([
         fetch(`/api/v1/storage/buckets/${bucketId}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/v1/storage/buckets/${bucketId}/objects?prefix=${encodeURIComponent(currentPrefix)}`, {
@@ -86,7 +86,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ bucketId, onNavigate }
     if (!files || files.length === 0) return;
     try {
       setUploading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -116,7 +116,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ bucketId, onNavigate }
     e.preventDefault();
     if (!newFolderName.trim()) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/storage/buckets/${bucketId}/folders`, {
         method: 'POST',
         headers: {
@@ -140,7 +140,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ bucketId, onNavigate }
   const handleDeleteObject = async (obj: StorageObject) => {
     if (!confirm(`Are you sure you want to delete ${obj.filename}?`)) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/storage/objects/${obj.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
@@ -156,7 +156,7 @@ export const FileManager: React.FC<FileManagerProps> = ({ bucketId, onNavigate }
     e.preventDefault();
     if (!shareObj) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch('/api/v1/storage/shared-links', {
         method: 'POST',
         headers: {
@@ -178,9 +178,25 @@ export const FileManager: React.FC<FileManagerProps> = ({ bucketId, onNavigate }
     }
   };
 
-  const handleDownload = (obj: StorageObject) => {
-    const token = localStorage.getItem('token');
-    window.open(`/api/v1/storage/objects/${obj.id}/download?token=${token}`, '_blank');
+  const handleDownload = async (obj: StorageObject) => {
+    const token = localStorage.getItem('nevatal_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    try {
+      const res = await fetch(`/api/v1/storage/objects/${obj.id}/download`, { headers });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = obj.filename || 'download';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to download object');
+    }
   };
 
   const formatBytes = (bytes: number) => {
@@ -560,20 +576,20 @@ export const FileManager: React.FC<FileManagerProps> = ({ bucketId, onNavigate }
             <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center min-h-[240px]">
               {previewObj.content_type.startsWith('image/') ? (
                 <img
-                  src={`/api/v1/storage/objects/${previewObj.id}/download?token=${localStorage.getItem('token')}`}
+                  src={`/api/v1/storage/objects/${previewObj.id}/download`}
                   alt={previewObj.filename}
                   className="max-h-96 rounded object-contain"
                 />
               ) : previewObj.content_type.startsWith('audio/') ? (
                 <audio
                   controls
-                  src={`/api/v1/storage/objects/${previewObj.id}/download?token=${localStorage.getItem('token')}`}
+                  src={`/api/v1/storage/objects/${previewObj.id}/download`}
                   className="w-full"
                 />
               ) : previewObj.content_type.startsWith('video/') ? (
                 <video
                   controls
-                  src={`/api/v1/storage/objects/${previewObj.id}/download?token=${localStorage.getItem('token')}`}
+                  src={`/api/v1/storage/objects/${previewObj.id}/download`}
                   className="max-h-96 rounded w-full"
                 />
               ) : (

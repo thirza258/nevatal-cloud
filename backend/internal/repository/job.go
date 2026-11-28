@@ -51,6 +51,9 @@ type JobRepository interface {
 	// UpdateProgress records the current step and percentage and marks the
 	// job in progress (only while the job is queued or in progress).
 	UpdateProgress(ctx context.Context, job *models.ProvisioningJob, step string, progress int) error
+	// RequeueFailed atomically transitions a failed job back to queued so
+	// concurrent retries cannot double-execute.
+	RequeueFailed(ctx context.Context, id uuid.UUID) (*models.ProvisioningJob, error)
 }
 
 type jobRepository struct{ base }
@@ -190,4 +193,23 @@ func (r *jobRepository) UpdateProgress(ctx context.Context, job *models.Provisio
 		"progress_percent": progress,
 		"status":           models.JobStatusInProgress,
 	}).Error
+}
+
+func (r *jobRepository) RequeueFailed(ctx context.Context, id uuid.UUID) (*models.ProvisioningJob, error) {
+	var job models.ProvisioningJob
+	err := r.conn(ctx).Raw(`
+		UPDATE provisioning_jobs
+		SET status = ?, current_step = 'retry_requested', progress_percent = 5,
+		    error_code = NULL, error_message = NULL, completed_at = NULL, updated_at = now()
+		WHERE id = ? AND status = ?
+		RETURNING *`,
+		models.JobStatusQueued, id, models.JobStatusFailed,
+	).Scan(&job).Error
+	if err != nil {
+		return nil, err
+	}
+	if job.ID == uuid.Nil {
+		return nil, ErrNotFound
+	}
+	return &job, nil
 }

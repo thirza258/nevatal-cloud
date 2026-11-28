@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -240,6 +241,23 @@ func (u *LoadBalancerUsecase) AddListener(ctx context.Context, tenantID uuid.UUI
 		proto = "http"
 	}
 
+	if input.CertificateID != nil {
+		cert, err := u.lbRepo.GetCertificateByID(ctx, tenantID, *input.CertificateID)
+		if err != nil {
+			return nil, errors.New("certificate not found or access denied")
+		}
+		if cert.LoadBalancerID != nil && *cert.LoadBalancerID != lbID {
+			return nil, errors.New("certificate belongs to a different load balancer")
+		}
+	}
+
+	if input.DefaultPoolID != nil {
+		pool, err := u.lbRepo.GetPoolByID(ctx, tenantID, *input.DefaultPoolID)
+		if err != nil || pool.LoadBalancerID != lbID {
+			return nil, ErrPoolNotFound
+		}
+	}
+
 	listener := &models.LoadBalancerListener{
 		TenantID:       tenantID,
 		LoadBalancerID: lbID,
@@ -365,9 +383,9 @@ func (u *LoadBalancerUsecase) DeletePool(ctx context.Context, tenantID uuid.UUID
 }
 
 func (u *LoadBalancerUsecase) AddMember(ctx context.Context, tenantID uuid.UUID, lbID uuid.UUID, poolID uuid.UUID, input AddMemberInput) (*models.LoadBalancerMember, error) {
-	// 1. Verify pool exists and belongs to tenant
+	// 1. Verify pool exists, belongs to tenant, and belongs to this load balancer
 	pool, err := u.lbRepo.GetPoolByID(ctx, tenantID, poolID)
-	if err != nil {
+	if err != nil || pool.LoadBalancerID != lbID {
 		return nil, ErrPoolNotFound
 	}
 
@@ -386,6 +404,9 @@ func (u *LoadBalancerUsecase) AddMember(ctx context.Context, tenantID uuid.UUID,
 		} else {
 			addr = fmt.Sprintf("10.20.0.%d", 10+(inst.ProxmoxVMID%200))
 		}
+	}
+	if net.ParseIP(addr) == nil {
+		return nil, errors.New("member address must be a valid IPv4 or IPv6 address")
 	}
 
 	port := input.Port
@@ -480,6 +501,11 @@ func (u *LoadBalancerUsecase) DeleteMember(ctx context.Context, tenantID uuid.UU
 // --- TLS Certificates ---
 
 func (u *LoadBalancerUsecase) AddCertificate(ctx context.Context, tenantID uuid.UUID, lbID *uuid.UUID, input UploadCertificateInput) (*models.LoadBalancerCertificate, error) {
+	if lbID != nil {
+		if _, err := u.GetLoadBalancer(ctx, tenantID, *lbID); err != nil {
+			return nil, err
+		}
+	}
 	dom := strings.ToLower(strings.TrimSpace(input.Domain))
 	if dom == "" {
 		return nil, errors.New("domain is required")

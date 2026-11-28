@@ -343,6 +343,7 @@ func (s *GameServerUsecase) Create(ctx context.Context, userID uuid.UUID, input 
 	}
 
 	if err := s.servers.Create(ctx, &server); err != nil {
+		s.portService.ReleasePendingPort(nodeName, protocol, chosenPort)
 		return nil, fmt.Errorf("failed to save game server: %w", err)
 	}
 

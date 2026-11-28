@@ -69,9 +69,12 @@ func (s *AuthUsecase) Register(ctx context.Context, email, password, displayName
 		return nil, "", errors.New("this account is reserved for the platform administrator; please sign in")
 	}
 
-	count, _ := s.users.CountByEmail(ctx, email)
+	count, err := s.users.CountByEmail(ctx, email)
+	if err != nil {
+		return nil, "", err
+	}
 	if count > 0 {
-		return nil, "", errors.New("email is already registered")
+		return nil, "", newError(KindConflict, "EMAIL_EXISTS", "email is already registered")
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -230,9 +233,13 @@ func (s *AuthUsecase) OAuthLoginOrRegister(ctx context.Context, input OAuthUserI
 			user.DisplayName = input.DisplayName
 		}
 
-		_ = s.users.Save(ctx, user)
+		if err := s.users.Save(ctx, user); err != nil {
+			return nil, "", err
+		}
 		token, err := s.GenerateToken(user)
 		return user, token, err
+	} else if !errors.Is(err, repository.ErrNotFound) {
+		return nil, "", err
 	}
 
 	// New user registration

@@ -37,7 +37,7 @@ export const StorageOverviewPage: React.FC<StorageOverviewProps> = ({ onNavigate
   const fetchData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const [bRes, oRes] = await Promise.all([
         fetch('/api/v1/storage/buckets', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/v1/storage/overview', { headers: { Authorization: `Bearer ${token}` } })
@@ -66,7 +66,7 @@ export const StorageOverviewPage: React.FC<StorageOverviewProps> = ({ onNavigate
 
     try {
       setCreateLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch('/api/v1/storage/buckets', {
         method: 'POST',
         headers: {
@@ -100,7 +100,7 @@ export const StorageOverviewPage: React.FC<StorageOverviewProps> = ({ onNavigate
     if (!confirm(`Are you sure you want to delete bucket '${bucket.name}'?`)) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/storage/buckets/${bucket.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }

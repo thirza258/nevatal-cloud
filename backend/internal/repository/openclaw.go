@@ -97,7 +97,7 @@ func (r *openClawRepository) CreateIntegration(ctx context.Context, integration 
 }
 
 func (r *openClawRepository) DeleteIntegration(ctx context.Context, instanceID, integrationID uuid.UUID) error {
-	return r.conn(ctx).Where("id = ? AND openclaw_instance_id = ?", integrationID, instanceID).Delete(&models.OpenClawIntegration{}).Error
+	return r.conn(ctx).Where("id = ? AND open_claw_instance_id = ?", integrationID, instanceID).Delete(&models.OpenClawIntegration{}).Error
 }
 
 func (r *openClawRepository) CreateBackup(ctx context.Context, backup *models.OpenClawBackup) error {

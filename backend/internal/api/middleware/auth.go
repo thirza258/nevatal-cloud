@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -93,6 +94,34 @@ func AdminOnly() gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+// RequireScope enforces API key scopes for requests authenticated via an API key.
+// JWT / session-cookie callers bypass scope checks.
+func RequireScope(resource string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		rawScopes, isAPIKey := c.Get("apiKeyScopes")
+		if !isAPIKey {
+			c.Next()
+			return
+		}
+		action := "write"
+		if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead || c.Request.Method == http.MethodOptions {
+			action = "read"
+		}
+		required := resource + ":" + action
+
+		scopesStr, _ := rawScopes.(string)
+		var scopes []string
+		_ = json.Unmarshal([]byte(scopesStr), &scopes)
+		for _, s := range scopes {
+			if s == "*" || s == required || s == resource+":*" || (action == "read" && s == resource+":write") {
+				c.Next()
+				return
+			}
+		}
+		response.AbortError(c, http.StatusForbidden, "INSUFFICIENT_SCOPE", "API key lacks required scope: "+required)
 	}
 }
 

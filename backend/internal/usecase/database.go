@@ -41,6 +41,7 @@ var databaseNameRegex = regexp.MustCompile(`^[a-z][a-z0-9\-]{1,62}$`)
 // execution engine and verification hooks decide whether a real runtime is
 // observable.
 type DatabaseUsecase struct {
+	tx     repository.Transactor
 	repos  repository.DatabaseRepository
 	audit  *AuditUsecase
 	quota  *QuotaUsecase
@@ -49,6 +50,11 @@ type DatabaseUsecase struct {
 	now    func() time.Time
 	// backupInterval is the automatic backup cadence (default 24 h).
 	backupInterval time.Duration
+}
+
+// SetTransactor configures an optional transaction runner for serializing quota checks on create.
+func (s *DatabaseUsecase) SetTransactor(tx repository.Transactor) {
+	s.tx = tx
 }
 
 func NewDatabaseUsecase(repos repository.DatabaseRepository, audit *AuditUsecase, quota *QuotaUsecase, cfg *config.Config, cipher *secret.Cipher) *DatabaseUsecase {
@@ -191,32 +197,6 @@ func (s *DatabaseUsecase) Create(ctx context.Context, userID uuid.UUID, in Creat
 	if err := normalizeDatabaseInput(&in); err != nil {
 		return nil, "", err
 	}
-	if existing, err := s.repos.ListByOwner(ctx, userID); err == nil {
-		for _, db := range existing {
-			if strings.EqualFold(db.Name, in.Name) {
-				return nil, "", newError(KindConflict, "NAME_TAKEN", fmt.Sprintf("database name %q is already taken", in.Name))
-			}
-		}
-	}
-	if s.quota != nil {
-		usage, err := s.quota.GetUsage(ctx, userID)
-		if err != nil {
-			return nil, "", err
-		}
-		vcpus, mem, disk, count, _ := s.repos.SumResources(ctx, userID)
-		if usage.UsedVCPUs+vcpus+in.VCPUs > usage.MaxVCPUs {
-			return nil, "", ValidationError("plan_name", "the database exceeds the vCPU quota")
-		}
-		if usage.UsedMemoryMB+mem+in.MemoryMB > usage.MaxMemoryMB {
-			return nil, "", ValidationError("plan_name", "the database exceeds the memory quota")
-		}
-		if usage.UsedStorageGB+disk+in.StorageGB > usage.MaxStorageGB {
-			return nil, "", ValidationError("plan_name", "the database exceeds the storage quota")
-		}
-		if usage.UsedInstances+int(count)+1 > usage.MaxInstances {
-			return nil, "", ValidationError("plan_name", "the database exceeds the maximum instance count")
-		}
-	}
 	password, err := randomPassword()
 	if err != nil {
 		return nil, "", err
@@ -247,10 +227,57 @@ func (s *DatabaseUsecase) Create(ctx context.Context, userID uuid.UUID, in Creat
 		PasswordCiphertext: ciphertext, AutoBackup: autoBackup, LastHealthCheckAt: &now,
 		NextBackupAt: nextBackup, CreatedAt: now, UpdatedAt: now,
 	}
-	if err := s.repos.Create(ctx, db); err != nil {
-		if err == repository.ErrDuplicate {
-			return nil, "", newError(KindConflict, "NAME_TAKEN", fmt.Sprintf("database name %q is already taken", in.Name))
+
+	createFn := func(txCtx context.Context) error {
+		existing, err := s.repos.ListByOwner(txCtx, userID)
+		if err != nil {
+			return err
 		}
+		for _, item := range existing {
+			if strings.EqualFold(item.Name, in.Name) {
+				return newError(KindConflict, "NAME_TAKEN", fmt.Sprintf("database name %q is already taken", in.Name))
+			}
+		}
+		if s.quota != nil {
+			if _, err := s.quota.LockUserQuota(txCtx, userID); err != nil {
+				return err
+			}
+			usage, err := s.quota.GetUsage(txCtx, userID)
+			if err != nil {
+				return err
+			}
+			vcpus, mem, disk, count, err := s.repos.SumResources(txCtx, userID)
+			if err != nil {
+				return err
+			}
+			if usage.UsedVCPUs+vcpus+in.VCPUs > usage.MaxVCPUs {
+				return ValidationError("plan_name", "the database exceeds the vCPU quota")
+			}
+			if usage.UsedMemoryMB+mem+in.MemoryMB > usage.MaxMemoryMB {
+				return ValidationError("plan_name", "the database exceeds the memory quota")
+			}
+			if usage.UsedStorageGB+disk+in.StorageGB > usage.MaxStorageGB {
+				return ValidationError("plan_name", "the database exceeds the storage quota")
+			}
+			if usage.UsedInstances+int(count)+1 > usage.MaxInstances {
+				return ValidationError("plan_name", "the database exceeds the maximum instance count")
+			}
+		}
+		if err := s.repos.Create(txCtx, db); err != nil {
+			if err == repository.ErrDuplicate {
+				return newError(KindConflict, "NAME_TAKEN", fmt.Sprintf("database name %q is already taken", in.Name))
+			}
+			return err
+		}
+		return nil
+	}
+
+	if s.tx != nil {
+		err = s.tx.WithinTransaction(ctx, createFn)
+	} else {
+		err = createFn(ctx)
+	}
+	if err != nil {
 		return nil, "", err
 	}
 	s.audit.Log(ctx, &userID, "database.create", "managed_database", &db.ID, "success", clientIP, map[string]any{"engine": db.Engine, "plan": db.PlanName})

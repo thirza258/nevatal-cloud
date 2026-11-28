@@ -754,9 +754,9 @@ export const AdminObservability: React.FC<AdminObservabilityProps> = ({ initialT
                           {v.health_score.score}/100
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-zinc-200">{v.cpu_usage_pct.toFixed(1)}%</td>
-                      <td className="px-4 py-3 text-zinc-200">{v.memory_usage_pct.toFixed(1)}%</td>
-                      <td className="px-4 py-3 text-zinc-200">{v.disk_usage_pct.toFixed(1)}%</td>
+                      <td className="px-4 py-3 text-zinc-200">{(v.cpu_usage_pct ?? 0).toFixed(1)}%</td>
+                      <td className="px-4 py-3 text-zinc-200">{(v.memory_usage_pct ?? 0).toFixed(1)}%</td>
+                      <td className="px-4 py-3 text-zinc-200">{(v.disk_usage_pct ?? 0).toFixed(1)}%</td>
                       <td className="px-4 py-3">
                         <span className="text-[11px] text-emerald-400">{v.guest_agent_status || 'Connected'}</span>
                       </td>

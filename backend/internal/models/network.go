@@ -94,7 +94,7 @@ type FirewallRule struct {
 	PortMin         int       `gorm:"not null;default:1" json:"port_min"`
 	PortMax         int       `gorm:"not null;default:65535" json:"port_max"`
 	Priority        int       `gorm:"not null;default:100" json:"priority"`
-	Enabled         bool      `gorm:"not null;default:true" json:"enabled"`
+	Enabled         bool      `gorm:"not null" json:"enabled"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }

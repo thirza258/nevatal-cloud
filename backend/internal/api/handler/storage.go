@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -318,8 +319,16 @@ func (h *StorageHandler) DownloadSharedLink(c *gin.Context) {
 
 // streamAttachment writes an object as a file download.
 func streamAttachment(c *gin.Context, obj *models.StorageObject, file io.Reader) {
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filepath.Base(obj.Filename)))
-	c.Header("Content-Type", obj.ContentType)
+	safeFilename := strings.NewReplacer(`"`, "_", `\`, "_", "\r", "", "\n", "").Replace(filepath.Base(obj.Filename))
+	if safeFilename == "" || safeFilename == "." || safeFilename == ".." {
+		safeFilename = "download"
+	}
+	contentType := obj.ContentType
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", safeFilename))
+	c.Header("Content-Type", contentType)
 	c.Header("Content-Length", fmt.Sprintf("%d", obj.SizeBytes))
 	_, _ = io.Copy(c.Writer, file)
 }

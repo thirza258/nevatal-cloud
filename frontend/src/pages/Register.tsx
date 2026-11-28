@@ -11,6 +11,8 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
   const { register, loginWithOAuth } = useAuth();
   const { config } = useSystemConfig();
   const showSocialLogin = config.auth?.social_login;
+  const registrationEnabled = config.auth?.registration ?? true;
+  const demoMode = config.demo_mode;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -101,6 +103,19 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
             </div>
           )}
 
+          {!registrationEnabled ? (
+            <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 text-center space-y-3">
+              <p className="text-xs text-zinc-300">Public registration is currently disabled by your administrator.</p>
+              <button
+                type="button"
+                onClick={() => onNavigate('/login')}
+                className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-200 transition-colors cursor-pointer"
+              >
+                Go to Sign In
+              </button>
+            </div>
+          ) : (
+            <>
           {/* Social Sign-in Options (only when enabled by backend) */}
           {showSocialLogin && (
             <>
@@ -209,7 +224,8 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
             </button>
           </form>
 
-          {/* Quick 1-Click Instant Sandbox Option */}
+          {/* Quick 1-Click Instant Sandbox Option (demo mode only) */}
+          {demoMode && (
           <div className="pt-3 border-t border-zinc-900">
             <button
               type="button"
@@ -221,6 +237,9 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
               <span>1-Click Quick Start (Instant Test Account)</span>
             </button>
           </div>
+          )}
+            </>
+          )}
 
           <div className="text-center pt-2 space-y-3">
             <div>

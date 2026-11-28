@@ -136,6 +136,9 @@ func (s *MonitoringUsecase) CreateCheck(ctx context.Context, userID uuid.UUID, i
 	if e := validateCheck(&in, userID); e != nil {
 		return nil, e
 	}
+	if err := s.verifyResourceOwnership(ctx, userID, in.ResourceType, *in.ResourceID); err != nil {
+		return nil, err
+	}
 	enabled := true
 	if in.Enabled != nil {
 		enabled = *in.Enabled
@@ -154,6 +157,49 @@ func (s *MonitoringUsecase) CreateCheck(ctx context.Context, userID uuid.UUID, i
 	}
 	v := checkView(c)
 	return &v, nil
+}
+
+func (s *MonitoringUsecase) verifyResourceOwnership(ctx context.Context, userID uuid.UUID, resourceType string, resourceID uuid.UUID) error {
+	switch resourceType {
+	case "account":
+		return nil
+	case "vps":
+		if s.instances == nil {
+			return nil
+		}
+		if _, err := s.instances.Get(ctx, resourceID, userID, false); err != nil {
+			return errObservabilityNotFound
+		}
+	case "app":
+		if s.apps == nil {
+			return nil
+		}
+		if _, err := s.apps.Get(ctx, resourceID, userID, false); err != nil {
+			return errObservabilityNotFound
+		}
+	case "game_server":
+		if s.gameServers == nil {
+			return nil
+		}
+		if _, err := s.gameServers.Get(ctx, resourceID, userID, false); err != nil {
+			return errObservabilityNotFound
+		}
+	case "android":
+		if s.android == nil {
+			return nil
+		}
+		if _, err := s.android.Get(ctx, resourceID, userID, false); err != nil {
+			return errObservabilityNotFound
+		}
+	case "database":
+		if s.databases == nil {
+			return nil
+		}
+		if _, err := s.databases.Get(ctx, resourceID, userID); err != nil {
+			return errObservabilityNotFound
+		}
+	}
+	return nil
 }
 
 // ListChecks returns the user's checks.

@@ -34,7 +34,7 @@ export const AccessKeys: React.FC<AccessKeysProps> = ({ onNavigate }) => {
   const fetchKeys = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch('/api/v1/storage/access-keys', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -55,7 +55,7 @@ export const AccessKeys: React.FC<AccessKeysProps> = ({ onNavigate }) => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch('/api/v1/storage/access-keys', {
         method: 'POST',
         headers: {
@@ -80,7 +80,7 @@ export const AccessKeys: React.FC<AccessKeysProps> = ({ onNavigate }) => {
   const handleRevoke = async (id: string) => {
     if (!confirm('Are you sure you want to revoke this S3 access key? Immediate effect.')) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/storage/access-keys/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }

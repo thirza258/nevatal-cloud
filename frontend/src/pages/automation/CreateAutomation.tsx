@@ -34,7 +34,7 @@ export const CreateAutomation: React.FC<CreateAutomationProps> = ({ onNavigate }
     try {
       setLoading(true);
       setError(null);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch('/api/v1/automation/instances', {
         method: 'POST',
         headers: {

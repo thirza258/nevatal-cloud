@@ -79,8 +79,8 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
   const [showAddRule, setShowAddRule] = useState(false);
   const [ruleDir, setRuleDir] = useState<'inbound' | 'outbound'>('inbound');
   const [ruleAction, setRuleAction] = useState<'allow' | 'deny'>('allow');
-  const [ruleProto, setRuleProto] = useState<'tcp' | 'udp' | 'icmp' | 'all'>('tcp');
-  const [rulePort, setRulePort] = useState('80,443');
+  const [ruleProto, setRuleProto] = useState<'tcp' | 'udp' | 'icmp' | 'any'>('tcp');
+  const [rulePort, setRulePort] = useState('443');
   const [ruleCIDR, setRuleCIDR] = useState('0.0.0.0/0');
   const [ruleDesc, setRuleDesc] = useState('');
 
@@ -126,6 +126,12 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
       setFloatingIPs(fips);
       setDnsZones(zones);
       setInstances(insts);
+      if (selectedNetwork) {
+        setSelectedNetwork(nets.find((n) => n.id === selectedNetwork.id) || null);
+      }
+      if (selectedFirewall) {
+        setSelectedFirewall(fws.find((f) => f.id === selectedFirewall.id) || null);
+      }
     } catch (err: any) {
       notify('error', err.message || 'Failed to load networking data');
     } finally {
@@ -181,10 +187,10 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
     }
   };
 
-  const handleDetachVM = async (attId: string) => {
+  const handleDetachVM = async (networkId: string, attId: string) => {
     if (!confirm('Detach this virtual machine from the network?')) return;
     try {
-      await detachNetwork(attId);
+      await detachNetwork(networkId, attId);
       notify('success', 'Attachment detached');
       loadAll();
     } catch (err: any) {
@@ -222,13 +228,32 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
     e.preventDefault();
     if (!selectedFirewall) return;
     try {
+      let portMin = 1;
+      let portMax = 65535;
+      const trimmedPort = rulePort.trim();
+      if (trimmedPort !== '') {
+        const rangeMatch = trimmedPort.match(/^(\d+)\s*-\s*(\d+)$/);
+        if (rangeMatch) {
+          portMin = Number(rangeMatch[1]);
+          portMax = Number(rangeMatch[2]);
+        } else {
+          const single = Number(trimmedPort);
+          if (!Number.isInteger(single) || single < 1 || single > 65535) {
+            notify('error', 'Port must be a number (e.g. 443) or range (e.g. 8000-9000)');
+            return;
+          }
+          portMin = single;
+          portMax = single;
+        }
+      }
       await createFirewallRule(selectedFirewall.id, {
         direction: ruleDir,
         action: ruleAction,
         protocol: ruleProto,
-        port_range: rulePort,
-        cidr: ruleCIDR,
-        description: ruleDesc,
+        port_min: portMin,
+        port_max: portMax,
+        source_cidr: ruleDir === 'inbound' ? ruleCIDR : '0.0.0.0/0',
+        destination_cidr: ruleDir === 'outbound' ? ruleCIDR : '0.0.0.0/0',
       });
       setShowAddRule(false);
       setRuleDesc('');
@@ -240,8 +265,9 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
   };
 
   const handleDeleteRule = async (ruleId: string) => {
+    if (!selectedFirewall) return;
     try {
-      await deleteFirewallRule(ruleId);
+      await deleteFirewallRule(selectedFirewall.id, ruleId);
       notify('success', 'Rule deleted');
       loadAll();
     } catch (err: any) {
@@ -292,7 +318,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
   const handleCreateZone = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createDNSZone({ name: newZoneName, description: newZoneDesc });
+      await createDNSZone({ domain: newZoneName });
       setShowCreateZone(false);
       setNewZoneName('');
       setNewZoneDesc('');
@@ -331,8 +357,8 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
     try {
       await createDNSRecord(selectedZone.id, {
         name: recName,
-        type: recType,
-        content: recContent,
+        record_type: recType,
+        value: recContent,
         ttl: recTTL,
       });
       setShowAddRecord(false);
@@ -346,11 +372,11 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
   };
 
   const handleDeleteRecord = async (recordId: string) => {
-    if (!confirm('Delete this DNS record?')) return;
+    if (!selectedZone || !confirm('Delete this DNS record?')) return;
     try {
-      await deleteDNSRecord(recordId);
+      await deleteDNSRecord(selectedZone.id, recordId);
       notify('success', 'Record deleted');
-      if (selectedZone) openZoneRecords(selectedZone);
+      openZoneRecords(selectedZone);
     } catch (err: any) {
       notify('error', err.message || 'Error deleting record');
     }
@@ -507,7 +533,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
                               <span className="text-indigo-400 font-mono text-[11px]">({att.ip_address})</span>
                             </div>
                             <button
-                              onClick={() => handleDetachVM(att.id)}
+                              onClick={() => handleDetachVM(net.id, att.id)}
                               className="text-slate-500 hover:text-rose-400 transition-colors"
                               title="Detach"
                             >
@@ -623,9 +649,17 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
                               </span>
                             </td>
                             <td className="py-2 px-3 uppercase text-slate-300">{rule.protocol}</td>
-                            <td className="py-2 px-3 text-indigo-300">{rule.port_range || 'ALL'}</td>
-                            <td className="py-2 px-3 text-slate-300">{rule.cidr}</td>
-                            <td className="py-2 px-3 text-slate-400 font-sans text-xs">{rule.description || '-'}</td>
+                            <td className="py-2 px-3 text-indigo-300">
+                              {rule.port_min === 1 && rule.port_max === 65535
+                                ? 'ALL'
+                                : rule.port_min === rule.port_max
+                                ? String(rule.port_min)
+                                : `${rule.port_min}-${rule.port_max}`}
+                            </td>
+                            <td className="py-2 px-3 text-slate-300">
+                              {rule.direction === 'outbound' ? rule.destination_cidr : rule.source_cidr}
+                            </td>
+                            <td className="py-2 px-3 text-slate-400 font-sans text-xs">Priority {rule.priority}</td>
                             <td className="py-2 px-3 text-right">
                               <button
                                 onClick={() => handleDeleteRule(rule.id)}
@@ -689,7 +723,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
                 <tbody className="divide-y divide-slate-800 font-mono">
                   {floatingIPs.map((fip) => (
                     <tr key={fip.id} className="hover:bg-slate-800/30">
-                      <td className="py-3 px-4 font-semibold text-white">{fip.ip_address}</td>
+                      <td className="py-3 px-4 font-semibold text-white">{fip.address}</td>
                       <td className="py-3 px-4">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] ${
@@ -704,7 +738,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
                       <td className="py-3 px-4 text-slate-300">
                         {fip.instance ? fip.instance.name : fip.instance_id ? fip.instance_id.slice(0, 8) : 'Unassigned'}
                       </td>
-                      <td className="py-3 px-4 text-slate-400 font-sans">{fip.description || '-'}</td>
+                      <td className="py-3 px-4 text-slate-400 font-sans">{fip.provider || '-'}</td>
                       <td className="py-3 px-4 text-right space-x-2">
                         <button
                           onClick={() => {
@@ -770,8 +804,8 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
                   }`}
                 >
                   <div>
-                    <p className="text-sm font-semibold">{z.name}</p>
-                    <p className="text-xs text-slate-400">{z.description || 'Authoritative Zone'}</p>
+                    <p className="text-sm font-semibold">{z.domain}</p>
+                    <p className="text-xs text-slate-400">{z.provider || 'Authoritative Zone'}</p>
                   </div>
                   <button
                     onClick={(e) => {
@@ -795,7 +829,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
             <div className="md:col-span-2 space-y-2">
               <div className="flex justify-between items-center">
                 <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  {selectedZone ? `Records for ${selectedZone.name}` : 'Select a Zone'}
+                  {selectedZone ? `Records for ${selectedZone.domain}` : 'Select a Zone'}
                 </h2>
                 {selectedZone && (
                   <button
@@ -824,8 +858,8 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
                       {zoneRecords.map((rec) => (
                         <tr key={rec.id} className="hover:bg-slate-800/30">
                           <td className="py-2 px-3 font-semibold text-white">{rec.name}</td>
-                          <td className="py-2 px-3 text-indigo-400 font-bold">{rec.type}</td>
-                          <td className="py-2 px-3 text-slate-300 break-all">{rec.content}</td>
+                          <td className="py-2 px-3 text-indigo-400 font-bold">{rec.record_type}</td>
+                          <td className="py-2 px-3 text-slate-300 break-all">{rec.value}</td>
                           <td className="py-2 px-3 text-slate-500">{rec.ttl}s</td>
                           <td className="py-2 px-3 text-right">
                             <button
@@ -1057,14 +1091,14 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
                     <option value="tcp">TCP</option>
                     <option value="udp">UDP</option>
                     <option value="icmp">ICMP</option>
-                    <option value="all">ALL</option>
+                    <option value="any">ANY</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Port Range</label>
                   <input
                     type="text"
-                    placeholder="80, 443, or 8000-9000"
+                    placeholder="443 or 8000-9000"
                     value={rulePort}
                     onChange={(e) => setRulePort(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
@@ -1153,7 +1187,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
             <h3 className="text-base font-semibold text-white mb-2">Assign Floating IP</h3>
-            <p className="text-xs text-indigo-400 font-mono mb-4">{assignFIPModal.ip_address}</p>
+            <p className="text-xs text-indigo-400 font-mono mb-4">{assignFIPModal.address}</p>
             <form onSubmit={handleAssignFloatingIP} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">Target Virtual Machine</label>
@@ -1242,7 +1276,7 @@ export const NetworkingPage: React.FC<NetworkingPageProps> = ({ onNavigate }) =>
       {showAddRecord && selectedZone && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-            <h3 className="text-base font-semibold text-white mb-3">Add Record to {selectedZone.name}</h3>
+            <h3 className="text-base font-semibold text-white mb-3">Add Record to {selectedZone.domain}</h3>
             <form onSubmit={handleAddRecord} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>

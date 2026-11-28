@@ -828,28 +828,35 @@ func seedMCPServers(db *gorm.DB, demo bool) error {
 				})
 			}
 		}
-		// Connect GitHub
+		// Connect GitHub (idempotent across restarts)
 		var ghServer models.MCPServer
 		if err := db.First(&ghServer, "name = ?", "github").Error; err == nil {
-			ghConn := models.MCPConnection{
-				UserID:          targetUser.ID,
-				ServerID:        ghServer.ID,
-				Status:          "connected",
-				ConfigJSON:      `{"connected_account":"customer-demo","scopes":["repo","read:user"]}`,
-				LastHealthCheck: &now,
-				CreatedAt:       now,
-				UpdatedAt:       now,
+			var ghConn models.MCPConnection
+			if err := db.Where("user_id = ? AND server_id = ?", targetUser.ID, ghServer.ID).First(&ghConn).Error; err != nil {
+				ghConn = models.MCPConnection{
+					UserID:          targetUser.ID,
+					ServerID:        ghServer.ID,
+					Status:          "connected",
+					ConfigJSON:      `{"connected_account":"customer-demo","scopes":["repo","read:user"]}`,
+					LastHealthCheck: &now,
+					CreatedAt:       now,
+					UpdatedAt:       now,
+				}
+				_ = db.Create(&ghConn)
 			}
-			if err := db.Create(&ghConn).Error; err == nil {
+			if ghConn.ID != uuid.Nil {
 				var ghTools []models.MCPTool
 				db.Where("server_id = ?", ghServer.ID).Find(&ghTools)
 				for _, t := range ghTools {
-					_ = db.Create(&models.MCPPermission{
-						ConnectionID: ghConn.ID,
-						ToolID:       t.ID,
-						Granted:      true,
-						CreatedAt:    now,
-					})
+					var perm models.MCPPermission
+					if err := db.Where("connection_id = ? AND tool_id = ?", ghConn.ID, t.ID).First(&perm).Error; err != nil {
+						_ = db.Create(&models.MCPPermission{
+							ConnectionID: ghConn.ID,
+							ToolID:       t.ID,
+							Granted:      true,
+							CreatedAt:    now,
+						})
+					}
 				}
 			}
 		}
@@ -1248,6 +1255,10 @@ func seedAndroidCloud(db *gorm.DB, demo bool) error {
 	db.Model(&models.AndroidWorkerNode{}).Count(&androidWorkerCount)
 	var androidWorker models.AndroidWorkerNode
 	if androidWorkerCount == 0 {
+		initialCount := 0
+		if demo && demoUser.ID != uuid.Nil {
+			initialCount = 1
+		}
 		androidWorker = models.AndroidWorkerNode{
 			Name:                 "Waydroid Worker Node 01",
 			ProxmoxNodeName:      "pve-dell-r640",
@@ -1258,7 +1269,7 @@ func seedAndroidCloud(db *gorm.DB, demo bool) error {
 			TotalCPUCores:        32,
 			TotalMemoryMB:        131072,
 			TotalStorageGB:       2048,
-			ActiveInstancesCount: 1,
+			ActiveInstancesCount: initialCount,
 			LastHealthCheckAt:    now,
 			CreatedAt:            now,
 			UpdatedAt:            now,

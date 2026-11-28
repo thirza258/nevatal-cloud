@@ -52,23 +52,23 @@ type ObservabilityRepository interface {
 	CountAIExecutions(ctx context.Context) (total int64, completed int64, failed int64, err error)
 }
 
-type observabilityRepository struct {
-	db *gorm.DB
-}
+type observabilityRepository struct{ base }
+
+var _ ObservabilityRepository = (*observabilityRepository)(nil)
 
 func NewObservabilityRepository(db *gorm.DB) ObservabilityRepository {
-	return &observabilityRepository{db: db}
+	return &observabilityRepository{base{db}}
 }
 
 func (r *observabilityRepository) InsertMetrics(ctx context.Context, metrics []models.ObservabilityMetric) error {
 	if len(metrics) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).Create(&metrics).Error
+	return r.conn(ctx).Create(&metrics).Error
 }
 
 func (r *observabilityRepository) QueryMetrics(ctx context.Context, metricName string, tenantID *uuid.UUID, resourceID *uuid.UUID, since time.Time, limit int) ([]models.ObservabilityMetric, error) {
-	q := r.db.WithContext(ctx).Model(&models.ObservabilityMetric{})
+	q := r.conn(ctx).Model(&models.ObservabilityMetric{})
 	if metricName != "" {
 		q = q.Where("metric_name = ?", metricName)
 	}
@@ -90,7 +90,7 @@ func (r *observabilityRepository) QueryMetrics(ctx context.Context, metricName s
 }
 
 func (r *observabilityRepository) LatestMetric(ctx context.Context, metricName string, tenantID *uuid.UUID, resourceID *uuid.UUID) (*models.ObservabilityMetric, error) {
-	q := r.db.WithContext(ctx).Model(&models.ObservabilityMetric{}).Where("metric_name = ?", metricName)
+	q := r.conn(ctx).Model(&models.ObservabilityMetric{}).Where("metric_name = ?", metricName)
 	if tenantID != nil {
 		q = q.Where("tenant_id = ?", *tenantID)
 	}
@@ -108,11 +108,11 @@ func (r *observabilityRepository) LatestMetric(ctx context.Context, metricName s
 }
 
 func (r *observabilityRepository) CreateEvent(ctx context.Context, event *models.ObservabilityEvent) error {
-	return r.db.WithContext(ctx).Create(event).Error
+	return r.conn(ctx).Create(event).Error
 }
 
 func (r *observabilityRepository) QueryEvents(ctx context.Context, tenantID *uuid.UUID, resourceID *uuid.UUID, eventType string, severity string, correlationID string, since time.Time, limit int, offset int) ([]models.ObservabilityEvent, int64, error) {
-	q := r.db.WithContext(ctx).Model(&models.ObservabilityEvent{})
+	q := r.conn(ctx).Model(&models.ObservabilityEvent{})
 	if tenantID != nil {
 		q = q.Where("tenant_id = ? AND is_internal = false", *tenantID)
 	}
@@ -146,11 +146,11 @@ func (r *observabilityRepository) QueryEvents(ctx context.Context, tenantID *uui
 }
 
 func (r *observabilityRepository) CreateLog(ctx context.Context, logEntry *models.ObservabilityLog) error {
-	return r.db.WithContext(ctx).Create(logEntry).Error
+	return r.conn(ctx).Create(logEntry).Error
 }
 
 func (r *observabilityRepository) QueryLogs(ctx context.Context, tenantID *uuid.UUID, resourceID *uuid.UUID, jobID *uuid.UUID, service string, level string, correlationID string, search string, since time.Time, limit int, offset int) ([]models.ObservabilityLog, int64, error) {
-	q := r.db.WithContext(ctx).Model(&models.ObservabilityLog{})
+	q := r.conn(ctx).Model(&models.ObservabilityLog{})
 	if tenantID != nil {
 		q = q.Where("tenant_id = ?", *tenantID)
 	}
@@ -190,38 +190,35 @@ func (r *observabilityRepository) QueryLogs(ctx context.Context, tenantID *uuid.
 }
 
 func (r *observabilityRepository) CreateAlertRule(ctx context.Context, rule *models.ObservabilityAlertRule) error {
-	return r.db.WithContext(ctx).Create(rule).Error
+	return r.conn(ctx).Create(rule).Error
 }
 
 func (r *observabilityRepository) UpdateAlertRule(ctx context.Context, rule *models.ObservabilityAlertRule) error {
-	return r.db.WithContext(ctx).Save(rule).Error
+	return r.conn(ctx).Save(rule).Error
 }
 
 func (r *observabilityRepository) DeleteAlertRule(ctx context.Context, id uuid.UUID, tenantID *uuid.UUID) error {
-	q := r.db.WithContext(ctx).Where("id = ?", id)
+	q := r.conn(ctx).Where("id = ?", id)
 	if tenantID != nil {
 		q = q.Where("tenant_id = ?", *tenantID)
 	}
-	return q.Delete(&models.ObservabilityAlertRule{}).Error
+	return deleteChecked(q.Delete(&models.ObservabilityAlertRule{}))
 }
 
 func (r *observabilityRepository) GetAlertRule(ctx context.Context, id uuid.UUID, tenantID *uuid.UUID) (*models.ObservabilityAlertRule, error) {
 	var rule models.ObservabilityAlertRule
-	q := r.db.WithContext(ctx).Where("id = ?", id)
+	q := r.conn(ctx).Where("id = ?", id)
 	if tenantID != nil {
 		q = q.Where("tenant_id = ?", *tenantID)
 	}
 	if err := q.First(&rule).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, ErrNotFound
-		}
-		return nil, err
+		return nil, mapErr(err)
 	}
 	return &rule, nil
 }
 
 func (r *observabilityRepository) ListAlertRules(ctx context.Context, tenantID *uuid.UUID, resourceType string, enabledOnly bool) ([]models.ObservabilityAlertRule, error) {
-	q := r.db.WithContext(ctx).Model(&models.ObservabilityAlertRule{})
+	q := r.conn(ctx).Model(&models.ObservabilityAlertRule{})
 	if tenantID != nil {
 		q = q.Where("tenant_id = ? OR tenant_id IS NULL", *tenantID)
 	}
@@ -237,30 +234,27 @@ func (r *observabilityRepository) ListAlertRules(ctx context.Context, tenantID *
 }
 
 func (r *observabilityRepository) CreateAlert(ctx context.Context, alert *models.ObservabilityAlert) error {
-	return r.db.WithContext(ctx).Create(alert).Error
+	return r.conn(ctx).Create(alert).Error
 }
 
 func (r *observabilityRepository) UpdateAlert(ctx context.Context, alert *models.ObservabilityAlert) error {
-	return r.db.WithContext(ctx).Save(alert).Error
+	return r.conn(ctx).Save(alert).Error
 }
 
 func (r *observabilityRepository) GetAlert(ctx context.Context, id uuid.UUID, tenantID *uuid.UUID) (*models.ObservabilityAlert, error) {
 	var alert models.ObservabilityAlert
-	q := r.db.WithContext(ctx).Where("id = ?", id)
+	q := r.conn(ctx).Where("id = ?", id)
 	if tenantID != nil {
 		q = q.Where("tenant_id = ?", *tenantID)
 	}
 	if err := q.Preload("Rule").First(&alert).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, ErrNotFound
-		}
-		return nil, err
+		return nil, mapErr(err)
 	}
 	return &alert, nil
 }
 
 func (r *observabilityRepository) ListAlerts(ctx context.Context, tenantID *uuid.UUID, status string, limit int) ([]models.ObservabilityAlert, error) {
-	q := r.db.WithContext(ctx).Model(&models.ObservabilityAlert{})
+	q := r.conn(ctx).Model(&models.ObservabilityAlert{})
 	if tenantID != nil {
 		q = q.Where("tenant_id = ?", *tenantID)
 	}
@@ -276,7 +270,7 @@ func (r *observabilityRepository) ListAlerts(ctx context.Context, tenantID *uuid
 }
 
 func (r *observabilityRepository) CountAlerts(ctx context.Context, tenantID *uuid.UUID, status string) (int64, error) {
-	q := r.db.WithContext(ctx).Model(&models.ObservabilityAlert{})
+	q := r.conn(ctx).Model(&models.ObservabilityAlert{})
 	if tenantID != nil {
 		q = q.Where("tenant_id = ?", *tenantID)
 	}
@@ -290,62 +284,56 @@ func (r *observabilityRepository) CountAlerts(ctx context.Context, tenantID *uui
 
 func (r *observabilityRepository) AcknowledgeAlert(ctx context.Context, id uuid.UUID, tenantID *uuid.UUID, actor string) error {
 	now := time.Now()
-	q := r.db.WithContext(ctx).Model(&models.ObservabilityAlert{}).Where("id = ?", id)
+	q := r.conn(ctx).Model(&models.ObservabilityAlert{}).Where("id = ?", id)
 	if tenantID != nil {
 		q = q.Where("tenant_id = ?", *tenantID)
 	}
-	return q.Updates(map[string]any{
+	return deleteChecked(q.Updates(map[string]any{
 		"status":          models.AlertStatusAcknowledged,
 		"acknowledged_at": &now,
 		"acknowledged_by": actor,
-	}).Error
+	}))
 }
 
 func (r *observabilityRepository) ResolveAlert(ctx context.Context, id uuid.UUID, tenantID *uuid.UUID, resolution string) error {
 	now := time.Now()
-	q := r.db.WithContext(ctx).Model(&models.ObservabilityAlert{}).Where("id = ?", id)
+	q := r.conn(ctx).Model(&models.ObservabilityAlert{}).Where("id = ?", id)
 	if tenantID != nil {
 		q = q.Where("tenant_id = ?", *tenantID)
 	}
-	return q.Updates(map[string]any{
+	return deleteChecked(q.Updates(map[string]any{
 		"status":      models.AlertStatusResolved,
 		"resolved_at": &now,
 		"resolution":  resolution,
-	}).Error
+	}))
 }
 
 func (r *observabilityRepository) CreateIncident(ctx context.Context, inc *models.ObservabilityIncident) error {
-	return r.db.WithContext(ctx).Create(inc).Error
+	return r.conn(ctx).Create(inc).Error
 }
 
 func (r *observabilityRepository) UpdateIncident(ctx context.Context, inc *models.ObservabilityIncident) error {
-	return r.db.WithContext(ctx).Save(inc).Error
+	return r.conn(ctx).Save(inc).Error
 }
 
 func (r *observabilityRepository) GetIncident(ctx context.Context, id uuid.UUID) (*models.ObservabilityIncident, error) {
 	var inc models.ObservabilityIncident
-	if err := r.db.WithContext(ctx).Preload("AffectedResources").Where("id = ?", id).First(&inc).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, ErrNotFound
-		}
-		return nil, err
+	if err := r.conn(ctx).Preload("AffectedResources").Where("id = ?", id).First(&inc).Error; err != nil {
+		return nil, mapErr(err)
 	}
 	return &inc, nil
 }
 
 func (r *observabilityRepository) GetIncidentByNumber(ctx context.Context, number string) (*models.ObservabilityIncident, error) {
 	var inc models.ObservabilityIncident
-	if err := r.db.WithContext(ctx).Preload("AffectedResources").Where("incident_number = ?", number).First(&inc).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, ErrNotFound
-		}
-		return nil, err
+	if err := r.conn(ctx).Preload("AffectedResources").Where("incident_number = ?", number).First(&inc).Error; err != nil {
+		return nil, mapErr(err)
 	}
 	return &inc, nil
 }
 
 func (r *observabilityRepository) ListIncidents(ctx context.Context, status string, limit int) ([]models.ObservabilityIncident, error) {
-	q := r.db.WithContext(ctx).Model(&models.ObservabilityIncident{})
+	q := r.conn(ctx).Model(&models.ObservabilityIncident{})
 	if status != "" {
 		q = q.Where("status = ?", status)
 	}
@@ -358,7 +346,7 @@ func (r *observabilityRepository) ListIncidents(ctx context.Context, status stri
 }
 
 func (r *observabilityRepository) CountIncidents(ctx context.Context, status string) (int64, error) {
-	q := r.db.WithContext(ctx).Model(&models.ObservabilityIncident{})
+	q := r.conn(ctx).Model(&models.ObservabilityIncident{})
 	if status != "" {
 		q = q.Where("status = ?", status)
 	}
@@ -368,13 +356,13 @@ func (r *observabilityRepository) CountIncidents(ctx context.Context, status str
 }
 
 func (r *observabilityRepository) AddIncidentResource(ctx context.Context, res *models.ObservabilityIncidentResource) error {
-	return r.db.WithContext(ctx).Create(res).Error
+	return r.conn(ctx).Create(res).Error
 }
 
 func (r *observabilityRepository) CountAIExecutions(ctx context.Context) (total int64, completed int64, failed int64, err error) {
 	var t, c, f int64
-	_ = r.db.WithContext(ctx).Table("ai_executions").Count(&t).Error
-	_ = r.db.WithContext(ctx).Table("ai_executions").Where("status = ?", "completed").Count(&c).Error
-	_ = r.db.WithContext(ctx).Table("ai_executions").Where("status = ?", "failed").Count(&f).Error
+	_ = r.conn(ctx).Table("ai_executions").Count(&t).Error
+	_ = r.conn(ctx).Table("ai_executions").Where("status = ?", "completed").Count(&c).Error
+	_ = r.conn(ctx).Table("ai_executions").Where("status = ?", "failed").Count(&f).Error
 	return t, c, f, nil
 }

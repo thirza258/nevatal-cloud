@@ -12,11 +12,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/nevatal/cloud/internal/models"
 	"github.com/nevatal/cloud/internal/repository"
+	"github.com/nevatal/cloud/internal/secret"
 )
 
 type OpenClawUsecase struct {
 	agents       repository.OpenClawRepository
 	auditService *AuditUsecase
+	cipher       *secret.Cipher
 }
 
 func NewOpenClawUsecase(agents repository.OpenClawRepository, auditService *AuditUsecase) *OpenClawUsecase {
@@ -24,6 +26,11 @@ func NewOpenClawUsecase(agents repository.OpenClawRepository, auditService *Audi
 		agents:       agents,
 		auditService: auditService,
 	}
+}
+
+// SetCipher configures at-rest encryption for OpenClaw provider API keys.
+func (s *OpenClawUsecase) SetCipher(c *secret.Cipher) {
+	s.cipher = c
 }
 
 type CreateOpenClawInput struct {
@@ -89,6 +96,15 @@ func (s *OpenClawUsecase) Create(ctx context.Context, userID uuid.UUID, input Cr
 	_, _ = rand.Read(b)
 	gwToken := fmt.Sprintf("gw_sec_%s", hex.EncodeToString(b))
 
+	encAPIKey := input.APIKey
+	if encAPIKey != "" && s.cipher != nil && s.cipher.Enabled() {
+		enc, err := s.cipher.Encrypt(encAPIKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt API key: %w", err)
+		}
+		encAPIKey = enc
+	}
+
 	now := time.Now()
 	instance := models.OpenClawInstance{
 		OwnerID:           userID,
@@ -101,7 +117,7 @@ func (s *OpenClawUsecase) Create(ctx context.Context, userID uuid.UUID, input Cr
 		WorkspacePath:     fmt.Sprintf("/home/openclaw/%s/workspace", slug),
 		AIProvider:        input.AIProvider,
 		DefaultModel:      input.DefaultModel,
-		EncryptedAPIKey:   input.APIKey,
+		EncryptedAPIKey:   encAPIKey,
 		MaskedAPIKey:      maskedKey,
 		CPULimit:          input.CPULimit,
 		MemoryLimitMB:     input.MemoryLimitMB,

@@ -1047,25 +1047,25 @@ export const UserObservabilityPage: React.FC<UserObservabilityPageProps> = ({ on
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-zinc-900/60 border border-zinc-800 p-3 rounded-lg">
                       <span className="text-[10px] font-mono text-zinc-400 uppercase">CPU Usage</span>
-                      <div className="text-xl font-bold text-white mt-1">{vmDetail.cpu_usage_pct.toFixed(1)}%</div>
+                      <div className="text-xl font-bold text-white mt-1">{(vmDetail.cpu_usage_pct ?? 0).toFixed(1)}%</div>
                       <div className="mt-2 w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                        <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, vmDetail.cpu_usage_pct)}%` }} />
+                        <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, vmDetail.cpu_usage_pct ?? 0)}%` }} />
                       </div>
                     </div>
 
                     <div className="bg-zinc-900/60 border border-zinc-800 p-3 rounded-lg">
                       <span className="text-[10px] font-mono text-zinc-400 uppercase">RAM Usage</span>
-                      <div className="text-xl font-bold text-white mt-1">{vmDetail.memory_usage_pct.toFixed(1)}%</div>
+                      <div className="text-xl font-bold text-white mt-1">{(vmDetail.memory_usage_pct ?? 0).toFixed(1)}%</div>
                       <div className="mt-2 w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                        <div className="bg-blue-500 h-full rounded-full" style={{ width: `${Math.min(100, vmDetail.memory_usage_pct)}%` }} />
+                        <div className="bg-blue-500 h-full rounded-full" style={{ width: `${Math.min(100, vmDetail.memory_usage_pct ?? 0)}%` }} />
                       </div>
                     </div>
 
                     <div className="bg-zinc-900/60 border border-zinc-800 p-3 rounded-lg">
                       <span className="text-[10px] font-mono text-zinc-400 uppercase">Disk Usage</span>
-                      <div className="text-xl font-bold text-white mt-1">{vmDetail.disk_usage_pct.toFixed(1)}%</div>
+                      <div className="text-xl font-bold text-white mt-1">{(vmDetail.disk_usage_pct ?? 0).toFixed(1)}%</div>
                       <div className="mt-2 w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                        <div className="bg-amber-500 h-full rounded-full" style={{ width: `${Math.min(100, vmDetail.disk_usage_pct)}%` }} />
+                        <div className="bg-amber-500 h-full rounded-full" style={{ width: `${Math.min(100, vmDetail.disk_usage_pct ?? 0)}%` }} />
                       </div>
                     </div>
 

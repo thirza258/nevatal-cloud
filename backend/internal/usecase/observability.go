@@ -7,6 +7,7 @@ import (
 	"math"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -1079,6 +1080,12 @@ func (u *ObservabilityUsecase) AIIncidentInvestigation(ctx context.Context, in A
 }
 
 func (u *ObservabilityUsecase) CreateAlertRule(ctx context.Context, tenantID *uuid.UUID, in CreateAlertRuleInput) (*models.ObservabilityAlertRule, error) {
+	webhookURL := strings.TrimSpace(in.WebhookURL)
+	if webhookURL != "" {
+		if err := ValidatePublicWebhookURL(webhookURL); err != nil {
+			return nil, ValidationError("webhook_url", err.Error())
+		}
+	}
 	channelsJSON, _ := json.Marshal(in.Channels)
 	rule := &models.ObservabilityAlertRule{
 		TenantID:        tenantID,
@@ -1093,7 +1100,7 @@ func (u *ObservabilityUsecase) CreateAlertRule(ctx context.Context, tenantID *uu
 		DurationSeconds: in.DurationSeconds,
 		Severity:        in.Severity,
 		Channels:        string(channelsJSON),
-		WebhookURL:      in.WebhookURL,
+		WebhookURL:      webhookURL,
 		Enabled:         true,
 	}
 	if in.Enabled != nil {
@@ -1133,7 +1140,13 @@ func (u *ObservabilityUsecase) UpdateAlertRule(ctx context.Context, id uuid.UUID
 		rule.Channels = string(b)
 	}
 	if in.WebhookURL != nil {
-		rule.WebhookURL = *in.WebhookURL
+		trimmed := strings.TrimSpace(*in.WebhookURL)
+		if trimmed != "" {
+			if err := ValidatePublicWebhookURL(trimmed); err != nil {
+				return nil, ValidationError("webhook_url", err.Error())
+			}
+		}
+		rule.WebhookURL = trimmed
 	}
 	if in.Enabled != nil {
 		rule.Enabled = *in.Enabled
@@ -1275,12 +1288,8 @@ func (u *ObservabilityUsecase) QueryLogs(ctx context.Context, tenantID *uuid.UUI
 	return u.repos.Observability.QueryLogs(ctx, tenantID, resourceID, jobID, service, level, correlationID, search, time.Time{}, limit, offset)
 }
 
-func (u *ObservabilityUsecase) GetVMDetailObservability(ctx context.Context, vmID uuid.UUID, tenantID *uuid.UUID) (*VMDetailObservability, error) {
-	vm, err := u.repos.Instances.FindByID(ctx, vmID, tenantID)
-	if err != nil {
-		return nil, err
-	}
-
+// BuildVMSummaryObservability computes metric + health summary fields for an instance.
+func (u *ObservabilityUsecase) BuildVMSummaryObservability(vm models.Instance) VMDetailObservability {
 	cpu := 21.0
 	mem := 63.0
 	disk := 71.0
@@ -1291,19 +1300,17 @@ func (u *ObservabilityUsecase) GetVMDetailObservability(ctx context.Context, vmI
 		gaStatus = "disconnected"
 		cpu = 0
 		mem = 0
+		uptime = 0
 	}
 
-	hs := u.CalculateVMHealthScore(*vm, cpu, mem, disk, gaStatus == "connected")
-	events, _, _ := u.repos.Observability.QueryEvents(ctx, tenantID, &vmID, "", "", "", time.Time{}, 10, 0)
-	alerts, _ := u.repos.Observability.ListAlerts(ctx, tenantID, "", 10)
-
+	hs := u.CalculateVMHealthScore(vm, cpu, mem, disk, gaStatus == "connected")
 	memTotal := int64(vm.MemoryMB)
 	memUsed := int64(float64(memTotal) * (mem / 100.0))
 	diskTotal := int64(vm.DiskGB)
 	diskUsed := int64(float64(diskTotal) * (disk / 100.0))
 
-	return &VMDetailObservability{
-		Instance:          *vm,
+	return VMDetailObservability{
+		Instance:          vm,
 		HealthScore:       hs,
 		CPUUsagePct:       cpu,
 		MemoryUsagePct:    mem,
@@ -1318,7 +1325,26 @@ func (u *ObservabilityUsecase) GetVMDetailObservability(ctx context.Context, vmI
 		NetworkTxMbps:     5.8,
 		UptimeSeconds:     uptime,
 		GuestAgentStatus:  gaStatus,
-		RecentEvents:      events,
-		ActiveAlerts:      alerts,
-	}, nil
+		RecentEvents:      []models.ObservabilityEvent{},
+		ActiveAlerts:      []models.ObservabilityAlert{},
+	}
+}
+
+func (u *ObservabilityUsecase) GetVMDetailObservability(ctx context.Context, vmID uuid.UUID, tenantID *uuid.UUID) (*VMDetailObservability, error) {
+	vm, err := u.repos.Instances.FindByID(ctx, vmID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	detail := u.BuildVMSummaryObservability(*vm)
+	events, _, _ := u.repos.Observability.QueryEvents(ctx, tenantID, &vmID, "", "", "", time.Time{}, 10, 0)
+	alerts, _ := u.repos.Observability.ListAlerts(ctx, tenantID, "", 10)
+	if events != nil {
+		detail.RecentEvents = events
+	}
+	if alerts != nil {
+		detail.ActiveAlerts = alerts
+	}
+
+	return &detail, nil
 }

@@ -44,6 +44,9 @@ type InstanceRepository interface {
 	Save(ctx context.Context, inst *models.Instance) error
 	// UpdateStatus sets the status column of inst (and inst.Status).
 	UpdateStatus(ctx context.Context, inst *models.Instance, status string) error
+	// TransitionStatus atomically updates status to toStatus only if current
+	// status is in allowedFrom (or any status when allowedFrom is empty).
+	TransitionStatus(ctx context.Context, id uuid.UUID, allowedFrom []string, toStatus string) (bool, error)
 	// UpdateStatusByID sets the status of the instance with the given id.
 	UpdateStatusByID(ctx context.Context, id uuid.UUID, status string) error
 	// UpdateVMID sets the proxmox_vmid column of inst.
@@ -138,8 +141,10 @@ func (r *instanceRepository) CountActiveByStatus(ctx context.Context, status str
 
 func (r *instanceRepository) SumUsageByOwner(ctx context.Context, ownerID uuid.UUID) (ResourceTotals, error) {
 	var sum ResourceTotals
+	// Exclude queued/provisioning instances because their resources are held by
+	// an active ResourceReservation until the create job completes or fails.
 	err := r.conn(ctx).Model(&models.Instance{}).
-		Where("owner_id = ? AND deleted_at IS NULL", ownerID).
+		Where("owner_id = ? AND deleted_at IS NULL AND status NOT IN ?", ownerID, []string{models.StateQueued, models.StateProvisioning}).
 		Select("COALESCE(SUM(vcpus), 0) as total_vcpus, COALESCE(SUM(memory_mb), 0) as total_memory, COALESCE(SUM(disk_gb), 0) as total_storage, COUNT(id) as count").
 		Scan(&sum).Error
 	return sum, err
@@ -155,6 +160,15 @@ func (r *instanceRepository) Save(ctx context.Context, inst *models.Instance) er
 
 func (r *instanceRepository) UpdateStatus(ctx context.Context, inst *models.Instance, status string) error {
 	return r.conn(ctx).Model(inst).Update("status", status).Error
+}
+
+func (r *instanceRepository) TransitionStatus(ctx context.Context, id uuid.UUID, allowedFrom []string, toStatus string) (bool, error) {
+	q := r.conn(ctx).Model(&models.Instance{}).Where("id = ? AND deleted_at IS NULL", id)
+	if len(allowedFrom) > 0 {
+		q = q.Where("status IN ?", allowedFrom)
+	}
+	res := q.Update("status", toStatus)
+	return res.RowsAffected > 0, res.Error
 }
 
 func (r *instanceRepository) UpdateStatusByID(ctx context.Context, id uuid.UUID, status string) error {

@@ -112,10 +112,10 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
       setServer(res);
       setEditName(res.name);
       setEditMotd(res.motd);
-      setEditMaxPlayers(res.max_players);
+      setEditMaxPlayers(res.player_slots ?? 10);
       setEditCustomDomain(res.custom_domain || '');
       setEditAutoBackup(res.auto_backup_enabled);
-      setEditBackupSchedule(res.backup_schedule);
+      setEditBackupSchedule(res.backup_schedule || 'daily');
     } catch (err: any) {
       setErrorNotice(err.message || 'Failed to fetch game server details');
     }
@@ -132,8 +132,10 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
 
   const fetchLogs = async () => {
     try {
-      const res = await apiRequest<{ logs: string[] }>(`/game-servers/${serverId}/logs?lines=100`);
-      if (res && res.logs) {
+      const res = await apiRequest<string[] | { logs: string[] }>(`/game-servers/${serverId}/logs?lines=100`);
+      if (Array.isArray(res)) {
+        setConsoleLogs(res);
+      } else if (res && res.logs) {
         setConsoleLogs(res.logs);
       }
     } catch {
@@ -297,8 +299,8 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
     try {
       setSavingConfig(true);
       await apiRequest(`/game-servers/${serverId}/configuration`, {
-        method: 'PUT',
-        body: JSON.stringify({ settings: configSettings }),
+        method: 'PATCH',
+        body: JSON.stringify(configSettings),
       });
       alert('Configuration updated! Restart the server to apply changes.');
     } catch (err: any) {
@@ -311,14 +313,23 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
   const handleAddPlayer = async (role: 'whitelist' | 'op') => {
     if (!newPlayerName.trim()) return;
     try {
-      await apiRequest(`/game-servers/${serverId}/players`, {
-        method: 'POST',
-        body: JSON.stringify({
-          player_name: newPlayerName.trim(),
-          is_whitelisted: role === 'whitelist',
-          is_operator: role === 'op',
-        }),
-      });
+      if (role === 'whitelist') {
+        await apiRequest(`/game-servers/${serverId}/players/whitelist`, {
+          method: 'POST',
+          body: JSON.stringify({
+            player_name: newPlayerName.trim(),
+            is_whitelisted: true,
+          }),
+        });
+      } else {
+        await apiRequest(`/game-servers/${serverId}/players/op`, {
+          method: 'POST',
+          body: JSON.stringify({
+            player_name: newPlayerName.trim(),
+            is_operator: true,
+          }),
+        });
+      }
       setNewPlayerName('');
       await fetchPlayers();
     } catch (err: any) {
@@ -394,10 +405,15 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
   };
 
   const handleResetWorld = async () => {
+    const targetWorld = worlds.find((w) => w.is_active) || worlds[0];
+    if (!targetWorld) {
+      alert('No world available to reset.');
+      return;
+    }
     try {
       await apiRequest(`/game-servers/${serverId}/worlds/reset`, {
         method: 'POST',
-        body: JSON.stringify({ confirm: true }),
+        body: JSON.stringify({ world_id: targetWorld.id }),
       });
       setShowResetModal(false);
       alert('World has been reset. A new world generation will complete on next server boot.');
@@ -411,14 +427,13 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
   const handleSaveSettings = async () => {
     try {
       await apiRequest(`/game-servers/${serverId}`, {
-        method: 'PUT',
+        method: 'PATCH',
         body: JSON.stringify({
           name: editName,
           motd: editMotd,
-          max_players: editMaxPlayers,
+          player_slots: editMaxPlayers,
           custom_domain: editCustomDomain,
           auto_backup_enabled: editAutoBackup,
-          backup_schedule: editBackupSchedule,
         }),
       });
       alert('Server settings saved successfully.');
@@ -437,7 +452,7 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
     );
   }
 
-  const connAddr = server.custom_domain || server.connection_address;
+  const connAddr = server.custom_domain || server.public_address || '';
 
   return (
     <div className="space-y-6">
@@ -477,7 +492,7 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
                 <span>•</span>
                 <span>{server.server_software} v{server.game_version}</span>
                 <span>•</span>
-                <span>Node: {server.proxmox_node}</span>
+                <span>Node: {server.node_name}</span>
               </div>
             </div>
           </div>
@@ -541,7 +556,7 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
           }`}
         >
           <Users className="w-3.5 h-3.5" />
-          <span>Players ({server.online_player_count}/{server.max_players})</span>
+          <span>Players ({server.online_player_count}/{server.player_slots})</span>
         </button>
         <button
           onClick={() => setActiveTab('plugins')}
@@ -661,10 +676,10 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
                 <Cpu className="w-4 h-4 text-violet-400" />
               </div>
               <div className="text-2xl font-bold text-white font-mono">
-                {metrics ? `${metrics.cpu_percent.toFixed(1)}%` : '0.0%'}
+                {metrics ? `${(metrics.cpu_usage_percent ?? 0).toFixed(1)}%` : '0.0%'}
               </div>
               <div className="mt-2 text-xs text-slate-400 font-mono">
-                Allocated: {server.vcpus} vCPU cores
+                Allocated: {server.cpu_cores} vCPU cores
               </div>
             </div>
 
@@ -674,10 +689,10 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
                 <Activity className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="text-2xl font-bold text-white font-mono">
-                {metrics ? `${(metrics.memory_usage_mb / 1024).toFixed(1)} GB` : '0.0 GB'}
+                {metrics ? `${((metrics.memory_used_mb ?? 0) / 1024).toFixed(1)} GB` : '0.0 GB'}
               </div>
               <div className="mt-2 text-xs text-slate-400 font-mono">
-                Limit: {Math.round(server.memory_mb / 1024)} GB Dedicated
+                Limit: {Math.round((server.memory_mb || 0) / 1024)} GB Dedicated
               </div>
             </div>
 
@@ -687,10 +702,10 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
                 <Clock className="w-4 h-4 text-amber-400" />
               </div>
               <div className="text-2xl font-bold text-emerald-400 font-mono">
-                {metrics ? `${metrics.tps.toFixed(1)} TPS` : '20.0 TPS'}
+                {metrics ? `${(metrics.tps ?? 20).toFixed(1)} TPS` : '20.0 TPS'}
               </div>
               <div className="mt-2 text-xs text-slate-400 font-mono">
-                MSPT: {metrics ? `${metrics.mspt.toFixed(1)} ms` : '5.2 ms'} (Target &lt; 50ms)
+                MSPT: {metrics ? `${(metrics.mspt ?? 0).toFixed(1)} ms` : '5.2 ms'} (Target &lt; 50ms)
               </div>
             </div>
 
@@ -700,10 +715,10 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
                 <Users className="w-4 h-4 text-cyan-400" />
               </div>
               <div className="text-2xl font-bold text-white font-mono">
-                {server.online_player_count} / {server.max_players}
+                {server.online_player_count} / {server.player_slots}
               </div>
               <div className="mt-2 text-xs text-slate-400 font-mono">
-                World: {server.world_name}
+                World: {worlds.find((w) => w.is_active)?.world_name || server.world_name || 'world'}
               </div>
             </div>
           </div>
@@ -715,11 +730,11 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
               <div className="divide-y divide-slate-800/60 text-xs">
                 <div className="py-2 flex justify-between">
                   <span className="text-slate-400">Assigned Public Port</span>
-                  <span className="text-slate-200 font-mono">{server.assigned_port} / {server.protocol}</span>
+                  <span className="text-slate-200 font-mono">{server.assigned_port} / {server.protocol || 'tcp'}</span>
                 </div>
                 <div className="py-2 flex justify-between">
                   <span className="text-slate-400">Dedicated Node</span>
-                  <span className="text-violet-400 font-mono">{server.proxmox_node} (Dell R640)</span>
+                  <span className="text-violet-400 font-mono">{server.node_name} (Dell R640)</span>
                 </div>
                 <div className="py-2 flex justify-between">
                   <span className="text-slate-400">Uptime</span>
@@ -730,7 +745,7 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
                 <div className="py-2 flex justify-between">
                   <span className="text-slate-400">Auto Backups</span>
                   <span className="text-emerald-400 font-medium">
-                    {server.auto_backup_enabled ? `Enabled (${server.backup_schedule})` : 'Disabled'}
+                    {server.auto_backup_enabled ? `Enabled (${server.backup_schedule || 'daily'})` : 'Disabled'}
                   </span>
                 </div>
               </div>
@@ -1029,17 +1044,17 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
                     <span className="font-semibold text-sm text-white">{pl.name}</span>
                     <span className="text-[11px] font-mono text-slate-400">v{pl.version}</span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">{pl.description || pl.filename}</p>
+                  <p className="text-xs text-slate-400 mt-1">{pl.description || pl.file_name}</p>
                 </div>
                 <button
-                  onClick={() => handleTogglePlugin(pl.id, pl.enabled)}
+                  onClick={() => handleTogglePlugin(pl.id, pl.is_enabled)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                    pl.enabled
+                    pl.is_enabled
                       ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                       : 'bg-slate-800 text-slate-400'
                   }`}
                 >
-                  {pl.enabled ? 'Enabled' : 'Disabled'}
+                  {pl.is_enabled ? 'Enabled' : 'Disabled'}
                 </button>
               </div>
             ))}
@@ -1074,7 +1089,7 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
                 <div className="text-xs text-slate-400 font-mono space-y-1">
                   <div>Size: {(w.size_bytes / (1024 * 1024)).toFixed(1)} MB</div>
                   <div>Difficulty: {w.difficulty || 'normal'}</div>
-                  <div>Seed: {w.world_seed || 'Default generated seed'}</div>
+                  <div>Seed: {w.seed || 'Default generated seed'}</div>
                 </div>
               </div>
             ))}
@@ -1190,7 +1205,7 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
 
             <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 text-xs font-mono">
               <span className="text-slate-400 font-sans font-medium">Public Connection String</span>
-              <div className="text-xl font-bold text-violet-300">{server.connection_address}</div>
+              <div className="text-xl font-bold text-violet-300">{server.public_address}</div>
               <div className="text-slate-500">Nevatal Cloud Anycast Gateway</div>
             </div>
           </div>
@@ -1214,7 +1229,7 @@ export const GameServerDetails: React.FC<GameServerDetailsProps> = ({ serverId, 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
             <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
               <span className="text-slate-400">Processor</span>
-              <div className="text-lg font-bold text-white mt-1">{server.vcpus} vCPU Cores</div>
+              <div className="text-lg font-bold text-white mt-1">{server.cpu_cores} vCPU Cores</div>
               <div className="text-slate-500 mt-1">Dell PowerEdge R640 Xeon</div>
             </div>
             <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">

@@ -222,6 +222,9 @@ func (h *ObservabilityHandler) UserInstanceEvents(c *gin.Context) {
 		writeError(c, err, http.StatusInternalServerError, "INTERNAL_ERROR")
 		return
 	}
+	if events == nil {
+		events = []models.ObservabilityEvent{}
+	}
 	response.OK(c, map[string]any{
 		"events": events,
 		"total":  count,
@@ -342,7 +345,7 @@ func (h *ObservabilityHandler) AdminStorage(c *gin.Context) {
 // AdminVMs: GET /api/v1/admin/observability/vms
 func (h *ObservabilityHandler) AdminVMs(c *gin.Context) {
 	if h.adminUC == nil {
-		response.OK(c, []map[string]any{})
+		response.OK(c, []usecase.VMDetailObservability{})
 		return
 	}
 	instances, err := h.adminUC.ListAllInstances(c.Request.Context())
@@ -351,13 +354,9 @@ func (h *ObservabilityHandler) AdminVMs(c *gin.Context) {
 		return
 	}
 
-	res := make([]map[string]any, 0, len(instances))
+	res := make([]usecase.VMDetailObservability, 0, len(instances))
 	for _, inst := range instances {
-		hs := h.obs.CalculateVMHealthScore(inst, 24.0, 62.0, 54.0, inst.Status == models.StateRunning)
-		res = append(res, map[string]any{
-			"instance":     inst,
-			"health_score": hs,
-		})
+		res = append(res, h.obs.BuildVMSummaryObservability(inst))
 	}
 	response.OK(c, res)
 }
@@ -416,15 +415,21 @@ func (h *ObservabilityHandler) AdminEvents(c *gin.Context) {
 
 	var tenantID *uuid.UUID
 	if tStr := c.Query("tenant_id"); tStr != "" {
-		if tid, err := uuid.Parse(tStr); err == nil {
-			tenantID = &tid
+		tid, err := uuid.Parse(tStr)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "invalid tenant_id")
+			return
 		}
+		tenantID = &tid
 	}
 	var resID *uuid.UUID
 	if rStr := c.Query("resource_id"); rStr != "" {
-		if rid, err := uuid.Parse(rStr); err == nil {
-			resID = &rid
+		rid, err := uuid.Parse(rStr)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "invalid resource_id")
+			return
 		}
+		resID = &rid
 	}
 
 	events, count, err := h.obs.QueryEvents(c.Request.Context(), tenantID, resID, eventType, severity, corrID, limit, offset)
@@ -452,21 +457,30 @@ func (h *ObservabilityHandler) AdminLogs(c *gin.Context) {
 
 	var tenantID *uuid.UUID
 	if tStr := c.Query("tenant_id"); tStr != "" {
-		if tid, err := uuid.Parse(tStr); err == nil {
-			tenantID = &tid
+		tid, err := uuid.Parse(tStr)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "invalid tenant_id")
+			return
 		}
+		tenantID = &tid
 	}
 	var resID *uuid.UUID
 	if rStr := c.Query("resource_id"); rStr != "" {
-		if rid, err := uuid.Parse(rStr); err == nil {
-			resID = &rid
+		rid, err := uuid.Parse(rStr)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "invalid resource_id")
+			return
 		}
+		resID = &rid
 	}
 	var jobID *uuid.UUID
 	if jStr := c.Query("job_id"); jStr != "" {
-		if jid, err := uuid.Parse(jStr); err == nil {
-			jobID = &jid
+		jid, err := uuid.Parse(jStr)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "invalid job_id")
+			return
 		}
+		jobID = &jid
 	}
 
 	logs, count, err := h.obs.QueryLogs(c.Request.Context(), tenantID, resID, jobID, service, level, corrID, search, limit, offset)

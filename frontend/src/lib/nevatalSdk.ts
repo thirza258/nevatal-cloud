@@ -112,9 +112,9 @@ export class NevatalClient {
     start: (id: string): Promise<{ job_id: string }> =>
       this.request<{ job_id: string }>(`/instances/${id}/start`, { method: 'POST' }),
     stop: (id: string): Promise<{ job_id: string }> =>
-      this.request<{ job_id: string }>(`/instances/${id}/stop`, { method: 'POST' }),
+      this.request<{ job_id: string }>(`/instances/${id}/shutdown`, { method: 'POST' }),
     reboot: (id: string): Promise<{ job_id: string }> =>
-      this.request<{ job_id: string }>(`/instances/${id}/reboot`, { method: 'POST' }),
+      this.request<{ job_id: string }>(`/instances/${id}/restart`, { method: 'POST' }),
     delete: (id: string): Promise<{ job_id: string }> =>
       this.request<{ job_id: string }>(`/instances/${id}`, { method: 'DELETE' }),
   };
@@ -127,12 +127,12 @@ export class NevatalClient {
     create: (data: { name: string; cidr: string; description?: string; project_id?: string }): Promise<PrivateNetwork> =>
       this.request<PrivateNetwork>('/networks', { method: 'POST', body: JSON.stringify(data) }),
     get: (id: string): Promise<PrivateNetwork> => this.request<PrivateNetwork>(`/networks/${id}`),
-    delete: (id: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/networks/${id}`, { method: 'DELETE' }),
+    delete: (id: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/networks/${id}`, { method: 'DELETE' }),
     attach: (networkId: string, data: { instance_id: string; ip_address?: string }): Promise<NetworkAttachment> =>
       this.request<NetworkAttachment>(`/networks/${networkId}/attachments`, { method: 'POST', body: JSON.stringify(data) }),
-    detach: (attachmentId: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/networks/attachments/${attachmentId}`, { method: 'DELETE' }),
+    detach: (networkId: string, attachmentId: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/networks/${networkId}/attachments/${attachmentId}`, { method: 'DELETE' }),
   };
 
   // ==========================================
@@ -143,23 +143,24 @@ export class NevatalClient {
     create: (data: { name: string; description?: string; project_id?: string }): Promise<CloudFirewall> =>
       this.request<CloudFirewall>('/firewalls', { method: 'POST', body: JSON.stringify(data) }),
     get: (id: string): Promise<CloudFirewall> => this.request<CloudFirewall>(`/firewalls/${id}`),
-    delete: (id: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/firewalls/${id}`, { method: 'DELETE' }),
+    delete: (id: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/firewalls/${id}`, { method: 'DELETE' }),
     addRule: (
       firewallId: string,
       data: {
         direction: 'inbound' | 'outbound';
         action: 'allow' | 'deny';
-        protocol: 'tcp' | 'udp' | 'icmp' | 'all';
-        port_range?: string;
-        cidr: string;
-        description?: string;
+        protocol: 'tcp' | 'udp' | 'icmp' | 'any';
+        port_min?: number;
+        port_max?: number;
+        source_cidr?: string;
+        destination_cidr?: string;
         priority?: number;
       }
     ): Promise<FirewallRule> =>
       this.request<FirewallRule>(`/firewalls/${firewallId}/rules`, { method: 'POST', body: JSON.stringify(data) }),
-    deleteRule: (ruleId: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/firewalls/rules/${ruleId}`, { method: 'DELETE' }),
+    deleteRule: (firewallId: string, ruleId: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/firewalls/${firewallId}/rules/${ruleId}`, { method: 'DELETE' }),
   };
 
   // ==========================================
@@ -175,44 +176,45 @@ export class NevatalClient {
     }): Promise<LoadBalancer> =>
       this.request<LoadBalancer>('/load-balancers', { method: 'POST', body: JSON.stringify(data) }),
     get: (id: string): Promise<LoadBalancer> => this.request<LoadBalancer>(`/load-balancers/${id}`),
-    delete: (id: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/load-balancers/${id}`, { method: 'DELETE' }),
+    delete: (id: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/load-balancers/${id}`, { method: 'DELETE' }),
     createListener: (
       loadBalancerId: string,
-      data: { name: string; protocol: 'tcp' | 'http' | 'https'; port: number; pool_id?: string }
+      data: { protocol: 'tcp' | 'http' | 'https'; frontend_port: number; certificate_id?: string; default_pool_id?: string }
     ): Promise<LoadBalancerListener> =>
       this.request<LoadBalancerListener>(`/load-balancers/${loadBalancerId}/listeners`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    deleteListener: (listenerId: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/load-balancers/listeners/${listenerId}`, { method: 'DELETE' }),
+    deleteListener: (loadBalancerId: string, listenerId: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/load-balancers/${loadBalancerId}/listeners/${listenerId}`, { method: 'DELETE' }),
     createPool: (
       loadBalancerId: string,
       data: {
         name: string;
         protocol: 'tcp' | 'http' | 'https';
+        port?: number;
         algorithm?: 'round_robin' | 'least_conn' | 'source_ip' | 'weighted_round_robin';
-        health_check_type?: 'tcp' | 'http';
-        health_check_path?: string;
+        health_check_config?: string;
       }
     ): Promise<LoadBalancerPool> =>
       this.request<LoadBalancerPool>(`/load-balancers/${loadBalancerId}/pools`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    deletePool: (poolId: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/load-balancers/pools/${poolId}`, { method: 'DELETE' }),
+    deletePool: (loadBalancerId: string, poolId: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/load-balancers/${loadBalancerId}/pools/${poolId}`, { method: 'DELETE' }),
     addMember: (
+      loadBalancerId: string,
       poolId: string,
-      data: { instance_id?: string; ip_address: string; port: number; weight?: number }
+      data: { instance_id: string; address?: string; port: number; weight?: number }
     ): Promise<LoadBalancerMember> =>
-      this.request<LoadBalancerMember>(`/load-balancers/pools/${poolId}/members`, {
+      this.request<LoadBalancerMember>(`/load-balancers/${loadBalancerId}/pools/${poolId}/members`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    deleteMember: (memberId: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/load-balancers/members/${memberId}`, { method: 'DELETE' }),
+    deleteMember: (loadBalancerId: string, poolId: string, memberId: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/load-balancers/${loadBalancerId}/pools/${poolId}/members/${memberId}`, { method: 'DELETE' }),
   };
 
   // ==========================================
@@ -220,15 +222,15 @@ export class NevatalClient {
   // ==========================================
   public floatingIPs = {
     list: (): Promise<FloatingIP[]> => this.request<FloatingIP[]>('/floating-ips'),
-    create: (data: { description?: string; project_id?: string }): Promise<FloatingIP> =>
+    create: (data: { project_id?: string } = {}): Promise<FloatingIP> =>
       this.request<FloatingIP>('/floating-ips', { method: 'POST', body: JSON.stringify(data) }),
     assign: (id: string, instanceId: string): Promise<FloatingIP> =>
       this.request<FloatingIP>(`/floating-ips/${id}/assign`, {
         method: 'POST',
         body: JSON.stringify({ instance_id: instanceId }),
       }),
-    release: (id: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/floating-ips/${id}`, { method: 'DELETE' }),
+    release: (id: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/floating-ips/${id}`, { method: 'DELETE' }),
   };
 
   // ==========================================
@@ -236,20 +238,23 @@ export class NevatalClient {
   // ==========================================
   public dns = {
     listZones: (): Promise<DNSZone[]> => this.request<DNSZone[]>('/dns/zones'),
-    createZone: (data: { name: string; description?: string; project_id?: string }): Promise<DNSZone> =>
+    createZone: (data: { domain: string; project_id?: string }): Promise<DNSZone> =>
       this.request<DNSZone>('/dns/zones', { method: 'POST', body: JSON.stringify(data) }),
-    getZone: (id: string): Promise<DNSZone> => this.request<DNSZone>(`/dns/zones/${id}`),
-    deleteZone: (id: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/dns/zones/${id}`, { method: 'DELETE' }),
+    getZone: async (id: string): Promise<DNSZone | undefined> => {
+      const zones = await this.dns.listZones();
+      return zones.find((z) => z.id === id);
+    },
+    deleteZone: (id: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/dns/zones/${id}`, { method: 'DELETE' }),
     listRecords: (zoneId: string): Promise<DNSRecord[]> =>
       this.request<DNSRecord[]>(`/dns/zones/${zoneId}/records`),
     createRecord: (
       zoneId: string,
-      data: { name: string; type: string; content: string; ttl?: number; priority?: number }
+      data: { name: string; record_type: string; value: string; ttl?: number }
     ): Promise<DNSRecord> =>
       this.request<DNSRecord>(`/dns/zones/${zoneId}/records`, { method: 'POST', body: JSON.stringify(data) }),
-    deleteRecord: (recordId: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/dns/records/${recordId}`, { method: 'DELETE' }),
+    deleteRecord: (zoneId: string, recordId: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/dns/zones/${zoneId}/records/${recordId}`, { method: 'DELETE' }),
   };
 
   // ==========================================
@@ -257,15 +262,23 @@ export class NevatalClient {
   // ==========================================
   public apiKeys = {
     list: (): Promise<APIKey[]> => this.request<APIKey[]>('/api-keys'),
-    create: (data: {
+    create: async (data: {
       name: string;
       scopes?: string[];
-      expires_in_days?: number;
+      expiry_days?: number;
       project_id?: string;
-    }): Promise<APIKey> =>
-      this.request<APIKey>('/api-keys', { method: 'POST', body: JSON.stringify(data) }),
-    revoke: (id: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/api-keys/${id}`, { method: 'DELETE' }),
+    }): Promise<APIKey> => {
+      const res = await this.request<{ key: APIKey; raw_key: string } | APIKey>('/api-keys', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      if (res && typeof res === 'object' && 'key' in res && res.key) {
+        return { ...res.key, raw_key: res.raw_key };
+      }
+      return res as APIKey;
+    },
+    revoke: (id: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/api-keys/${id}`, { method: 'DELETE' }),
   };
 
   // ==========================================
@@ -274,22 +287,22 @@ export class NevatalClient {
   public webhooks = {
     list: (): Promise<WebhookEndpoint[]> => this.request<WebhookEndpoint[]>('/webhooks'),
     create: (data: {
+      name: string;
       url: string;
-      description?: string;
       events: string[];
       project_id?: string;
     }): Promise<WebhookEndpoint> =>
       this.request<WebhookEndpoint>('/webhooks', { method: 'POST', body: JSON.stringify(data) }),
-    delete: (id: string): Promise<{ success: boolean }> =>
-      this.request<{ success: boolean }>(`/webhooks/${id}`, { method: 'DELETE' }),
+    delete: (id: string): Promise<{ status: string }> =>
+      this.request<{ status: string }>(`/webhooks/${id}`, { method: 'DELETE' }),
     rotateSecret: (id: string): Promise<{ secret: string }> =>
       this.request<{ secret: string }>(`/webhooks/${id}/rotate-secret`, { method: 'POST' }),
-    ping: (id: string): Promise<{ message: string; response_code: number; status: string }> =>
-      this.request(`/webhooks/${id}/ping`, { method: 'POST' }),
+    ping: (id: string): Promise<WebhookDelivery> =>
+      this.request<WebhookDelivery>(`/webhooks/${id}/ping`, { method: 'POST' }),
     listDeliveries: (endpointId: string): Promise<WebhookDelivery[]> =>
-      this.request<WebhookDelivery[]>(`/webhooks/${endpointId}/deliveries`),
-    retryDelivery: (deliveryId: string): Promise<{ message: string }> =>
-      this.request(`/webhooks/deliveries/${deliveryId}/retry`, { method: 'POST' }),
+      this.request<WebhookDelivery[]>(`/webhooks/deliveries?endpoint_id=${encodeURIComponent(endpointId)}`),
+    retryDelivery: (deliveryId: string): Promise<WebhookDelivery> =>
+      this.request<WebhookDelivery>(`/webhooks/deliveries/${deliveryId}/retry`, { method: 'POST' }),
   };
 }
 

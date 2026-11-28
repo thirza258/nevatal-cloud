@@ -21,6 +21,27 @@ func NewQuotaUsecase(quotas repository.QuotaRepository, instances repository.Ins
 	return &QuotaUsecase{quotas: quotas, instances: instances, reservations: reservations}
 }
 
+// LockUserQuota locks the user's quota row for update inside an active
+// transaction (creating the default quota row first when the user has none).
+func (s *QuotaUsecase) LockUserQuota(ctx context.Context, userID uuid.UUID) (*models.ResourceQuota, error) {
+	quota, err := s.quotas.FindByUserIDForUpdate(ctx, userID)
+	if err == nil {
+		return quota, nil
+	}
+	if !errors.Is(err, repository.ErrNotFound) {
+		return nil, err
+	}
+	fallback := &models.ResourceQuota{
+		UserID:       userID,
+		MaxVCPUs:     4,
+		MaxMemoryMB:  8192,
+		MaxStorageGB: 100,
+		MaxInstances: 3,
+	}
+	_ = s.quotas.Create(ctx, fallback)
+	return s.quotas.FindByUserIDForUpdate(ctx, userID)
+}
+
 // GetUserQuota returns the user's limits, creating the default quota when the
 // user has none.
 func (s *QuotaUsecase) GetUserQuota(ctx context.Context, userID uuid.UUID) (*models.ResourceQuota, error) {
@@ -69,7 +90,7 @@ func (s *QuotaUsecase) GetUsage(ctx context.Context, userID uuid.UUID) (*models.
 		MaxStorageGB:  quota.MaxStorageGB,
 		UsedStorageGB: instSum.TotalStorage + resSum.TotalStorage,
 		MaxInstances:  quota.MaxInstances,
-		UsedInstances: instSum.Count,
+		UsedInstances: instSum.Count + resSum.Count,
 	}, nil
 }
 
@@ -86,6 +107,9 @@ func (s *QuotaUsecase) CheckQuota(ctx context.Context, userID uuid.UUID, vcpus, 
 	}
 	if usage.UsedStorageGB+diskGB > usage.MaxStorageGB {
 		return fmt.Errorf("exceeds storage quota: %d GB requested, %d GB available", diskGB, usage.MaxStorageGB-usage.UsedStorageGB)
+	}
+	if usage.UsedInstances+1 > usage.MaxInstances {
+		return fmt.Errorf("exceeds maximum instance count: limit is %d instances", usage.MaxInstances)
 	}
 	return nil
 }

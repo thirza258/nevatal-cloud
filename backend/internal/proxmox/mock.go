@@ -180,11 +180,21 @@ func (m *mockPVEClient) CloneVM(ctx context.Context, node string, templateVMID, 
 	return upid, nil
 }
 
+func (m *mockPVEClient) getActiveVMLocked(vmid int) (*mockVM, error) {
+	if m.deletedVMs[vmid] {
+		return nil, fmt.Errorf("VM %d does not exist", vmid)
+	}
+	return m.getOrInitVMLocked(vmid), nil
+}
+
 func (m *mockPVEClient) ConfigVM(ctx context.Context, node string, vmid int, cfg VMConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm := m.getOrInitVMLocked(vmid)
+	vm, err := m.getActiveVMLocked(vmid)
+	if err != nil {
+		return err
+	}
 
 	if cfg.Cores > 0 {
 		vm.cores = cfg.Cores
@@ -204,7 +214,10 @@ func (m *mockPVEClient) ConfigVM(ctx context.Context, node string, vmid int, cfg
 func (m *mockPVEClient) ResizeDisk(ctx context.Context, node string, vmid int, disk string, sizeGB int) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	vm := m.getOrInitVMLocked(vmid)
+	vm, err := m.getActiveVMLocked(vmid)
+	if err != nil {
+		return err
+	}
 	vm.diskGB += sizeGB
 	return nil
 }
@@ -216,7 +229,10 @@ func (m *mockPVEClient) StartVM(ctx context.Context, node string, vmid int) (str
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm := m.getOrInitVMLocked(vmid)
+	vm, err := m.getActiveVMLocked(vmid)
+	if err != nil {
+		return "", err
+	}
 	vm.status = "running"
 	vm.startedAt = time.Now()
 
@@ -229,7 +245,10 @@ func (m *mockPVEClient) ShutdownVM(ctx context.Context, node string, vmid int) (
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm := m.getOrInitVMLocked(vmid)
+	vm, err := m.getActiveVMLocked(vmid)
+	if err != nil {
+		return "", err
+	}
 	vm.status = "stopped"
 
 	upid := fmt.Sprintf("UPID:%s:%08X:00000003:66F81220:qmshutdown:%d:root@pam:", m.nodeName, vmid, vmid)
@@ -241,7 +260,10 @@ func (m *mockPVEClient) StopVM(ctx context.Context, node string, vmid int) (stri
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm := m.getOrInitVMLocked(vmid)
+	vm, err := m.getActiveVMLocked(vmid)
+	if err != nil {
+		return "", err
+	}
 	vm.status = "stopped"
 
 	upid := fmt.Sprintf("UPID:%s:%08X:00000004:66F81230:qmstop:%d:root@pam:", m.nodeName, vmid, vmid)
@@ -253,7 +275,10 @@ func (m *mockPVEClient) ResetVM(ctx context.Context, node string, vmid int) (str
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm := m.getOrInitVMLocked(vmid)
+	vm, err := m.getActiveVMLocked(vmid)
+	if err != nil {
+		return "", err
+	}
 	vm.status = "running"
 	vm.startedAt = time.Now()
 
@@ -313,7 +338,10 @@ func (m *mockPVEClient) GetVMInterfaces(ctx context.Context, node string, vmid i
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm := m.getOrInitVMLocked(vmid)
+	vm, err := m.getActiveVMLocked(vmid)
+	if err != nil {
+		return nil, err
+	}
 
 	return []NetworkInterface{
 		{
@@ -337,7 +365,10 @@ func (m *mockPVEClient) CreateSnapshot(ctx context.Context, node string, vmid in
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm := m.getOrInitVMLocked(vmid)
+	vm, err := m.getActiveVMLocked(vmid)
+	if err != nil {
+		return "", err
+	}
 
 	stateVal := 0
 	if vmstate {
@@ -360,7 +391,10 @@ func (m *mockPVEClient) ListSnapshots(ctx context.Context, node string, vmid int
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm := m.getOrInitVMLocked(vmid)
+	vm, err := m.getActiveVMLocked(vmid)
+	if err != nil {
+		return nil, err
+	}
 
 	var list []SnapshotInfo
 	for _, snap := range vm.snapshots {
@@ -373,7 +407,10 @@ func (m *mockPVEClient) RollbackSnapshot(ctx context.Context, node string, vmid 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm := m.getOrInitVMLocked(vmid)
+	vm, err := m.getActiveVMLocked(vmid)
+	if err != nil {
+		return "", err
+	}
 
 	if _, exists := vm.snapshots[snapname]; !exists {
 		return "", fmt.Errorf("snapshot %s not found on vm %d", snapname, vmid)
@@ -388,7 +425,10 @@ func (m *mockPVEClient) DeleteSnapshot(ctx context.Context, node string, vmid in
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	vm := m.getOrInitVMLocked(vmid)
+	vm, err := m.getActiveVMLocked(vmid)
+	if err != nil {
+		return "", err
+	}
 
 	delete(vm.snapshots, snapname)
 	upid := fmt.Sprintf("UPID:%s:%08X:00000009:66F81280:qmdelsnapshot:%d:root@pam:", m.nodeName, vmid, vmid)

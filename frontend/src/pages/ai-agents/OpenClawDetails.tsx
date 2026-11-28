@@ -46,7 +46,7 @@ export const OpenClawDetails: React.FC<OpenClawDetailsProps> = ({ instanceId, on
   const fetchInstanceData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/ai-agents/openclaw/instances/${instanceId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -78,7 +78,7 @@ export const OpenClawDetails: React.FC<OpenClawDetailsProps> = ({ instanceId, on
   const handlePower = async (action: 'start' | 'stop' | 'restart') => {
     try {
       setActionLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/ai-agents/openclaw/instances/${instanceId}/${action}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
@@ -96,7 +96,7 @@ export const OpenClawDetails: React.FC<OpenClawDetailsProps> = ({ instanceId, on
     e.preventDefault();
     if (!newIdentifier.trim()) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/ai-agents/openclaw/instances/${instanceId}/integrations`, {
         method: 'POST',
         headers: {
@@ -118,7 +118,7 @@ export const OpenClawDetails: React.FC<OpenClawDetailsProps> = ({ instanceId, on
 
   const handleDeleteChannel = async (channelId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/ai-agents/openclaw/instances/${instanceId}/integrations/${channelId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
@@ -133,7 +133,7 @@ export const OpenClawDetails: React.FC<OpenClawDetailsProps> = ({ instanceId, on
   const handleUpdateConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('nevatal_token');
       const res = await fetch(`/api/v1/ai-agents/openclaw/instances/${instanceId}/config`, {
         method: 'PUT',
         headers: {
@@ -305,7 +305,8 @@ export const OpenClawDetails: React.FC<OpenClawDetailsProps> = ({ instanceId, on
               Use this bearer token to authenticate remote requests, CLI interactions, and automated cron jobs to your OpenClaw agent instance.
             </p>
             <div className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs">
-              <span className="flex-1 text-slate-300 truncate">{inst.gateway_auth_token || 'gw_sec_••••••••••••••••'}</span>
+              <span className="flex-1 text-slate-300 truncate">{inst.gateway_auth_token || 'gw_sec_•••••••••••••••• (hidden at rest)'}</span>
+              {inst.gateway_auth_token && (
               <button
                 onClick={copyToken}
                 className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1 transition cursor-pointer"
@@ -313,6 +314,7 @@ export const OpenClawDetails: React.FC<OpenClawDetailsProps> = ({ instanceId, on
                 {copiedToken ? <Check className="w-3.5 h-3.5 text-purple-400" /> : <Copy className="w-3.5 h-3.5" />}
                 {copiedToken ? 'Copied' : 'Copy'}
               </button>
+              )}
             </div>
           </div>
 
